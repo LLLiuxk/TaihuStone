@@ -1,5 +1,4 @@
 #pragma on// 参数结构体
-#include <igl/readOFF.h>
 
 #include <igl/marching_cubes.h>
 #include <igl/opengl/glfw/Viewer.h>

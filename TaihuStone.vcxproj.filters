@@ -23,7 +23,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="globalPara.h">
+    <ClInclude Include="src\globalPara.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
