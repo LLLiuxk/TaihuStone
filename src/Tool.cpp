@@ -10,8 +10,7 @@ void OBJ2SDF(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, Eigen::MatrixXd
 
     Eigen::VectorXi I;  // 最近面索引
     Eigen::MatrixXd C;  // 最近点坐标
-    Eigen::VectorXd N;  // 内外法向符号
-
+    Eigen::MatrixXd N;  // 内外法向符号
 
     Eigen::Vector3d bb_min = V.colwise().minCoeff();
     Eigen::Vector3d bb_max = V.colwise().maxCoeff();
@@ -44,5 +43,4 @@ void OBJ2SDF(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, Eigen::MatrixXd
 
     // 调用 libigl 的 signed_distance()
     igl::signed_distance( GV, V, F, igl::SIGNED_DISTANCE_TYPE_PSEUDONORMAL, SDF, I, C, N );
-
 }

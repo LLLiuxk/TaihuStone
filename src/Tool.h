@@ -1,6 +1,12 @@
 #pragma once
 #include <igl/readOBJ.h>
 #include <igl/signed_distance.h>
+
+#include <igl/marching_cubes.h>
+#include <igl/read_triangle_mesh.h>
+#include <igl/voxel_grid.h>
+#include <igl/opengl/glfw/Viewer.h>
+
 #include <Eigen/Core>
 #include <iostream>
 #include <vector>
