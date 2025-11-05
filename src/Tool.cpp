@@ -1,7 +1,7 @@
 #include "Tool.h"
 
 
-void OBJ2SDF(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Eigen::VectorXd& SDF)
+void Mesh2SDF(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Eigen::VectorXd& SDF)
 {
     if (V.rows() == 0 || F.rows() == 0 ) {
         std::cerr << "[OBJ2SDF] 输入网格或采样点为空！" << std::endl;

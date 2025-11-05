@@ -2,7 +2,14 @@
 
 extern int Resolution;
 
+extern double Isolevel;
 
+extern int PoresNum;
+
+extern double Amplitude_min;
+extern double Amplitude_max;
+extern double Sigma_min;
+extern double Sigma_max;
 //struct Parameters {
 //    Eigen::Vector3d radii = { 1, 0.5, 0.5 };
 //    int num_voids = 188;
