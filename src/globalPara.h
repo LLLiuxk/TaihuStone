@@ -10,6 +10,8 @@ extern double Amplitude_min;
 extern double Amplitude_max;
 extern double Sigma_min;
 extern double Sigma_max;
+
+extern double SmoothT;    //控制平滑布尔的平滑区域大小
 //struct Parameters {
 //    Eigen::Vector3d radii = { 1, 0.5, 0.5 };
 //    int num_voids = 188;

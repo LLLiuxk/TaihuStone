@@ -16,13 +16,9 @@ int main(int argc, char* argv[]) {
 
     //input model, must watertight 
     std::string input_file = "D:/VSprojects/TaihuStone/high_rock.obj";
-    if (!igl::read_triangle_mesh(, VA, FA)) {
-        std::cerr << "Error: Could not load model A." << std::endl;
-        return 1;
-    }
-    std::cout << "Model A loaded successfully." << std::endl;
-    ModelGenerator mg;
-	mg.generateGaussianSDF(0);
+
+    ModelGenerator mg(input_file);
+	
 //    const int num_kernels = 1;      // 您希望在空间中生成的随机核的数量
 //    const int grid_resolution = 64; // 采样网格的精细度。越高越精细，但计算越慢。
 //    const double isolevel = 0.8;     // 等值面的阈值。决定了"高斯球"的表面在哪里。
