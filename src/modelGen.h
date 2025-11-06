@@ -20,9 +20,11 @@ public:
 
 class ModelGenerator {
 public:
-    ModelGenerator() {}
+    ModelGenerator() {};
+    ModelGenerator(std::string input_file);
 
 	void generateGaussianSDF(int pores = PoresNum);
+    void show_model();
 
 private:
     double m_currentPorosity = 0; 
@@ -48,6 +50,7 @@ private:
     double sigma_max = Sigma_max;
     std::vector<GaussianKernel> kernels;
 
+	double smooth_t = SmoothT;         //平滑参数，值越大，平滑效果越小，趋近于普通并集
     int m_cachedRes = 0;                   // 分辨率
     double cut_face = 0.25;             //切割底座
     bool m_sdfValid = false;               // 缓存有效标志

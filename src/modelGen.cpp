@@ -8,14 +8,24 @@ double GaussianKernel::gaussian_fun(const Eigen::RowVector3d& p)
 }
 
 
+ModelGenerator::ModelGenerator(std::string input_file)
+{
+    if (!igl::read_triangle_mesh(input_file, V_ini, F_ini)) {
+        std::cerr << "Error: Could not load model A." << std::endl;
+        return;
+    }
+    //std::cout << "Model A loaded successfully." << std::endl;
+    Mesh2SDF(V_ini, F_ini, GV_ini, SDF_ini);
+    generateGaussianSDF();
+}
+
+
 void ModelGenerator::generateGaussianSDF(int pores)
 {
 	// 随机生成空洞中心位置，pores = 0 采用不可预测随机数
     pores = pores ? pores : (std::random_device{}()%PoresNum);
     std::cout << "pores: " << pores << std::endl;
     std::mt19937 gen(pores);
-    std::uniform_real_distribution<double> dist_amp(amplitude_min, amplitude_max);
-    std::uniform_real_distribution<double> dist_sigma(sigma_min, sigma_max);
 
     int grid_num = SDF_ini.size();
     if (grid_num == 0) {
@@ -69,6 +79,53 @@ void ModelGenerator::generateGaussianSDF(int pores)
         }
     }
 
-    std::cout << "Generate " << pore_centers.size() << " pores" << std::endl;
+    std::cout << "Generate " << pore_centers.size() << " kernels" << std::endl;
+
+    std::uniform_real_distribution<double> dist_amp(amplitude_min, amplitude_max);
+    std::uniform_real_distribution<double> dist_sigma(sigma_min, sigma_max);
+
+    // 为每个空洞中心生成随机参数
+    std::vector<double> pore_amplitudes;
+    std::vector<double> pore_sigmas;
+
+    int pore_size = pore_centers.size();
+    for (size_t i = 0; i < pore_size; ++i) {
+        pore_amplitudes.push_back(dist_amp(gen));
+        pore_sigmas.push_back(dist_sigma(gen));
+    }
+
+    double void_count = 0;
+    for (int idx = 0; idx < grid_num; ++idx) {
+        SDF_out(idx) = smoothIntersecSDF(SDF_ini(idx), -combinedSDF(p, m_params.radii, void_centers, void_amplitudes, void_sigmas, m_params.isolevel, m_params.t), m_params.t);
+        if (SDF(idx) < m_params.isolevel) {
+            void_count += 1;
+        }
+
+    std::cout << "成功在仿生形状内放置 " << void_centers.size() << " 个空洞点" << std::endl;
  
+}
+
+
+void ModelGenerator::show_model()
+{
+    std::cout << "show libigl viewer" << std::endl;
+    igl::opengl::glfw::Viewer viewer;
+
+    viewer.data().set_mesh(V_ini, F_ini);
+    viewer.data().show_lines = true;   // 不显示网格线
+    //viewer.data().set_colors(Eigen::RowVector3d(0.8, 0.7, 0.2)); // 设置一个漂亮的蓝色
+
+    int id2 = viewer.append_mesh();
+    Eigen::MatrixXd V_shifted = V_out;
+    V_shifted.rowwise() += Eigen::RowVector3d(150, 0.0, 0.0);  // 向右移动 1.5 个单位
+
+    viewer.data(id2).set_mesh(V_shifted, F_out);
+    viewer.data(id2).set_colors(Eigen::RowVector3d(0.8, 0.1, 0.1));
+
+    // 添加辅助点 (高斯核的中心)，设置为红色
+   // viewer.data().add_points(kernel_points, Eigen::RowVector3d(1, 0, 0));
+    viewer.data().point_size = 10; // 让点更显眼
+
+    viewer.launch();
+
 }

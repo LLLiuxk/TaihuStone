@@ -14,6 +14,13 @@
 
 int main(int argc, char* argv[]) {
 
+    //input model, must watertight 
+    std::string input_file = "D:/VSprojects/TaihuStone/high_rock.obj";
+    if (!igl::read_triangle_mesh(, VA, FA)) {
+        std::cerr << "Error: Could not load model A." << std::endl;
+        return 1;
+    }
+    std::cout << "Model A loaded successfully." << std::endl;
     ModelGenerator mg;
 	mg.generateGaussianSDF(0);
 //    const int num_kernels = 1;      // 您希望在空间中生成的随机核的数量

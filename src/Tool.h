@@ -22,3 +22,21 @@ void Mesh2SDF(
     Eigen::VectorXd& S            // 输出: signed distance (n×1)
 );
 
+// SDF平滑并集。k越大，平滑效果越小，趋近于普通并集
+double smoothUnionSDF(double sdf1, double sdf2, double k);
+
+// SDF平滑交集
+double smoothIntersecSDF(double sdf1, double sdf2, double k);
+
+double ModelGenerator::combinedSDF(const Eigen::RowVector3d& p,
+    const Eigen::Vector3d& radii,
+    const std::vector<Eigen::Vector3d>& void_centers,
+    const std::vector<double>& void_amplitudes,
+    const std::vector<double>& void_sigmas,
+    const double x,
+    const double t) const {
+    double total_void = 0.0;
+    for (size_t i = 0; i < void_centers.size(); i++) {
+        total_void += gaussianKernel(p, void_centers[i], void_amplitudes[i], void_sigmas[i]);
+    }
+

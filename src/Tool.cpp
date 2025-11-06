@@ -44,3 +44,16 @@ void Mesh2SDF(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, Eigen::MatrixX
     // 调用 libigl 的 signed_distance()
     igl::signed_distance( GV, V, F, igl::SIGNED_DISTANCE_TYPE_PSEUDONORMAL, SDF, I, C, N );
 }
+
+
+// SDF平滑并集。k越大，平滑效果越小，趋近于普通并集
+double smoothUnionSDF(double sdf1, double sdf2, double k)
+{
+    return -log(exp(-sdf1 * k) + exp(-sdf2 * k)) / k;
+}
+
+// SDF平滑交集
+double smoothIntersecSDF(double sdf1, double sdf2, double k)
+{
+    return  log(exp(-sdf1 * k) + exp(-sdf2 * k)) / k;
+}
