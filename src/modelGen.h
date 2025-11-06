@@ -6,7 +6,9 @@
 class GaussianKernel {
 
 public:
-	GaussianKernel() : center(Eigen::Vector3d::Zero()), sigma(0.1), amplitude(1.0) {}
+    GaussianKernel() {};
+    GaussianKernel(Eigen::Vector3d cente_, double sigma_, double amplitude_);
+	//GaussianKernel() : center(Eigen::Vector3d::Zero()), sigma(0.1), amplitude(1.0) {}
     double gaussian_fun(const Eigen::RowVector3d& p);
 
 public:
@@ -24,6 +26,8 @@ public:
     ModelGenerator(std::string input_file);
 
 	void generateGaussianSDF(int pores = PoresNum);
+    double combinedSDF(Eigen::RowVector3d& p);
+
     void show_model();
 
 private:
@@ -48,7 +52,7 @@ private:
     double amplitude_max = Amplitude_min;
     double sigma_min = Sigma_min;
     double sigma_max = Sigma_max;
-    std::vector<GaussianKernel> kernels;
+    std::vector<GaussianKernel> Kernels;
 
 	double smooth_t = SmoothT;         //平滑参数，值越大，平滑效果越小，趋近于普通并集
     int m_cachedRes = 0;                   // 分辨率
@@ -56,6 +60,4 @@ private:
     bool m_sdfValid = false;               // 缓存有效标志
     Eigen::VectorXd m_originalCachedSDF;   // 初始（未后处理）SDF备份
     bool m_hasPostProcessed = false;       // 是否已经做过后处理
-
-
 };

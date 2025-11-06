@@ -7,6 +7,12 @@ double GaussianKernel::gaussian_fun(const Eigen::RowVector3d& p)
 
 }
 
+GaussianKernel::GaussianKernel(Eigen::Vector3d center_, double sigma_, double amplitude_)
+{
+    center = center_;
+    sigma = sigma_;         // 核的大小/影响力范围 (高斯函数的标准差)
+    amplitude = amplitude_;
+}
 
 ModelGenerator::ModelGenerator(std::string input_file)
 {
@@ -90,21 +96,37 @@ void ModelGenerator::generateGaussianSDF(int pores)
 
     int pore_size = pore_centers.size();
     for (size_t i = 0; i < pore_size; ++i) {
-        pore_amplitudes.push_back(dist_amp(gen));
-        pore_sigmas.push_back(dist_sigma(gen));
+		GaussianKernel kernel(pore_centers[i], dist_sigma(gen), dist_amp(gen));
+        Kernels.push_back(kernel);
+        /*pore_amplitudes.push_back(dist_amp(gen));
+        pore_sigmas.push_back(dist_sigma(gen));*/
     }
+
+    /*for (int i = 0; i<)*/
+
+
 
     double void_count = 0;
     for (int idx = 0; idx < grid_num; ++idx) {
-        SDF_out(idx) = smoothIntersecSDF(SDF_ini(idx), -combinedSDF(p, m_params.radii, void_centers, void_amplitudes, void_sigmas, m_params.isolevel, m_params.t), m_params.t);
-        if (SDF(idx) < m_params.isolevel) {
+        Eigen::RowVector3d p = GV_ini.row(idx);
+        SDF_out(idx) = smoothIntersecSDF(SDF_ini(idx), -combinedSDF(p), smooth_t);
+        if (SDF_out(idx) < isolevel) {
             void_count += 1;
         }
-
-    std::cout << "成功在仿生形状内放置 " << void_centers.size() << " 个空洞点" << std::endl;
+    }
+    //std::cout << "成功在仿生形状内放置 " << void_centers.size() << " 个空洞点" << std::endl;
  
 }
 
+double ModelGenerator::combinedSDF(Eigen::RowVector3d & p)
+{
+    double total_void = 0.0;
+    int gaus_num = Kernels.size();
+    for (size_t i = 0; i < gaus_num; i++) {
+        total_void += Kernels[i].gaussian_fun(p);
+    }
+    return total_void;
+}
 
 void ModelGenerator::show_model()
 {
