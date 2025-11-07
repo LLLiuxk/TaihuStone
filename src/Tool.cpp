@@ -1,10 +1,10 @@
 #include "Tool.h"
 
 
-void Mesh2SDF(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Eigen::VectorXd& SDF)
+void Mesh2SDF(Eigen::MatrixXd& V,  Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Eigen::VectorXd& SDF)
 {
     if (V.rows() == 0 || F.rows() == 0 ) {
-        std::cerr << "[OBJ2SDF] 输入网格或采样点为空！" << std::endl;
+        std::cerr << " Input failed! Wrong mesh!" << std::endl;
         return;
     }
 
@@ -15,9 +15,16 @@ void Mesh2SDF(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, Eigen::MatrixX
     Eigen::Vector3d bb_min = V.colwise().minCoeff();
     Eigen::Vector3d bb_max = V.colwise().maxCoeff();
     Eigen::Vector3d bb_size = bb_max - bb_min;
+    
+    //normalize: scaling and moving
+    double max_dim = bb_size.maxCoeff();
+    double scale_factor = 1.0 / (max_dim + 1e-9);
+    Eigen::Vector3d bb_center = (bb_min + bb_max) / 2.0;
+    V = (V.rowwise() - bb_center.transpose()) * scale_factor;
+    bb_min = V.colwise().minCoeff();
 
     int res = Resolution;  // 网格分辨率，可调高以提升精度
-    double dx = bb_size.maxCoeff() / (res - 1);
+    double dx = 1.0 / (res - 1);
 
 	int total_points = res * res * res;
     GV.resize(total_points, 3);
@@ -39,7 +46,7 @@ void Mesh2SDF(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, Eigen::MatrixX
     for (int i = 0; i < grid_points.size(); ++i)
         GV.row(i) = grid_points[i];
 
-     std::cout << "采样点数量: " <<  GV.rows() << std::endl;
+     std::cout << "Sample resolution: " << res<<"  "<< res<<"  "<< res<<" = "<< GV.rows() << std::endl;
 
     // 调用 libigl 的 signed_distance()
     igl::signed_distance( GV, V, F, igl::SIGNED_DISTANCE_TYPE_PSEUDONORMAL, SDF, I, C, N );

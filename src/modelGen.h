@@ -1,6 +1,7 @@
 #pragma once
 #include "Tool.h"
 #include <random>
+#include <chrono>  // 添加时间测量
 
 // 定义高斯核的数据结构
 class GaussianKernel {
@@ -9,7 +10,7 @@ public:
     GaussianKernel() {};
     GaussianKernel(Eigen::Vector3d cente_, double sigma_, double amplitude_);
 	//GaussianKernel() : center(Eigen::Vector3d::Zero()), sigma(0.1), amplitude(1.0) {}
-    double gaussian_fun(const Eigen::RowVector3d& p);
+    double gaussian_fun(const Eigen::Vector3d& p);
 
 public:
     Eigen::Vector3d center; // 核的中心位置
@@ -26,7 +27,7 @@ public:
     ModelGenerator(std::string input_file);
 
 	void generateGaussianSDF(int pores = PoresNum);
-    double combinedSDF(Eigen::RowVector3d& p);
+    double combinedSDF(Eigen::Vector3d& p);
 
     void show_model();
 
@@ -36,20 +37,24 @@ private:
 	int pore_num = PoresNum;			   // 空洞数量
     int resolution = Resolution;               // 网格分辨率
     double isolevel = Isolevel;
+    double gauss_combined = Gauss_level;
+
     Eigen::MatrixXd V_ini; //初始网格顶点
     Eigen::MatrixXi F_ini; // 初始网格面片
     Eigen::VectorXd SDF_ini;           // 原始/已处理的SDF网格值
-    Eigen::MatrixXd GV_ini;            // 网格点坐标
+    Eigen::MatrixXd GV;            // 网格点坐标
 
     Eigen::MatrixXd V_out; //输出网格顶点
     Eigen::MatrixXi F_out; // 输出网格面片
     Eigen::VectorXd SDF_out;           // 输出的SDF网格值
-    Eigen::MatrixXd GV_out;            // 网格点坐标
+    //Eigen::MatrixXd GV_out;            // 网格点坐标
+
+    double finalPorosity = 0;
 
 	//高斯核参数范围
     double safe_distance;
     double amplitude_min = Amplitude_min;
-    double amplitude_max = Amplitude_min;
+    double amplitude_max = Amplitude_max;
     double sigma_min = Sigma_min;
     double sigma_max = Sigma_max;
     std::vector<GaussianKernel> Kernels;

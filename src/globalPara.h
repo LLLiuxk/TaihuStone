@@ -10,6 +10,7 @@ extern double Amplitude_min;
 extern double Amplitude_max;
 extern double Sigma_min;
 extern double Sigma_max;
+extern double Gauss_level;
 
 extern double SmoothT;    //控制平滑布尔的平滑区域大小
 //struct Parameters {

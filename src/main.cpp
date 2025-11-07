@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
 //// 2. 生成随机的高斯核 (Kernel_set)
 //    std::vector<GaussianKernel> Kernel_set;
 //    Kernel_set.reserve(num_kernels);
-//
+//   
 //    // 使用C++11的随机数生成器，比rand()效果更好
 //    std::random_device rd;
 //    std::mt19937 gen(rd());
