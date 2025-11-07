@@ -2,15 +2,11 @@
 @title bat execute git auto commit
 echo DOCS PUSH BAT
 
-:: 获取当前日期（月日格式）
-for /f "tokens=1,2 delims=/" %%a in ('date /t') do (
-    set mm=%%a
-    set dd=%%b
+for /f "tokens=2-4 delims=/.- " %%a in ('date /t') do (
+    set month=%%a
+    set day=%%b
 )
-
-:: 组合commit消息
-set commit_msg=%mm%%dd%
-echo Commit消息: %commit_msg%
+set commit_msg=%month%%day%
 
 echo 1. Start submitting code to the local repository
 git add .

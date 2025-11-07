@@ -102,10 +102,6 @@ void ModelGenerator::generateGaussianSDF(int pores)
         pore_sigmas.push_back(dist_sigma(gen));*/
     }
 
-    /*for (int i = 0; i<)*/
-
-
-
     double void_count = 0;
     for (int idx = 0; idx < grid_num; ++idx) {
         Eigen::RowVector3d p = GV_ini.row(idx);
