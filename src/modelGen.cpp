@@ -3,8 +3,9 @@
 double GaussianKernel::gaussian_fun(const Eigen::Vector3d& p)
 {
 	double d2 = (p - center).squaredNorm();
-    std::cout << p << "  center:  " << center << "  d2:"<<d2<<std::endl;
-	return amplitude * std::exp(-d2 /(2.0* sigma* sigma));
+	double gau_value = amplitude * std::exp(-d2 / (2.0 * sigma * sigma));   //sigma越大，函数越平缓
+    //std::cout << "  gau_value:"<< gau_value <<std::endl;
+	return gau_value;
 
 }
 
@@ -15,23 +16,23 @@ GaussianKernel::GaussianKernel(Eigen::Vector3d center_, double sigma_, double am
     amplitude = amplitude_;
 }
 
-ModelGenerator::ModelGenerator(std::string input_file)
+ModelGenerator::ModelGenerator(std::string input_file, int pores)
 {
     if (!igl::read_triangle_mesh(input_file, V_ini, F_ini)) {
         std::cerr << "Error: Could not load model A." << std::endl;
         return;
     }
+    pore_num = pores;
     //std::cout << "Model A loaded successfully." << std::endl;
     Mesh2SDF(V_ini, F_ini, GV, SDF_ini);
     generateGaussianSDF();
 }
 
 
-void ModelGenerator::generateGaussianSDF(int pores)
+void ModelGenerator::generateGaussianSDF()
 {
-    auto start_time = std::chrono::high_resolution_clock::now();
-
 	// 随机生成空洞中心位置，pores = 0 采用不可预测随机数
+	int pores = pore_num;
     pores = pores ? pores : (std::random_device{}()%PoresNum);
     std::cout << "pores: " << pores << std::endl;
     std::mt19937 gen(pores);
@@ -50,7 +51,7 @@ void ModelGenerator::generateGaussianSDF(int pores)
         }
     }
 
-	double ellipsoid_count = inside_indices.size();
+	double model_count = inside_indices.size();
 
     if (inside_indices.empty()) {
         std::cerr << "Warning: no legal points inside!" << std::endl;
@@ -106,7 +107,6 @@ void ModelGenerator::generateGaussianSDF(int pores)
 		double amplitude_val = dist_amp(gen);
         std::cout << "i: " << i << "  " << sigma_val<<"  "<<amplitude_val << std::endl;
         GaussianKernel kernel(pore_centers[i], sigma_val, amplitude_val);
-		//GaussianKernel kernel(pore_centers[i], dist_sigma(gen), dist_amp(gen));
         Kernels.push_back(kernel);
         /*pore_amplitudes.push_back(dist_amp(gen));
         pore_sigmas.push_back(dist_sigma(gen));*/
@@ -114,10 +114,18 @@ void ModelGenerator::generateGaussianSDF(int pores)
 
     std::cout << "Combine the Gaussian fileds... " << std::endl;
     double void_count = 0;
+    SDF_out.resize(grid_num);
+	//单独保存高斯孔隙场SDF
+    Eigen::VectorXd SDF_gaussian(grid_num);
     for (int idx = 0; idx < grid_num; ++idx) {
         Eigen::Vector3d p = GV.row(idx);
-        std::cout << "idx:  " << idx << std::endl;
-        SDF_out(idx) = smoothIntersecSDF(SDF_ini(idx), -combinedSDF(p), smooth_t);
+		SDF_gaussian(idx) = combinedSDF(p);
+        SDF_out(idx) = smoothIntersecSDF(SDF_ini(idx), -SDF_gaussian(idx), smooth_t);
+        //SDF_out(idx) = differenceSDF(SDF_ini(idx), SDF_gaussian(idx));
+        //SDF_out(idx) = differenceSDF(SDF_ini(idx), 0);
+        if (SDF_gaussian(idx) < isolevel)
+           // std::cout << "idx:  " << idx << "   SDF_ini(idx):" << SDF_ini(idx) << "   SDF_gaussian(idx):  " << SDF_gaussian(idx) <<"  SDF_out(idx) :" << SDF_out(idx) << std::endl;
+        //std::cout << SDF_out(idx) << std::endl;
         if (SDF_out(idx) < isolevel) {
             void_count += 1;
         }
@@ -125,28 +133,34 @@ void ModelGenerator::generateGaussianSDF(int pores)
     //std::cout << "成功在仿生形状内放置 " << void_centers.size() << " 个空洞点" << std::endl;
  
      // 计算孔隙率
-    double porosity = void_count / ellipsoid_count;
+    double porosity = void_count / model_count;
     std::cout << "Porosity: " << porosity * 100 << "%" << std::endl;
 
     // 存储最终的孔隙率
     finalPorosity = porosity;
 
     // Marching Cubes
-    igl::marching_cubes(SDF_out, GV, resolution, resolution, resolution, isolevel, V_out, F_out);
+    MarchingCubes(SDF_out, GV, resolution, resolution, resolution, isolevel, V_out, F_out);
 
-    if (V_out.rows() == 0 || F_out.rows() == 0) {
-        std::cerr << "Marching Cubes failed: Empty mesh" << std::endl;
-        return;
-    }
+    Eigen::MatrixXd V_g; //输出网格顶点
+    Eigen::MatrixXi F_g; // 输出网格面片
+    MarchingCubes(SDF_gaussian, GV, resolution, resolution, resolution, isolevel, V_g, F_g);
+    //view_model(V_g, F_g);
+	//std::string filename = "output/gaussian_pores.stl";
+ //   std::filesystem::path filePath(filename);
+ //   std::filesystem::path dir = filePath.parent_path();
+ //   if (!dir.empty() && !std::filesystem::exists(dir)) {
+ //       std::filesystem::create_directories(dir);
+ //   }
 
+    // 保存STL文件
+    //bool stl_success = igl::writeSTL(filename, V, F, N, igl::FileEncoding::Binary);
+
+    view_two_models(V_out, F_out, V_g, F_g, Eigen::RowVector3d(1, 0,0));
     // calculate normal
-    Eigen::MatrixXd N;
-    igl::per_face_normals(V_out, F_out, N);
+    //Eigen::MatrixXd N;
+    //igl::per_face_normals(V_out, F_out, N);
     std::cout << "Generated mesh: " << V_out.rows() << " vertices, " << F_out.rows() << " faces" << std::endl;
-
-    auto end_time = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-    std::cout << "Model generation completed in " << duration.count() << " ms" << std::endl;
     return;
 
 
@@ -157,33 +171,15 @@ double ModelGenerator::combinedSDF(Eigen::Vector3d & p)
     double total_void = 0.0;
     int gaus_num = Kernels.size();
     for (size_t i = 0; i < gaus_num; i++) {
-        //std::cout << Kernels[i].gaussian_fun(p) << std::endl;
+        //std::cout <<"gaus_num: "<< gaus_num<<"  "<< i << std::endl;
         total_void += Kernels[i].gaussian_fun(p);
     }
-    
+    //std::cout << "total_void: " << total_void << std::endl;
     return  gauss_combined - total_void;  // 当前使用：负的空洞总和 
 }
 
 void ModelGenerator::show_model()
 {
-    std::cout << "show libigl viewer" << std::endl;
-    igl::opengl::glfw::Viewer viewer;
-
-    viewer.data().set_mesh(V_ini, F_ini);
-    viewer.data().show_lines = true;   // 不显示网格线
-    //viewer.data().set_colors(Eigen::RowVector3d(0.8, 0.7, 0.2)); // 设置一个漂亮的蓝色
-
-    int id2 = viewer.append_mesh();
-    Eigen::MatrixXd V_shifted = V_out;
-    V_shifted.rowwise() += Eigen::RowVector3d(150, 0.0, 0.0);  // 向右移动 1.5 个单位
-
-    viewer.data(id2).set_mesh(V_shifted, F_out);
-    viewer.data(id2).set_colors(Eigen::RowVector3d(0.8, 0.1, 0.1));
-
-    // 添加辅助点 (高斯核的中心)，设置为红色
-   // viewer.data().add_points(kernel_points, Eigen::RowVector3d(1, 0, 0));
-    viewer.data().point_size = 10; // 让点更显眼
-
-    viewer.launch();
+    view_two_models(V_ini, F_ini, V_out, F_out, Eigen::RowVector3d(1, 0.0, 0.0));
 
 }

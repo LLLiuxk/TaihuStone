@@ -24,9 +24,9 @@ public:
 class ModelGenerator {
 public:
     ModelGenerator() {};
-    ModelGenerator(std::string input_file);
+    ModelGenerator(std::string input_file, int pores = PoresNum);
 
-	void generateGaussianSDF(int pores = PoresNum);
+	void generateGaussianSDF();
     double combinedSDF(Eigen::Vector3d& p);
 
     void show_model();

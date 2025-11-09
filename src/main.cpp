@@ -2,7 +2,6 @@
 #include <igl/opengl/glfw/Viewer.h>
 #include <igl/copyleft/cgal/mesh_boolean.h>
 #include <igl/read_triangle_mesh.h>
-#include <igl/write_triangle_mesh.h>
 #include <Eigen/Dense>
 #include <iostream>
 #include <vector>
@@ -12,13 +11,55 @@
 #include "modelGen.h"
 
 
-int main(int argc, char* argv[]) {
+int main(int argc, char* argv[])
+{
+
+    auto start_time = std::chrono::high_resolution_clock::now();
 
     //input model, must watertight 
-    std::string input_file = "D:/VSprojects/TaihuStone/high_rock.obj";
-
+    std::string input_file = "D:/VSprojects/TaihuStone/model/high_rock.stl";
+    //std::string input_file = "D:/VSprojects/TaihuStone/cube.obj";
     ModelGenerator mg(input_file);
-	
+    mg.show_model();
+
+	// ------------------------------------- view two models after alignment -------------------------------------
+ //   string model1_path = "D:/VSprojects/ctaihuigl/limitstl/gpu_topology_optimized.stl";
+ //   string model2_path = "D:/VSprojects/ctaihuigl/limitstl/generated_model.stl";
+ //   string output_path =  "D:/VSprojects/ctaihuigl/limitstl/generated_model_trans.stl";
+
+ //   // 使用基础版本（仅缩放和平移）
+ //   //if (align_models_with_pca(model1_path, model2_path, output_path)) {
+ //   //    cout << "Succeed！" << endl;
+ //   //}
+ //   //else {
+ //   //    cerr << "Failed！" << endl;
+ //   //    return 1;
+ //   //}
+
+ //   Eigen::MatrixXd V1, V2;          // 顶点
+ //   Eigen::MatrixXi F1, F2;
+ //   MatrixXd N1, N2;
+
+ //   if (!igl::read_triangle_mesh(model1_path, V1, F1)) {
+ //       std::cerr << "Error: Could not load model A." << std::endl;
+ //       return 0;
+ //   }
+ //   if (!igl::read_triangle_mesh(output_path, V2, F2)) {
+ //       std::cerr << "Error: Could not load model b." << std::endl;
+ //       return 0;
+ //   }
+
+
+ //   // 输出新的 STL 文件
+ //   //igl::write_triangle_mesh(output_path, V1_aligned, F1);
+
+
+	//view_two_models(V1, F1, V2, F2, Eigen::RowVector3d(150.0, 0.0, 150.0));
+
+
+
+
+
 //    const int num_kernels = 1;      // 您希望在空间中生成的随机核的数量
 //    const int grid_resolution = 64; // 采样网格的精细度。越高越精细，但计算越慢。
 //    const double isolevel = 0.8;     // 等值面的阈值。决定了"高斯球"的表面在哪里。
@@ -175,6 +216,9 @@ int main(int argc, char* argv[]) {
 //    viewer.data().point_size = 10; // 让点更显眼
 //
 //    viewer.launch();
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+    std::cout << "Model generation completed in " << duration.count()/1000.0 << " s" << std::endl;
 
     return 0;
 }
