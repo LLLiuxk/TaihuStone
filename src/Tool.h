@@ -27,26 +27,25 @@ void Mesh2SDF(
 
 
 // SDF平滑并集。k越大，平滑效果越小，趋近于普通并集
-double smoothUnionSDF(double sdf1, double sdf2, double k);
+double smooth_UnionSDF(double sdf1, double sdf2, double k);
 
 // SDF平滑交集
-double smoothIntersecSDF(double sdf1, double sdf2, double k);
+double smooth_IntersecSDF(double sdf1, double sdf2, double k);
 
 // SDF布尔运算：并集
 double unionSDF(double sdf1, double sdf2);
 
 // SDF布尔运算：交集
 double intersectionSDF(double sdf1, double sdf2);
+// SDF布尔运算：差集 (A - B)
+double differenceSDF(double sdf1, double sdf2);
+
+void MarchingCubes(Eigen::VectorXd& S, Eigen::MatrixXd& GV, int nx, int ny, int nz, double isovalue, Eigen::MatrixXd& V, Eigen::MatrixXi& F);
 
 void view_model(Eigen::MatrixXd V1, Eigen::MatrixXi F1);
 void view_two_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V2, Eigen::MatrixXi F2, Eigen::RowVector3d shift = RowVector3d(0.0, 0.0, 0.0));
 
+int  single_component(Eigen::MatrixXd V, Eigen::MatrixXi F);
 
-void MarchingCubes(Eigen::VectorXd& S, Eigen::MatrixXd& GV, int nx, int ny, int nz, double isovalue, Eigen::MatrixXd& V, Eigen::MatrixXi& F);
-
-// SDF布尔运算：差集 (A - B)
-double differenceSDF(double sdf1, double sdf2);
-
-void align_models(const Eigen::MatrixXd& V1, const Eigen::MatrixXd& V2, Eigen::MatrixXd& V1_aligned, bool with_scale = false);
 
 bool align_models_with_pca(const std::string& model1_path, const std::string& model2_path, const std::string& output_path);

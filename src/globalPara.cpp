@@ -5,7 +5,7 @@ int Resolution = 100;
 
 double Isolevel = 0.0;
 
-int PoresNum = 88;
+int PoresNum = 5;
 
 double Amplitude_min = 1;
 double Amplitude_max = 1;

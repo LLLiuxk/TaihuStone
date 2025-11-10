@@ -120,7 +120,7 @@ void ModelGenerator::generateGaussianSDF()
     for (int idx = 0; idx < grid_num; ++idx) {
         Eigen::Vector3d p = GV.row(idx);
 		SDF_gaussian(idx) = combinedSDF(p);
-        SDF_out(idx) = smoothIntersecSDF(SDF_ini(idx), -SDF_gaussian(idx), smooth_t);
+        SDF_out(idx) = smooth_IntersecSDF(SDF_ini(idx), -SDF_gaussian(idx), smooth_t);
         //SDF_out(idx) = differenceSDF(SDF_ini(idx), SDF_gaussian(idx));
         //SDF_out(idx) = differenceSDF(SDF_ini(idx), 0);
         if (SDF_gaussian(idx) < isolevel)
@@ -145,6 +145,7 @@ void ModelGenerator::generateGaussianSDF()
     Eigen::MatrixXd V_g; //输出网格顶点
     Eigen::MatrixXi F_g; // 输出网格面片
     MarchingCubes(SDF_gaussian, GV, resolution, resolution, resolution, isolevel, V_g, F_g);
+    int comp = single_component(V_g, F_g);
     //view_model(V_g, F_g);
 	//std::string filename = "output/gaussian_pores.stl";
  //   std::filesystem::path filePath(filename);
