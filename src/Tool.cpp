@@ -316,3 +316,19 @@ bool align_models_with_pca(const std::string& model1_path, const std::string& mo
     // 保存结果
     return igl::write_triangle_mesh(output_path, V2_transformed, F2);
 }
+
+
+//B_i,n(t) = C(n, i) * t^i * (1 - t)^(n-i)
+double bernstein_basis(int i, int n, double t)
+{
+    // 组合数 nCk
+    auto comb = [](int n, int k)->double {
+        if (k < 0 || k > n) return 0.0;
+        k = std::min(k, n - k);
+        double r = 1.0;
+        for (int j = 1; j <= k; ++j) { r *= double(n - (k - j)) / double(j); }
+        return r;
+        };
+    double b = comb(n, i) * std::pow(t, i) * std::pow(1.0 - t, n - i);
+    return b;
+}

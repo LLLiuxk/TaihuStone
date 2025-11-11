@@ -1,5 +1,6 @@
 #pragma once
 #include "Tool.h"
+#include <queue>
 #include <random>
 #include <chrono>  // 添加时间测量
 
@@ -7,9 +8,10 @@
 class GaussianKernel {
 
 public:
-    GaussianKernel() {};
+    GaussianKernel() : center(Eigen::Vector3d::Zero()), sigma(0.1), amplitude(1.0) {}
+    /*GaussianKernel() {};*/
     GaussianKernel(Eigen::Vector3d cente_, double sigma_, double amplitude_);
-	//GaussianKernel() : center(Eigen::Vector3d::Zero()), sigma(0.1), amplitude(1.0) {}
+	
     double gaussian_fun(const Eigen::Vector3d& p);
 
 public:
@@ -19,6 +21,17 @@ public:
 
 };
 
+struct Edge {
+    int from;
+    int to;
+    double weight;
+};
+
+struct CompareEdge {
+    bool operator()(const Edge& e1, const Edge& e2) const {
+        return e1.weight > e2.weight;
+    }
+};
 
 
 class ModelGenerator {
@@ -27,9 +40,20 @@ public:
     ModelGenerator(std::string input_file, int pores = PoresNum);
 
 	void generateGaussianSDF();
-    double combinedSDF(Eigen::Vector3d& p);
+    double combinedSDF(Eigen::Vector3d& p, std::vector<GaussianKernel> G_kernels, double C);
 
     void show_model();
+    std::vector<Edge>  pores_connection_mst(const std::vector<GaussianKernel>& gau);
+
+    double generate_tube(const Eigen::Vector3d& p, const GaussianKernel& k1, const GaussianKernel& k2, double iso_level_C, double mid_radius_factor);
+
+    GaussianKernel make_sphere_gaussian(const Eigen::Vector3d& center, double radius, double targetC = 1.0);
+    
+    //std::vector<GaussianKernel>  generate_tube(const GaussianKernel& k1, const GaussianKernel& k2,
+    //    double C = 1.0,                // 论文中等值面阈值（一般取 1）
+    //    double mid_radius_factor = 0.5); // 中间最小半径相对端点半径的初值
+
+
 
 private:
     double m_currentPorosity = 0; 
@@ -52,12 +76,14 @@ private:
     double finalPorosity = 0;
 
 	//高斯核参数范围
-    double safe_distance;
+    double safe_distance = 0; //dart throwing 
     double amplitude_min = Amplitude_min;
     double amplitude_max = Amplitude_max;
     double sigma_min = Sigma_min;
     double sigma_max = Sigma_max;
     std::vector<GaussianKernel> Kernels;
+
+    std::vector<GaussianKernel> fat_curve_kernels;
 
 	double smooth_t = SmoothT;         //平滑参数，值越大，平滑效果越小，趋近于普通并集
     int m_cachedRes = 0;                   // 分辨率
