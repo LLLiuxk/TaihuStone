@@ -168,8 +168,8 @@ void ModelGenerator::generateGaussianSDF()
     std::string report_file = "sdf_comparison_report.html";
     double tolerance = 1e-5; // 设置一个很小的误差容忍度
 
-    std::cout << "\n 正在比较文件并生成可视化报告..." << std::endl;
-    compareSDFAndVisualize(SDF_gaussian_tubes, SDF_gaussian_tubes2, resolution, resolution, resolution, tolerance, report_file);
+    //std::cout << "\n 正在比较文件并生成可视化报告..." << std::endl;
+    //compareSDFAndVisualize(SDF_gaussian_tubes, SDF_gaussian_tubes2, resolution, resolution, resolution, tolerance, report_file);
 
     //std::cout << "Kernel size: " << Kernels.size()<< endl;
     //for (int idx = 0; idx < grid_num; ++idx) {
