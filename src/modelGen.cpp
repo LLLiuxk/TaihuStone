@@ -156,6 +156,8 @@ void ModelGenerator::generateGaussianSDF()
               SDF_gaussian_tubes2(idx) = generate_tube2(p, Kernels[0], Kernels[1]);
     }
 
+
+
 	string filename1 = "D://VSprojects//TaihuStone//result//sdf1.txt";
 	string filename2 = "D://VSprojects//TaihuStone//result//sdf2.txt";
     exportSDF(SDF_gaussian_tubes, filename1);
@@ -166,7 +168,7 @@ void ModelGenerator::generateGaussianSDF()
     std::string report_file = "sdf_comparison_report.html";
     double tolerance = 1e-5; // 设置一个很小的误差容忍度
 
-    std::cout << "\n正在比较文件并生成可视化报告..." << std::endl;
+    std::cout << "\n 正在比较文件并生成可视化报告..." << std::endl;
     compareSDFAndVisualize(SDF_gaussian_tubes, SDF_gaussian_tubes2, resolution, resolution, resolution, tolerance, report_file);
 
     //std::cout << "Kernel size: " << Kernels.size()<< endl;
