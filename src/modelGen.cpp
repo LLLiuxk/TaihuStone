@@ -146,15 +146,28 @@ void ModelGenerator::generateGaussianSDF()
     MarchingCubes(SDF_gaussian, GV, resolution, resolution, resolution, isolevel, V_g, F_g);
     
     Eigen::VectorXd SDF_gaussian_tubes(grid_num);
-
+    Eigen::VectorXd SDF_gaussian_tubes2(grid_num);
     if (Kernels.size() != 2)  cout << "more kernel" << endl;
     for (int idx = 0; idx < grid_num; ++idx) {
         Eigen::Vector3d p = GV.row(idx);
               //SDF_gaussian_tubes(idx) = min(SDF_gaussian(idx), generate_tube(p, Kernels[0], Kernels[1], 0.5, 0.5));
               //SDF_gaussian_tubes(idx) = smooth_UnionSDF(SDF_gaussian(idx), generate_tube(p, Kernels[0], Kernels[1], gauss_combined, 0.2), smooth_t);
-              //SDF_gaussian_tubes(idx) = generate_tube(p, Kernels[0], Kernels[1], gauss_combined, 0.5);
-              SDF_gaussian_tubes(idx) = generate_tube2(p, Kernels[0], Kernels[1]);
+              SDF_gaussian_tubes(idx) = generate_tube(p, Kernels[0], Kernels[1], gauss_combined, 0.5);
+              SDF_gaussian_tubes2(idx) = generate_tube2(p, Kernels[0], Kernels[1]);
     }
+
+	string filename1 = "D://VSprojects//TaihuStone//result//sdf1.txt";
+	string filename2 = "D://VSprojects//TaihuStone//result//sdf2.txt";
+    exportSDF(SDF_gaussian_tubes, filename1);
+
+    exportSDF(SDF_gaussian_tubes2, filename2);
+
+    //// 5. 比较文件并生成可视化报告
+    std::string report_file = "sdf_comparison_report.html";
+    double tolerance = 1e-5; // 设置一个很小的误差容忍度
+
+    std::cout << "\n正在比较文件并生成可视化报告..." << std::endl;
+    compareSDFAndVisualize(SDF_gaussian_tubes, SDF_gaussian_tubes2, resolution, resolution, resolution, tolerance, report_file);
 
     //std::cout << "Kernel size: " << Kernels.size()<< endl;
     //for (int idx = 0; idx < grid_num; ++idx) {
@@ -361,6 +374,6 @@ double ModelGenerator::generate_tube2( Eigen::Vector3d& p,   GaussianKernel& k1,
      double pore2 = k2.gaussian_fun(p);
      // 5. 组合管道函数（根据论文公式2）
      double tubeValue = tunnelMain - pore1 - pore2;
-
-     return tubeValue;
+     return  tubeValue;
+     //return gauss_combined - tubeValue;
 }

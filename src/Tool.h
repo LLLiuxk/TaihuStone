@@ -12,18 +12,19 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <iomanip>
 
 #include "globalPara.h" 
 
 using namespace std;
 using namespace Eigen;
 
-void Mesh2SDF(
-    Eigen::MatrixXd& V,     // 网格顶点 (m×3)
-    Eigen::MatrixXi& F,     // 网格面 (f×3)
-    Eigen::MatrixXd& GV,    // 查询点集 (n×3)
-    Eigen::VectorXd& S            // 输出: signed distance (n×1)
-);
+struct ErrorPoint {
+    int x, y, z;
+    double value1, value2, error;
+
+};
+void Mesh2SDF(Eigen::MatrixXd& V, Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Eigen::VectorXd& S);
 
 
 // SDF平滑并集。k越大，平滑效果越小，趋近于普通并集
@@ -52,3 +53,9 @@ bool align_models_with_pca(const std::string& model1_path, const std::string& mo
 
 //Bernstein基函数 
 double bernstein_basis(int i, int n, double t);
+
+//load files
+bool exportSDF(Eigen::VectorXd& sdf, std::string& filename);
+
+bool compareSDFAndVisualize(const Eigen::VectorXd& sdf1, const Eigen::VectorXd& sdf2, int resX, int resY, int resZ, double tolerance, const std::string& outputHtmlFile);
+ 
