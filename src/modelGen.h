@@ -46,14 +46,8 @@ public:
     std::vector<Edge>  pores_connection_mst(const std::vector<GaussianKernel>& gau);
 
     double generate_tube(const Eigen::Vector3d& p, const GaussianKernel& k1, const GaussianKernel& k2, double iso_level_C, double mid_radius_factor);
-
-    GaussianKernel make_sphere_gaussian(const Eigen::Vector3d& center, double radius, double targetC = 1.0);
     
-    //std::vector<GaussianKernel>  generate_tube(const GaussianKernel& k1, const GaussianKernel& k2,
-    //    double C = 1.0,                // 论文中等值面阈值（一般取 1）
-    //    double mid_radius_factor = 0.5); // 中间最小半径相对端点半径的初值
-
-
+    double generate_tube2( Eigen::Vector3d& p,  GaussianKernel& k1,  GaussianKernel& k2, double mu = 30.0);
 
 private:
     double m_currentPorosity = 0; 

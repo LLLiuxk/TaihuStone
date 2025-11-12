@@ -145,20 +145,37 @@ void ModelGenerator::generateGaussianSDF()
     Eigen::MatrixXi F_g; // 输出网格面片
     MarchingCubes(SDF_gaussian, GV, resolution, resolution, resolution, isolevel, V_g, F_g);
     
-    if (Kernels.size() != 2)  cout << "more kernel" << endl;
-	//std::vector<GaussianKernel> fat_curve = generate_tube(Kernels[0], Kernels[1], 0.5, 0.5);
     Eigen::VectorXd SDF_gaussian_tubes(grid_num);
+
+    if (Kernels.size() != 2)  cout << "more kernel" << endl;
     for (int idx = 0; idx < grid_num; ++idx) {
         Eigen::Vector3d p = GV.row(idx);
-        //SDF_gaussian_tubes(idx) = max(SDF_gaussian(idx), generate_tube(p, Kernels[0], Kernels[1], 0.5, 0.5));
-        SDF_gaussian_tubes(idx) = smooth_UnionSDF(SDF_gaussian(idx), -generate_tube(p, Kernels[0], Kernels[1], gauss_combined, 0.5), smooth_t);
-        //SDF_gaussian_tubes(idx) = generate_tube(p, Kernels[0], Kernels[1], gauss_combined, 0.5);
+              //SDF_gaussian_tubes(idx) = min(SDF_gaussian(idx), generate_tube(p, Kernels[0], Kernels[1], 0.5, 0.5));
+              //SDF_gaussian_tubes(idx) = smooth_UnionSDF(SDF_gaussian(idx), generate_tube(p, Kernels[0], Kernels[1], gauss_combined, 0.2), smooth_t);
+              //SDF_gaussian_tubes(idx) = generate_tube(p, Kernels[0], Kernels[1], gauss_combined, 0.5);
+              SDF_gaussian_tubes(idx) = generate_tube2(p, Kernels[0], Kernels[1]);
     }
+
+    //std::cout << "Kernel size: " << Kernels.size()<< endl;
+    //for (int idx = 0; idx < grid_num; ++idx) {
+    //    Eigen::Vector3d p = GV.row(idx);
+    //    //SDF_gaussian_tubes(idx) = -max(-SDF_gaussian(idx), generate_tube(p, Kernels[0], Kernels[1], 0.5, 0.5));
+    //    double sdf_p = 1000.0;
+    //    for (int kx = 0; kx < Kernels.size() - 1; kx++)
+    //    {
+    //        sdf_p = min(sdf_p, generate_tube(p, Kernels[kx], Kernels[kx + 1], gauss_combined, 0.2));
+    //    }
+    //    SDF_gaussian_tubes(idx) = smooth_UnionSDF(SDF_gaussian(idx), sdf_p, smooth_t);
+    //    
+    //    //SDF_gaussian_tubes(idx) = generate_tube(p, Kernels[0], Kernels[1], gauss_combined, 0.5);
+    //}
 
     Eigen::MatrixXd V_t; //输出网格顶点
     Eigen::MatrixXi F_t; // 输出网格面片
-    MarchingCubes(SDF_gaussian_tubes, GV, resolution, resolution, resolution, -0.1, V_t, F_t);
+    MarchingCubes(SDF_gaussian_tubes, GV, resolution, resolution, resolution, isolevel, V_t, F_t);
     view_model(V_t, F_t);
+
+
 
     int comp = single_component(V_g, F_g);
     
@@ -248,85 +265,6 @@ std::vector<Edge> ModelGenerator::pores_connection_mst(const std::vector<Gaussia
     return mst_edges;
 }
 
-GaussianKernel ModelGenerator::make_sphere_gaussian(const Eigen::Vector3d& center, double radius, double targetC)
-{
-    GaussianKernel g;
-    g.center = center;
-    // 经验：把 sigma 设为 radius / 2.0（可调），以保证曲线足够平滑且半径处接近 targetC
-    double sigma = std::max(radius / 2.0, 1e-6);
-    g.sigma = sigma;
-    double exponent = -(radius * radius) / (2.0 * sigma * sigma);
-    // prevent underflow
-    exponent = std::max(exponent, -745.0); // exp(-745) ~ 5e-324
-    double A = targetC / std::exp(exponent);
-    // A 是我们这里定义的 amplitude，使得 amplitude * exp(-r^2/(2 sigma^2)) == targetC
-    g.amplitude = A;
-    return g;
-}
-
-/*
- generate_tube:
-  - k1, k2: 两个 GaussianKernel，代表两个孔的核（使用 .center 与 .sigma 信息）
-  - optional parameters could be added; for clarity we use some defaults:
-     * nControl = 5 (Bernstein degree 4)
-     * min_mid_radius_factor: 控制中间最小半径作为端点半径的比例（防止过细）
-  - 结果：把生成的沿线若干 GaussianKernel push 到 fat_curve_kernels（全局）
-*/
-//std::vector<GaussianKernel>  ModelGenerator::generate_tube(const GaussianKernel& k1, const GaussianKernel& k2, double C, double mid_radius_factor ) // 中间最小半径相对端点半径的初值
-//{
-//    // degree n = 4 -> 5 control samples
-//    const int n = 4;
-//    const int sampleCount = n + 1;
-//
-//    Eigen::Vector3d p0 = k1.center;
-//    Eigen::Vector3d p1 = k2.center;
-//
-//    // 端点“孔的内切球半径”的近似：根据 sigma 推断（可根据具体实现替换为更精确值）
-//    // 我们认为：若 Gaussian 在距离 r0 处的值等于 C，则 r0 与 sigma 存在关系。
-//    // 但此处如果 k1.sigma 存在，我们可以近似取端点半径 = 2 * k.sigma （经验值）
-//    double r0 = std::max(2.0 * k1.sigma, 1e-4);
-//    double r4 = std::max(2.0 * k2.sigma, 1e-4);
-//
-//    // 设置中间最小半径（按论文：由可制造性/孔大小约束设置）
-//    double r_mid = std::max(mid_radius_factor * std::min(r0, r4), 1e-4);
-//
-//    // 五个控制半径 r_i (i=0..4): 两端为 r0,r4，中间由用户或经验给定（我们将中点 i=2 设为 r_mid，其余线性插值）
-//    std::vector<double> radii(sampleCount, 0.0);
-//    radii[0] = r0;
-//    radii[4] = r4;
-//    // set middle control radii: simple strategy: [r0, interp1, r_mid, interp2, r4]
-//    radii[2] = r_mid;
-//    radii[1] = 0.5 * (r0 + r_mid);
-//    radii[3] = 0.5 * (r_mid + r4);
-//
-//    std::vector<GaussianKernel> fat_curve_kernels;
-//    // For each sample t_i = i/(sampleCount-1), compute sample position and radius via Bernstein
-//    for (int si = 0; si < sampleCount; ++si)
-//    {
-//        double t = double(si) / double(sampleCount - 1); // 0..1
-//        // position = p0 * (1 - t) + p1 * t  (we use straight line; paper samples uniform along segment)
-//        Eigen::Vector3d pos = p0 * (1.0 - t) + p1 * t;
-//
-//        // compute radius via Bernstein blending of control radii
-//        double R = 0.0;
-//        for (int i = 0; i <= n; ++i) {
-//            double B = bernstein_basis(i, n, t);
-//            R += B * radii[i];
-//        }
-//
-//        // create a Gaussian kernel approximating the sphere of radius R located at pos,
-//        // and choose amplitude so that at distance R the Gaussian value equals C (paper: fat-curve surface value = C).
-//        GaussianKernel g = make_sphere_gaussian(pos, R, C);
-//
-//        // append to global container
-//        fat_curve_kernels.push_back(g);
-//    }
-//    return fat_curve_kernels;
-//    // note: 论文重建时把“fat-curve 的隐式函数”与原 Gaussian 合并（取最大值）并在体素上执行 marching cubes。
-//    // 这里我们只负责生成沿线的高斯核近似（显式球族），后续合并与提取在你的体素/场表示中完成。
-//}
-
-
 double ModelGenerator::generate_tube(const Eigen::Vector3d& p, const GaussianKernel& k1, const GaussianKernel& k2, double iso_level_C, double mid_radius_factor) // 中间最小半径相对端点半径的初值
 {
     // degree n = 4 -> 5 control samples
@@ -343,16 +281,17 @@ double ModelGenerator::generate_tube(const Eigen::Vector3d& p, const GaussianKer
     // 2. 计算点在连接线上的投影参数t [0,1]
     double t_proj = (p - c1).dot(line_dir) / line_length;
 
-    // 如果投影点不在线段上，返回0（不在管道内）
-    if (t_proj < 0.0 || t_proj > 1.0) {
-        return 0.0;
+    // 如果投影点不在线段上，返回正值（不在管道内）
+    if (t_proj <= 0.0 || t_proj >= 1.0) {
+        //return abs(abs(t_proj - 0.5) - 0.5);
+        return 1;
     }
     // 将t限制在[0, 1]区间，这样空间中所有的点都会被映射到线段上最近的点
     t_proj = std::max(0.0, std::min(1.0, t_proj));
     Eigen::Vector3d p_proj = c1 + t_proj * line_dir; // p在轴线上的投影点
 
-    double r0 = k1.sigma * std::sqrt(2.0 * std::log(k1.amplitude / iso_level_C));
-    double r4 = k2.sigma * std::sqrt(2.0 * std::log(k2.amplitude / iso_level_C));
+    double r0 = k1.sigma *std::sqrt(std::log(k1.amplitude / iso_level_C));
+    double r4 = k2.sigma *std::sqrt(std::log(k2.amplitude / iso_level_C));
 
     // 设置中间最小半径（按论文：由可制造性/孔大小约束设置）
     double r2 = std::max(mid_radius_factor * std::min(r0, r4), 1e-4);
@@ -376,18 +315,52 @@ double ModelGenerator::generate_tube(const Eigen::Vector3d& p, const GaussianKer
 // 核心思想是：函数值应该在通道表面上为C，在轴线上最大，向外围衰减。
     double dist_to_axis = (p - p_proj).norm();
     double energy = (dist_to_axis * dist_to_axis) / (R_t * R_t);
-    //return 1.0 - energy;
-    return iso_level_C * std::exp(1.0 - energy);
+    //return iso_level_C - energy;
+    return iso_level_C * (1 - std::exp(1.0 - energy));
+
+}
 
 
+double ModelGenerator::generate_tube2( Eigen::Vector3d& p,   GaussianKernel& k1,   GaussianKernel& k2,  double mu)
+{
 
-    //if (dist_to_axis <= R_t) {
-    //    // 在管道内部，使用平滑的隐式函数
-    //    // 这里使用二次函数，在边界处值为0，在轴线处值为1
-    //    double normalized_dist = dist_to_axis / R_t;
-    //    return 1.0 - normalized_dist * normalized_dist;
-    //}
-    //else {
-    //    return 0.0;  // 在管道外部
-    //}
+    const Eigen::Vector3d& c1 = k1.center;
+    const Eigen::Vector3d& c2 = k2.center;
+
+    // 1. 计算 ω_i 和 ω_j（根据sigma转换）
+// 论文中使用 ω 控制孔隙大小，这里根据sigma进行转换
+// 假设 ω = 1/(2 * sigma^2)，保持与标准高斯函数一致
+    double omega1 = 1.0 / (2.0 * k1.sigma * k1.sigma);
+    double omega2 = 1.0 / (2.0 * k2.sigma * k2.sigma);
+    double avg_omega = (omega1 + omega2) / 2.0;
+    mu =  avg_omega / 9.0;
+
+    // 2. 计算点到线段的距离（论文中的 ||p - s_ij||）
+    Eigen::Vector3d line_dir = c2 - c1;
+    double line_length = line_dir.squaredNorm();
+
+    Eigen::Vector3d w = p - c1;
+     double dis_c = w.dot(line_dir);
+     double dis;
+     if (dis_c <= 0) {
+         dis = w.norm();;
+     }
+     else if (dis_c >= line_dir.dot(line_dir)) {
+             dis = (p - c2).norm();
+      }
+     else {
+         double t_proj = dis_c / line_length;
+         Eigen::Vector3d p_proj = c1 + t_proj * line_dir; // p在轴线上的投影点
+         dis = (p - p_proj).norm();
+	 }
+     // 3. 计算管道函数的第一部分：沿线段的高斯函数
+     double tunnelMain = std::exp(-mu * dis * dis);
+
+    // 4. 计算要减去的两个孔隙函数部分
+     double pore1 = k1.gaussian_fun(p);
+     double pore2 = k2.gaussian_fun(p);
+     // 5. 组合管道函数（根据论文公式2）
+     double tubeValue = tunnelMain - pore1 - pore2;
+
+     return tubeValue;
 }
