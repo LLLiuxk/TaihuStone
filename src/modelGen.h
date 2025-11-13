@@ -47,7 +47,7 @@ public:
 
     double generate_tube(const Eigen::Vector3d& p, const GaussianKernel& k1, const GaussianKernel& k2, double iso_level_C, double mid_radius_factor);
     
-    double generate_tube2( Eigen::Vector3d& p,  GaussianKernel& k1,  GaussianKernel& k2, double mu = 30.0);
+    double generate_tube2( Eigen::Vector3d& p,  GaussianKernel& k1,  GaussianKernel& k2, double iso_level_C, double mid_radius_factor = 0.2);
 
 private:
     double m_currentPorosity = 0; 
@@ -55,7 +55,7 @@ private:
 	int pore_num = PoresNum;			   // 空洞数量
     int resolution = Resolution;               // 网格分辨率
     double isolevel = Isolevel;
-    double gauss_combined = Gauss_level;
+    double gauss_iso = Gauss_level;
 
     Eigen::MatrixXd V_ini; //初始网格顶点
     Eigen::MatrixXi F_ini; // 初始网格面片
@@ -77,7 +77,8 @@ private:
     double sigma_max = Sigma_max;
     std::vector<GaussianKernel> Kernels;
 
-    std::vector<GaussianKernel> fat_curve_kernels;
+    std::vector<Edge> Tube_edges;
+
 
 	double smooth_t = SmoothT;         //平滑参数，值越大，平滑效果越小，趋近于普通并集
     int m_cachedRes = 0;                   // 分辨率

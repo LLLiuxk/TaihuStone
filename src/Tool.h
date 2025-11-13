@@ -45,11 +45,10 @@ void MarchingCubes(Eigen::VectorXd& S, Eigen::MatrixXd& GV, int nx, int ny, int 
 
 void view_model(Eigen::MatrixXd V1, Eigen::MatrixXi F1);
 void view_two_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V2, Eigen::MatrixXi F2, Eigen::RowVector3d shift = RowVector3d(0.0, 0.0, 0.0));
+void view_three_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V2, Eigen::MatrixXi F2, Eigen::MatrixXd V3, Eigen::MatrixXi F3, Eigen::RowVector3d shift = RowVector3d(0.0, 0.0, 0.0));
 
 int  single_component(Eigen::MatrixXd V, Eigen::MatrixXi F);
 
-
-bool align_models_with_pca(const std::string& model1_path, const std::string& model2_path, const std::string& output_path);
 
 //Bernstein»ùº¯Êý 
 double bernstein_basis(int i, int n, double t);
@@ -57,5 +56,5 @@ double bernstein_basis(int i, int n, double t);
 //load files
 bool exportSDF(Eigen::VectorXd& sdf, std::string& filename);
 
-bool compareSDFAndVisualize(const Eigen::VectorXd& sdf1, const Eigen::VectorXd& sdf2, int resX, int resY, int resZ, double tolerance, const std::string& outputHtmlFile);
+bool align_models_with_pca(const std::string& model1_path, const std::string& model2_path, const std::string& output_path);
  

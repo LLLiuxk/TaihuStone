@@ -44,6 +44,7 @@ void ModelGenerator::generateGaussianSDF()
 	}
     // search inside points
     std::vector<Eigen::Vector3d> pore_centers;
+    std::vector<double> pore_sdfs;
     std::vector<int> inside_indices;
     for (int idx = 0; idx < grid_num; ++idx) {
         if (SDF_ini(idx) < isolevel) {
@@ -67,7 +68,7 @@ void ModelGenerator::generateGaussianSDF()
     while (pore_centers.size() < pores && attempts < max_attempts) {
         attempts++;
 
-        // 随机选择一个内部点
+        // 随机选择一个内部点，保存其sdf值
         int chosen_idx = inside_indices[index_dist(gen)];
         Eigen::Vector3d candidate_center = GV.row(chosen_idx).transpose();
 
@@ -88,6 +89,8 @@ void ModelGenerator::generateGaussianSDF()
 
         if (valid) {
             pore_centers.push_back(candidate_center);
+			cout << "pore_sdfs: " << SDF_ini(chosen_idx) << endl;
+			pore_sdfs.push_back(SDF_ini(chosen_idx));
         }
     }
 
@@ -117,10 +120,25 @@ void ModelGenerator::generateGaussianSDF()
     SDF_out.resize(grid_num);
 	//单独保存高斯孔隙场SDF
     Eigen::VectorXd SDF_gaussian(grid_num);
+    Eigen::VectorXd SDF_gaussian_tubes(grid_num);
+    Tube_edges = pores_connection_mst(Kernels);
     for (int idx = 0; idx < grid_num; ++idx) {
         Eigen::Vector3d p = GV.row(idx);
-		SDF_gaussian(idx) = combinedSDF(p, Kernels, gauss_combined);
-        SDF_out(idx) = smooth_IntersecSDF(SDF_ini(idx), -SDF_gaussian(idx), smooth_t);
+        //gaussian kernel
+		SDF_gaussian(idx) = combinedSDF(p, Kernels, gauss_iso);
+		//tubes
+        double sdf_p = 1000.0;
+        for (auto& e : Tube_edges){
+            sdf_p = min(sdf_p, generate_tube2(p, Kernels[e.from], Kernels[e.to], gauss_iso));
+        }
+        //for (int kx = 0; kx < Kernels.size() - 1; kx++)
+        //{
+        //    //sdf_p = min(sdf_p, generate_tube(p, Kernels[kx], Kernels[kx + 1], gauss_combined, 0.2));
+        //    sdf_p = min(sdf_p, generate_tube2(p, Kernels[kx], Kernels[kx + 1], gauss_iso));
+        //}
+        SDF_gaussian_tubes(idx) = smooth_UnionSDF(SDF_gaussian(idx), sdf_p, smooth_t);
+
+        SDF_out(idx) = smooth_IntersecSDF(SDF_ini(idx), -SDF_gaussian_tubes(idx), smooth_t);
         //SDF_out(idx) = differenceSDF(SDF_ini(idx), SDF_gaussian(idx));
         //if (SDF_gaussian(idx) < isolevel)
            // std::cout << "idx:  " << idx << "   SDF_ini(idx):" << SDF_ini(idx) << "   SDF_gaussian(idx):  " << SDF_gaussian(idx) <<"  SDF_out(idx) :" << SDF_out(idx) << std::endl;
@@ -145,54 +163,69 @@ void ModelGenerator::generateGaussianSDF()
     Eigen::MatrixXi F_g; // 输出网格面片
     MarchingCubes(SDF_gaussian, GV, resolution, resolution, resolution, isolevel, V_g, F_g);
     
-    Eigen::VectorXd SDF_gaussian_tubes(grid_num);
+
     Eigen::VectorXd SDF_gaussian_tubes2(grid_num);
-    if (Kernels.size() != 2)  cout << "more kernel" << endl;
-    for (int idx = 0; idx < grid_num; ++idx) {
-        Eigen::Vector3d p = GV.row(idx);
-              //SDF_gaussian_tubes(idx) = min(SDF_gaussian(idx), generate_tube(p, Kernels[0], Kernels[1], 0.5, 0.5));
-              //SDF_gaussian_tubes(idx) = smooth_UnionSDF(SDF_gaussian(idx), generate_tube(p, Kernels[0], Kernels[1], gauss_combined, 0.2), smooth_t);
-              SDF_gaussian_tubes(idx) = generate_tube(p, Kernels[0], Kernels[1], gauss_combined, 0.5);
-              SDF_gaussian_tubes2(idx) = generate_tube2(p, Kernels[0], Kernels[1]);
+
+    bool single_connection = false;
+    if (single_connection)
+    {
+        if (Kernels.size() != 2)  cout << "more kernel" << endl;
+        int neg_num = 0;
+        int neg_num2 = 0;
+        for (int idx = 0; idx < grid_num; ++idx) {
+            Eigen::Vector3d p = GV.row(idx);
+            //SDF_gaussian_tubes(idx) = min(SDF_gaussian(idx), generate_tube(p, Kernels[0], Kernels[1], 0.5, 0.5));
+            //SDF_gaussian_tubes(idx) = smooth_UnionSDF(SDF_gaussian(idx), generate_tube(p, Kernels[0], Kernels[1], gauss_iso, 0.2), smooth_t);
+            //SDF_gaussian_tubes(idx) = generate_tube(p, Kernels[0], Kernels[1], gauss_combined, 0.5);
+
+
+            //SDF_gaussian_tubes(idx) = generate_tube2(p, Kernels[0], Kernels[1]);
+            SDF_gaussian_tubes2(idx) = smooth_UnionSDF(SDF_gaussian(idx), generate_tube2(p, Kernels[0], Kernels[1], gauss_iso), smooth_t);
+
+            /*if (SDF_gaussian_tubes(idx) < isolevel)
+                cout << neg_num++ << " sdf1  value: " << SDF_gaussian_tubes(idx) <<endl;*/
+
+        }
+    }
+    else
+    {
+        std::cout << "Kernel size: " << Kernels.size() << endl;
+		Tube_edges = pores_connection_mst(Kernels);
+        for (int idx = 0; idx < grid_num; ++idx) {
+            Eigen::Vector3d p = GV.row(idx);
+            //SDF_gaussian_tubes(idx) = -max(-SDF_gaussian(idx), generate_tube(p, Kernels[0], Kernels[1], 0.5, 0.5));
+            double sdf_p = 1000.0;
+            for (auto& e : Tube_edges)
+            {
+                //sdf_p = min(sdf_p, generate_tube2(p, Kernels[e.from], Kernels[e.to], gauss_iso) );
+                sdf_p = min(sdf_p, generate_tube(p, Kernels[e.from], Kernels[e.to], gauss_iso, 0.5));
+            }
+            //for (int kx = 0; kx < Kernels.size() - 1; kx++)
+            //{
+            //    //sdf_p = min(sdf_p, generate_tube(p, Kernels[kx], Kernels[kx + 1], gauss_iso, 0.2));
+            //    sdf_p = min(sdf_p, generate_tube2(p, Kernels[kx], Kernels[kx + 1]));
+            //}
+            SDF_gaussian_tubes2(idx) = smooth_UnionSDF(SDF_gaussian(idx), sdf_p, smooth_t);
+
+            //SDF_gaussian_tubes(idx) = generate_tube(p, Kernels[0], Kernels[1], gauss_iso, 0.5);
+        }
     }
 
 
-
-	string filename1 = "D://VSprojects//TaihuStone//result//sdf1.txt";
+	/*string filename1 = "D://VSprojects//TaihuStone//result//sdf1.txt";
 	string filename2 = "D://VSprojects//TaihuStone//result//sdf2.txt";
     exportSDF(SDF_gaussian_tubes, filename1);
+    exportSDF(SDF_gaussian_tubes2, filename2);*/
 
-    exportSDF(SDF_gaussian_tubes2, filename2);
-
-    //// 5. 比较文件并生成可视化报告
-    std::string report_file = "sdf_comparison_report.html";
-    double tolerance = 1e-5; // 设置一个很小的误差容忍度
-
-    //std::cout << "\n 正在比较文件并生成可视化报告..." << std::endl;
-    //compareSDFAndVisualize(SDF_gaussian_tubes, SDF_gaussian_tubes2, resolution, resolution, resolution, tolerance, report_file);
-
-    //std::cout << "Kernel size: " << Kernels.size()<< endl;
-    //for (int idx = 0; idx < grid_num; ++idx) {
-    //    Eigen::Vector3d p = GV.row(idx);
-    //    //SDF_gaussian_tubes(idx) = -max(-SDF_gaussian(idx), generate_tube(p, Kernels[0], Kernels[1], 0.5, 0.5));
-    //    double sdf_p = 1000.0;
-    //    for (int kx = 0; kx < Kernels.size() - 1; kx++)
-    //    {
-    //        sdf_p = min(sdf_p, generate_tube(p, Kernels[kx], Kernels[kx + 1], gauss_combined, 0.2));
-    //    }
-    //    SDF_gaussian_tubes(idx) = smooth_UnionSDF(SDF_gaussian(idx), sdf_p, smooth_t);
-    //    
-    //    //SDF_gaussian_tubes(idx) = generate_tube(p, Kernels[0], Kernels[1], gauss_combined, 0.5);
-    //}
 
     Eigen::MatrixXd V_t; //输出网格顶点
     Eigen::MatrixXi F_t; // 输出网格面片
-    MarchingCubes(SDF_gaussian_tubes, GV, resolution, resolution, resolution, isolevel, V_t, F_t);
+    MarchingCubes(SDF_gaussian_tubes2, GV, resolution, resolution, resolution, isolevel, V_t, F_t);
     view_model(V_t, F_t);
 
 
-
-    int comp = single_component(V_g, F_g);
+	// ------------check single component--------------
+    //int comp = single_component(V_g, F_g);
     
 
     //view_model(V_g, F_g);
@@ -206,7 +239,8 @@ void ModelGenerator::generateGaussianSDF()
     // 保存STL文件
     //bool stl_success = igl::writeSTL(filename, V, F, N, igl::FileEncoding::Binary);
 
-    view_two_models(V_out, F_out, V_g, F_g, Eigen::RowVector3d(1, 0,0));
+    view_three_models(V_out, F_out, V_g, F_g, V_t, F_t, Eigen::RowVector3d(1, 0, 0));
+    //view_two_models(V_out, F_out, V_g, F_g, Eigen::RowVector3d(1, 0,0));
     // calculate normal
     //Eigen::MatrixXd N;
     //igl::per_face_normals(V_out, F_out, N);
@@ -336,7 +370,7 @@ double ModelGenerator::generate_tube(const Eigen::Vector3d& p, const GaussianKer
 }
 
 
-double ModelGenerator::generate_tube2( Eigen::Vector3d& p,   GaussianKernel& k1,   GaussianKernel& k2,  double mu)
+double ModelGenerator::generate_tube2( Eigen::Vector3d& p,   GaussianKernel& k1,   GaussianKernel& k2, double iso_level_C, double mid_radius_factor)
 {
 
     const Eigen::Vector3d& c1 = k1.center;
@@ -348,7 +382,7 @@ double ModelGenerator::generate_tube2( Eigen::Vector3d& p,   GaussianKernel& k1,
     double omega1 = 1.0 / (2.0 * k1.sigma * k1.sigma);
     double omega2 = 1.0 / (2.0 * k2.sigma * k2.sigma);
     double avg_omega = (omega1 + omega2) / 2.0;
-    mu =  avg_omega / 9.0;
+    double mu = avg_omega / mid_radius_factor;
 
     // 2. 计算点到线段的距离（论文中的 ||p - s_ij||）
     Eigen::Vector3d line_dir = c2 - c1;
@@ -358,24 +392,25 @@ double ModelGenerator::generate_tube2( Eigen::Vector3d& p,   GaussianKernel& k1,
      double dis_c = w.dot(line_dir);
      double dis;
      if (dis_c <= 0) {
-         dis = w.norm();;
+         dis = w.squaredNorm();;
      }
      else if (dis_c >= line_dir.dot(line_dir)) {
-             dis = (p - c2).norm();
+             dis = (p - c2).squaredNorm();
       }
      else {
          double t_proj = dis_c / line_length;
          Eigen::Vector3d p_proj = c1 + t_proj * line_dir; // p在轴线上的投影点
-         dis = (p - p_proj).norm();
+         dis = (p - p_proj).squaredNorm();
 	 }
      // 3. 计算管道函数的第一部分：沿线段的高斯函数
-     double tunnelMain = std::exp(-mu * dis * dis);
+     double tunnelMain = std::exp(-mu * dis);
 
     // 4. 计算要减去的两个孔隙函数部分
      double pore1 = k1.gaussian_fun(p);
      double pore2 = k2.gaussian_fun(p);
      // 5. 组合管道函数（根据论文公式2）
-     double tubeValue = tunnelMain - pore1 - pore2;
-     return  tubeValue;
-     //return gauss_combined - tubeValue;
+     double tubeValue = tunnelMain + pore1 + pore2;
+     //cout << "tunnelMain:  " << tunnelMain << "   " << pore1 << "   " << pore2 << endl;
+     //return  tubeValue;
+     return iso_level_C - tubeValue;
 }
