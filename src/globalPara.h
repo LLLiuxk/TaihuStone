@@ -13,6 +13,10 @@ extern double Sigma_max;
 extern double Gauss_level;
 
 extern double SmoothT;    //控制平滑布尔的平滑区域大小
+
+extern double Tube_radius_factor;  // 控制管道半径相对于高斯核半径的比例
+
+extern double Safe_distance_ratio; // Dart throwing安全距离比例
 //struct Parameters {
 //    Eigen::Vector3d radii = { 1, 0.5, 0.5 };
 //    int num_voids = 188;

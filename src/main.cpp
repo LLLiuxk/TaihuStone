@@ -6,13 +6,16 @@
 #include <iostream>
 #include <vector>
 #include <random>
+#include <cstdio>
 
 #include "Tool.h"
 #include "modelGen.h"
 
 
+
 int main(int argc, char* argv[])
 {
+    //freopen_s("nul", "w", stderr);
 
     auto start_time = std::chrono::high_resolution_clock::now();
 

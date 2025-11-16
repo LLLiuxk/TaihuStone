@@ -8,16 +8,19 @@
 class GaussianKernel {
 
 public:
-    GaussianKernel() : center(Eigen::Vector3d::Zero()), sigma(0.1), amplitude(1.0) {}
+    GaussianKernel() : center(Eigen::Vector3d::Zero()), sigma(0.1), amplitude(1.0) , center_value(0.0), on_surface(false){}
     /*GaussianKernel() {};*/
-    GaussianKernel(Eigen::Vector3d cente_, double sigma_, double amplitude_);
+    GaussianKernel(Eigen::Vector3d cente_, double sigma_, double amplitude_, double center_value_ = 0.0);
 	
     double gaussian_fun(const Eigen::Vector3d& p);
+    bool is_on_surface() const;
 
 public:
     Eigen::Vector3d center; // 核的中心位置
     double sigma;         // 核的大小/影响力范围 (高斯函数的标准差)
     double amplitude;
+    double center_value;
+    bool on_surface;
 
 };
 
@@ -33,6 +36,7 @@ struct CompareEdge {
     }
 };
 
+using Graph = std::vector<std::vector<Edge>>;
 
 class ModelGenerator {
 public:
@@ -47,7 +51,13 @@ public:
 
     double generate_tube(const Eigen::Vector3d& p, const GaussianKernel& k1, const GaussianKernel& k2, double iso_level_C, double mid_radius_factor);
     
-    double generate_tube2( Eigen::Vector3d& p,  GaussianKernel& k1,  GaussianKernel& k2, double iso_level_C, double mid_radius_factor = 0.2);
+    double generate_tube2( Eigen::Vector3d& p,  GaussianKernel& k1,  GaussianKernel& k2, double iso_level_C, double mid_radius_factor = 0.5);
+
+    double calculate_edge_weight(GaussianKernel k1, GaussianKernel k2);
+
+    std::vector<int> find_path_in_tree(int start_node_id, int end_node_id, std::vector<Edge> graph, int num_nodes);
+
+    double calculate_score();
 
 private:
     double m_currentPorosity = 0; 
@@ -76,6 +86,7 @@ private:
     double sigma_min = Sigma_min;
     double sigma_max = Sigma_max;
     std::vector<GaussianKernel> Kernels;
+    std::vector<int> surface_kernels;
 
     std::vector<Edge> Tube_edges;
 

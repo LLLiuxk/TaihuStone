@@ -1,5 +1,14 @@
 #include "modelGen.h"
 
+GaussianKernel::GaussianKernel(Eigen::Vector3d center_, double sigma_, double amplitude_, double center_value_)
+{
+    center = center_;
+    sigma = sigma_;         // 核的大小/影响力范围 (高斯函数的标准差)
+    amplitude = amplitude_;
+    center_value = center_value_;
+    on_surface = is_on_surface();
+}
+
 double GaussianKernel::gaussian_fun(const Eigen::Vector3d& p)
 {
 	double d2 = (p - center).squaredNorm();
@@ -9,11 +18,12 @@ double GaussianKernel::gaussian_fun(const Eigen::Vector3d& p)
 
 }
 
-GaussianKernel::GaussianKernel(Eigen::Vector3d center_, double sigma_, double amplitude_)
+bool GaussianKernel::is_on_surface() const
 {
-    center = center_;
-    sigma = sigma_;         // 核的大小/影响力范围 (高斯函数的标准差)
-    amplitude = amplitude_;
+    double ratio = Gauss_level / amplitude;
+    double d_value = sqrt(-2.0 * sigma * sigma * std::log(ratio));
+    //cout << d_value + 1e-3 << "   " << abs(center_value) << endl;
+    return d_value + 1e-3 > abs(center_value);
 }
 
 ModelGenerator::ModelGenerator(std::string input_file, int pores)
@@ -78,7 +88,7 @@ void ModelGenerator::generateGaussianSDF()
         Eigen::Vector3d max_pt = GV.colwise().maxCoeff();
         Eigen::Vector3d box_size = max_pt - min_pt;
         double volume = box_size.x() * box_size.y() * box_size.z();
-        safe_distance = 0.5 * std::cbrt(volume / pores);
+        safe_distance = Safe_distance_ratio * std::cbrt(volume / pores);
 
         for (const auto& existing_center : pore_centers) {
             if ((candidate_center - existing_center).squaredNorm() <  safe_distance* safe_distance) {
@@ -108,20 +118,38 @@ void ModelGenerator::generateGaussianSDF()
     for (size_t i = 0; i < pore_size; ++i) {
 		double sigma_val = dist_sigma(gen);
 		double amplitude_val = dist_amp(gen);
-        std::cout << "i: " << i << "  " << sigma_val<<"  "<<amplitude_val << std::endl;
-        GaussianKernel kernel(pore_centers[i], sigma_val, amplitude_val);
+        //std::cout << "i: " << i << "  " << sigma_val<<"  "<<amplitude_val << std::endl;
+        GaussianKernel kernel(pore_centers[i], sigma_val, amplitude_val, pore_sdfs[i]);
         Kernels.push_back(kernel);
+        if (kernel.on_surface) surface_kernels.push_back(i);
         /*pore_amplitudes.push_back(dist_amp(gen));
         pore_sigmas.push_back(dist_sigma(gen));*/
     }
 
-    std::cout << "Combine the Gaussian fileds... " << std::endl;
+    std::cout << "Combine "<< Kernels.size()<< " Gaussian fileds with " <<surface_kernels.size() <<" kernels in the model"<< std::endl;
     double void_count = 0;
     SDF_out.resize(grid_num);
 	//单独保存高斯孔隙场SDF
     Eigen::VectorXd SDF_gaussian(grid_num);
     Eigen::VectorXd SDF_gaussian_tubes(grid_num);
     Tube_edges = pores_connection_mst(Kernels);
+
+    //-----------test---------------
+    double score_ = calculate_score();
+	cout << "Tube_edges.size: " << Tube_edges.size() <<"  score: "<< score_<< endl;
+    for (Edge e : Tube_edges)
+		std::cout << "Edge from " << e.from << " to " << e.to << " with weight " << e.weight << std::endl;
+    std::vector<std::vector<int>>  surface_paths;
+    for(auto k1: surface_kernels)
+        for (auto k2 : surface_kernels)
+            if (k1 != k2)
+            {
+                std::vector<int>  path_ = find_path_in_tree(k1, k2, Tube_edges, Kernels.size());
+				surface_paths.push_back(path_);
+            }
+	std::cout << "Surface kernel paths number: " << surface_paths.size() << std::endl;
+
+	double tube_radius = Tube_radius_factor;
     for (int idx = 0; idx < grid_num; ++idx) {
         Eigen::Vector3d p = GV.row(idx);
         //gaussian kernel
@@ -129,13 +157,14 @@ void ModelGenerator::generateGaussianSDF()
 		//tubes
         double sdf_p = 1000.0;
         for (auto& e : Tube_edges){
-            sdf_p = min(sdf_p, generate_tube2(p, Kernels[e.from], Kernels[e.to], gauss_iso));
+            sdf_p = min(sdf_p, generate_tube2(p, Kernels[e.from], Kernels[e.to], gauss_iso, tube_radius));
         }
         //for (int kx = 0; kx < Kernels.size() - 1; kx++)
         //{
-        //    //sdf_p = min(sdf_p, generate_tube(p, Kernels[kx], Kernels[kx + 1], gauss_combined, 0.2));
-        //    sdf_p = min(sdf_p, generate_tube2(p, Kernels[kx], Kernels[kx + 1], gauss_iso));
+        //    //sdf_p = min(sdf_p, generate_tube(p, Kernels[kx], Kernels[kx + 1], gauss_combined, tube_radius));
+        //    sdf_p = min(sdf_p, generate_tube2(p, Kernels[kx], Kernels[kx + 1], gauss_iso, tube_radius));
         //}
+        
         SDF_gaussian_tubes(idx) = smooth_UnionSDF(SDF_gaussian(idx), sdf_p, smooth_t);
 
         SDF_out(idx) = smooth_IntersecSDF(SDF_ini(idx), -SDF_gaussian_tubes(idx), smooth_t);
@@ -180,7 +209,7 @@ void ModelGenerator::generateGaussianSDF()
 
 
             //SDF_gaussian_tubes(idx) = generate_tube2(p, Kernels[0], Kernels[1]);
-            SDF_gaussian_tubes2(idx) = smooth_UnionSDF(SDF_gaussian(idx), generate_tube2(p, Kernels[0], Kernels[1], gauss_iso), smooth_t);
+            SDF_gaussian_tubes2(idx) = smooth_UnionSDF(SDF_gaussian(idx), generate_tube2(p, Kernels[0], Kernels[1], gauss_iso, tube_radius), smooth_t);
 
             /*if (SDF_gaussian_tubes(idx) < isolevel)
                 cout << neg_num++ << " sdf1  value: " << SDF_gaussian_tubes(idx) <<endl;*/
@@ -198,12 +227,12 @@ void ModelGenerator::generateGaussianSDF()
             for (auto& e : Tube_edges)
             {
                 //sdf_p = min(sdf_p, generate_tube2(p, Kernels[e.from], Kernels[e.to], gauss_iso) );
-                sdf_p = min(sdf_p, generate_tube(p, Kernels[e.from], Kernels[e.to], gauss_iso, 0.5));
+                sdf_p = min(sdf_p, generate_tube(p, Kernels[e.from], Kernels[e.to], gauss_iso, tube_radius));
             }
             //for (int kx = 0; kx < Kernels.size() - 1; kx++)
             //{
-            //    //sdf_p = min(sdf_p, generate_tube(p, Kernels[kx], Kernels[kx + 1], gauss_iso, 0.2));
-            //    sdf_p = min(sdf_p, generate_tube2(p, Kernels[kx], Kernels[kx + 1]));
+            //    sdf_p = min(sdf_p, generate_tube(p, Kernels[kx], Kernels[kx + 1], gauss_iso, 0.2));
+            //    //sdf_p = min(sdf_p, generate_tube2(p, Kernels[kx], Kernels[kx + 1], gauss_iso));
             //}
             SDF_gaussian_tubes2(idx) = smooth_UnionSDF(SDF_gaussian(idx), sdf_p, smooth_t);
 
@@ -288,7 +317,7 @@ std::vector<Edge> ModelGenerator::pores_connection_mst(const std::vector<Gaussia
 
     // 初始化：加入与第一个节点相连的所有边
     for (int j = 1; j < n; ++j) {
-        double dist = (gau[0].center - gau[j].center).norm();
+        double dist  = calculate_edge_weight(gau[0], gau[j]);
         pq.push({ 0, j, dist });
     }
 
@@ -306,7 +335,7 @@ std::vector<Edge> ModelGenerator::pores_connection_mst(const std::vector<Gaussia
         // 将新加入节点的边放入队列
         for (int j = 0; j < n; ++j) {
             if (!visited[j]) {
-                double dist = (gau[e.to].center - gau[j].center).norm();
+                double dist = calculate_edge_weight(gau[e.to], gau[j]);
                 pq.push({ e.to, j, dist });
             }
         }
@@ -339,8 +368,8 @@ double ModelGenerator::generate_tube(const Eigen::Vector3d& p, const GaussianKer
     t_proj = std::max(0.0, std::min(1.0, t_proj));
     Eigen::Vector3d p_proj = c1 + t_proj * line_dir; // p在轴线上的投影点
 
-    double r0 = k1.sigma *std::sqrt(std::log(k1.amplitude / iso_level_C));
-    double r4 = k2.sigma *std::sqrt(std::log(k2.amplitude / iso_level_C));
+    double r0 = sqrt(mid_radius_factor) * k1.sigma;
+    double r4 = sqrt(mid_radius_factor) * k2.sigma  ;
 
     // 设置中间最小半径（按论文：由可制造性/孔大小约束设置）
     double r2 = std::max(mid_radius_factor * std::min(r0, r4), 1e-4);
@@ -382,7 +411,7 @@ double ModelGenerator::generate_tube2( Eigen::Vector3d& p,   GaussianKernel& k1,
     double omega1 = 1.0 / (2.0 * k1.sigma * k1.sigma);
     double omega2 = 1.0 / (2.0 * k2.sigma * k2.sigma);
     double avg_omega = (omega1 + omega2) / 2.0;
-    double mu = avg_omega / mid_radius_factor;
+    double mu = 10* mid_radius_factor * avg_omega;  //mid_radius_factor越小，圆越小
 
     // 2. 计算点到线段的距离（论文中的 ||p - s_ij||）
     Eigen::Vector3d line_dir = c2 - c1;
@@ -413,4 +442,232 @@ double ModelGenerator::generate_tube2( Eigen::Vector3d& p,   GaussianKernel& k1,
      //cout << "tunnelMain:  " << tunnelMain << "   " << pore1 << "   " << pore2 << endl;
      //return  tubeValue;
      return iso_level_C - tubeValue;
+}
+
+double ModelGenerator::calculate_edge_weight(GaussianKernel k1, GaussianKernel k2)
+{
+    bool dis_dir = true;
+    double dist = (k1.center - k2.center).norm();
+    
+    if (dis_dir) return dist;
+    vector<double> weights{ 0.6, 1.5, 1.2 };
+    // 1. 确定分类系数 C(i, j)
+    double connect_weight;
+    if (k1.on_surface != k2.on_surface) {
+        // 一个是内部，一个是边界
+        connect_weight = weights[0];
+    }
+    else if (!k1.on_surface) {
+        // 两个都是内部
+        connect_weight = weights[1];
+    }
+    else { // node1.type == NodeType::Boundary
+        // 两个都是边界
+        connect_weight = weights[2];
+    }
+
+
+    double overlap_weight = 1.0;
+    // 2. 计算基础欧氏距离 d(i, j)
+
+
+    // 3. 计算重叠度调节因子 O(i, j)
+    //double O = calculate_overlap_factor(node1, node2, k_o);
+
+    // 4. 计算最终权重 W(i, j) = d * C * O
+    return dist * connect_weight * overlap_weight;
+}
+
+
+std::vector<int> ModelGenerator::find_path_in_tree(int start_node_id, int end_node_id, std::vector<Edge> edge_list, int num_nodes)
+{
+    // --- 步骤 1: 将边列表转换为邻接表 ，其中 adj_list[i] 将存储所有与节点 i 直接相连的节点的ID。
+    if (num_nodes <= 0) {
+        return {}; // 如果没有节点，则不可能有路径
+    }
+    std::vector<std::vector<int>> adj_list(num_nodes);
+    for (const auto& edge : edge_list) {
+        // 由于最小生成树是无向图，一条边代表双向连接。
+        // 我们需要将 `to` 添加到 `from` 的邻居列表，同时将 `from` 添加到 `to` 的邻居列表。
+        if (edge.from < num_nodes && edge.to < num_nodes) {
+            adj_list[edge.from].push_back(edge.to);
+            adj_list[edge.to].push_back(edge.from);
+        }
+    }
+
+    // --- 步骤 2: 使用广度优先搜索 (BFS) 查找路径 , BFS 是在树或图中查找最短路径（按边数计）的经典算法。
+    std::queue<int> q; // q: 一个队列，用于存放待访问的节点
+    q.push(start_node_id);
+
+    // parent: 一个数组，用于在找到路径后进行回溯。parent[i] 存储的是在路径上节点 i 的前一个节点。
+    std::vector<int> parent(num_nodes, -1);
+
+    // visited: 一个布尔数组，用于标记节点是否已被访问，防止在图中走回头路或陷入循环。
+    std::vector<bool> visited(num_nodes, false);
+    visited[start_node_id] = true;
+
+    bool path_found = false;
+    while (!q.empty()) {
+        int u = q.front();
+        q.pop();
+
+        if (u == end_node_id) {
+            path_found = true;
+            break; // 找到了终点，可以提前结束搜索
+        }
+
+        // 遍历当前节点 u 的所有邻居
+        // 这里体现了邻接表的效率优势：直接访问 adj_list[u] 即可。
+        for (int v : adj_list[u]) {
+            if (!visited[v]) {
+                visited[v] = true; // 标记为已访问
+                parent[v] = u;    // 记录父节点，用于后续路径重构
+                q.push(v);        // 将邻居节点加入待访问队列
+            }
+        }
+    }
+
+    // --- 步骤 3: 路径重构 ---
+    // 如果找到了路径（即BFS到达了终点），我们从终点开始，
+    // 利用 `parent` 数组反向回溯，直到回到起点。
+
+    std::vector<int> path;
+    if (path_found) {
+        int current = end_node_id;
+        while (current != -1) {
+            path.push_back(current);
+            current = parent[current]; // 移动到路径上的前一个节点
+        }
+        // 因为我们是-从终点回溯到起点，所以得到的路径是反的，需要反转一次。
+        std::reverse(path.begin(), path.end());
+    }
+    else if (start_node_id == end_node_id) {
+        // 处理起点和终点是同一个节点的特殊情况
+        path.push_back(start_node_id);
+    }
+
+    return path;
+}
+
+
+//std::pair<double, double> calculate_path_properties(const std::vector<int>& path, const std::vector<GaussianNode>& all_nodes) {
+//    if (path.size() < 2) {
+//        return { 1.0, 0.0 }; // 路径太短，无转角，长度为0
+//    }
+//
+//    double total_length = 0.0;
+//    for (size_t i = 0; i < path.size() - 1; ++i) {
+//        total_length += Point3D::distance(all_nodes[path[i]].center, all_nodes[path[i + 1]].center);
+//    }
+//
+//    if (path.size() < 3) {
+//        return { 1.0, total_length }; // 直线路径，无内部节点，通透性为1
+//    }
+//
+//    double permeability_score = 1.0;
+//    for (size_t i = 1; i < path.size() - 1; ++i) {
+//        const Point3D& prev = all_nodes[path[i - 1]].center;
+//        const Point3D& curr = all_nodes[path[i]].center;
+//        const Point3D& next = all_nodes[path[i + 1]].center;
+//
+//        Point3D v1 = Point3D::subtract(prev, curr);
+//        Point3D v2 = Point3D::subtract(next, curr);
+//
+//        double mag1 = v1.magnitude();
+//        double mag2 = v2.magnitude();
+//
+//        if (mag1 > 1e-9 && mag2 > 1e-9) {
+//            double dot_product = Point3D::dot(v1, v2);
+//            double cos_theta = dot_product / (mag1 * mag2);
+//
+//            // 夹角可能因浮点误差略超出[-1, 1]范围
+//            cos_theta = std::max(-1.0, std::min(1.0, cos_theta));
+//
+//            double angle_rad = std::acos(cos_theta);
+//            double angle_deg = angle_rad * 180.0 / M_PI;
+//
+//            permeability_score *= (angle_deg / 180.0);
+//        }
+//    }
+//
+//    return { permeability_score, total_length };
+//}
+
+
+double ModelGenerator::calculate_score()
+{
+    double sum_score = 0.0;
+    for (auto t : Tube_edges)
+    {
+        sum_score += t.weight;
+    }
+	cout << "Total score: " << sum_score << endl;
+	return sum_score;
+    //if (all_nodes.empty()) {
+    //    return 0.0;
+    //}
+
+    //// --- 1. 计算通透性 Permeability(G) ---
+    //std::vector<int> boundary_node_ids;
+    //for (const auto& node : all_nodes) {
+    //    if (node.type == NodeType::Boundary) {
+    //        boundary_node_ids.push_back(node.id);
+    //    }
+    //}
+
+    //double total_weighted_permeability = 0.0;
+    //double total_path_length_sum = 0.0;
+
+    //if (boundary_node_ids.size() >= 2) {
+    //    for (size_t i = 0; i < boundary_node_ids.size(); ++i) {
+    //        for (size_t j = i + 1; j < boundary_node_ids.size(); ++j) {
+    //            int start_id = boundary_node_ids[i];
+    //            int end_id = boundary_node_ids[j];
+
+    //            std::vector<int> path = find_path_in_tree(start_id, end_id, mst, all_nodes.size());
+
+    //            if (!path.empty()) {
+    //                auto properties = calculate_path_properties(path, all_nodes);
+    //                double path_permeability = properties.first;
+    //                double path_length = properties.second;
+
+    //                total_weighted_permeability += path_permeability * path_length;
+    //                total_path_length_sum += path_length;
+    //            }
+    //        }
+    //    }
+    //}
+
+    //double permeability_G = 0.0;
+    //if (total_path_length_sum > 1e-9) {
+    //    permeability_G = total_weighted_permeability / total_path_length_sum;
+    //}
+    //else {
+    //    // 如果没有边界-边界路径（例如少于2个边界点），则通透性为0
+    //    permeability_G = 0.0;
+    //}
+
+
+    //// --- 2. 计算成本 Cost(G) ---
+    //double cost_L = 0.0; // 长度成本
+    //int cost_E = 0;      // 边数成本
+
+    //for (int u = 0; u < mst.size(); ++u) {
+    //    for (const auto& edge : mst[u]) {
+    //        if (u < edge.to) { // 防止重复计算无向图的边
+    //            cost_L += edge.length;
+    //            cost_E++;
+    //        }
+    //    }
+    //}
+
+    //double cost_G = cost_L + w_e * cost_E;
+
+    //// --- 3. 计算最终得分 Score(G) ---
+    //if (cost_G < 1e-9) {
+    //    // 成本几乎为0，如果通透性也为0，得分为0；否则得分非常高
+    //    return (permeability_G > 1e-9) ? std::numeric_limits<double>::max() : 0.0;
+    //}
+
+    //return permeability_G / cost_G;
 }

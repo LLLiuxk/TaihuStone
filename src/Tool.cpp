@@ -99,6 +99,12 @@ void view_model(Eigen::MatrixXd V1, Eigen::MatrixXi F1)
 {
     std::cout << "show libigl viewer" << std::endl;
     igl::opengl::glfw::Viewer viewer;
+    //viewer.core().set_uicontrol(false);
+
+    viewer.callback_key_pressed = [](igl::opengl::glfw::Viewer&, unsigned int, int)->bool
+        {
+            return true; // 阻止默认 key handler 执行，usage 不会打印
+        };
 
     viewer.data().set_mesh(V1, F1);
     viewer.data().show_lines = true;   // 不显示网格线
@@ -112,7 +118,10 @@ void view_two_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V2,
 {
     std::cout << "show libigl viewer" << std::endl;
     igl::opengl::glfw::Viewer viewer;
-
+    viewer.callback_key_pressed = [](igl::opengl::glfw::Viewer&, unsigned int, int)->bool
+        {
+            return true; // 阻止默认 key handler 执行，usage 不会打印
+        };
     viewer.data().set_mesh(V1, F1);
     viewer.data().show_lines = true;   // 不显示网格线
     //viewer.data().set_colors(Eigen::RowVector3d(0.8, 0.7, 0.2)); // 设置一个漂亮的蓝色
@@ -135,14 +144,17 @@ void view_three_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V
 {
     std::cout << "show libigl viewer" << std::endl;
     igl::opengl::glfw::Viewer viewer;
-
+    viewer.callback_key_pressed = [](igl::opengl::glfw::Viewer&, unsigned int, int)->bool
+        {
+            return true; // 阻止默认 key handler 执行，usage 不会打印
+        };
     viewer.data().set_mesh(V1, F1);
     viewer.data().show_lines = true;   // 不显示网格线
     //viewer.data().set_colors(Eigen::RowVector3d(0.8, 0.7, 0.2)); // 设置一个漂亮的蓝色
 
     int id2 = viewer.append_mesh();
     Eigen::MatrixXd V_shifted = V2;
-    V_shifted.rowwise() -= shift;  // 向左移动 1 个单位
+    //V_shifted.rowwise() -= shift;  // 向左移动 1 个单位
 
     viewer.data(id2).set_mesh(V_shifted, F2);
     viewer.data(id2).set_colors(Eigen::RowVector3d(0.8, 0.1, 0.1));
@@ -393,4 +405,6 @@ bool exportSDF(Eigen::VectorXd& sdf, std::string& filename)
 
     return true;
 }
+
+
 
