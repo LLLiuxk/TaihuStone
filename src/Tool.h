@@ -16,6 +16,7 @@
 
 #include "globalPara.h" 
 
+#define M_PI 3.1415926
 using namespace std;
 using namespace Eigen;
 
@@ -49,6 +50,8 @@ void view_three_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V
 
 int  single_component(Eigen::MatrixXd V, Eigen::MatrixXi F);
 
+//三角运算
+double abs_angle(Vector3d v1, Vector3d v2);
 
 //Bernstein基函数 
 double bernstein_basis(int i, int n, double t);

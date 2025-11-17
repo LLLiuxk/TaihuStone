@@ -44,6 +44,12 @@ public:
     ModelGenerator(std::string input_file, int pores = PoresNum);
 
 	void generateGaussianSDF();
+
+    void sample_interior_points(std::vector<Eigen::Vector3d>& pore_centers, std::vector<double>& pore_sdfs, 
+        std::vector<int>& inside_indices, int pores, std::mt19937& gen);
+
+    void generate_gaussians(std::vector<Eigen::Vector3d> pore_centers, std::vector<double> pore_sdfs, std::mt19937& gen);
+
     double combinedSDF(Eigen::Vector3d& p, std::vector<GaussianKernel> G_kernels, double C);
 
     void show_model();
@@ -56,8 +62,12 @@ public:
     double calculate_edge_weight(GaussianKernel k1, GaussianKernel k2);
 
     std::vector<int> find_path_in_tree(int start_node_id, int end_node_id, std::vector<Edge> graph, int num_nodes);
+	
+    int find_edge_by_nodes(int from_node, int to_node, const std::vector<Edge> edge_list);
 
-    double calculate_score();
+    std::pair<double, double> calculate_each_path(const std::vector<int>& path);
+
+    double calculate_score(std::vector<std::vector<int>>  Paths);
 
 private:
     double m_currentPorosity = 0; 

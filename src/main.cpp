@@ -24,7 +24,7 @@ int main(int argc, char* argv[])
     //std::string input_file = "D:/VSprojects/TaihuStone/cube.obj";
     ModelGenerator mg(input_file);
     mg.show_model();
-	cout << "1:  " << bernstein_basis(2.5, 3, 0.3) << endl;
+
 	// ------------------------------------- view two models after alignment -------------------------------------
  //   string model1_path = "D:/VSprojects/ctaihuigl/limitstl/gpu_topology_optimized.stl";
  //   string model2_path = "D:/VSprojects/ctaihuigl/limitstl/generated_model.stl";

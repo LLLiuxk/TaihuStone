@@ -270,6 +270,29 @@ int single_component(Eigen::MatrixXd V, Eigen::MatrixXi F)
     //std::cout << "keepLargestConnectedComponent: kept component " << max_comp << " with " << max_size << " faces." << std::endl;
 }
 
+double abs_angle(Vector3d v1, Vector3d v2)
+{
+    double mag1 = v1.norm();
+    double mag2 = v2.norm();
+    double angle_deg = 0.0;
+    if (mag1 < 1e-9 || mag2 < 1e-9) {
+		cout << "Warining: zero length vector in cos_angle!" << endl;
+    }
+    else
+    {
+        double dot_product = (v1).dot(v2);
+        double cos_theta = dot_product / (mag1 * mag2);
+        //cout << "dot_product: " << dot_product << "   cos_theta: " << cos_theta << endl;
+        // 夹角可能因浮点误差略超出[-1, 1]范围
+        cos_theta = std::max(-1.0, std::min(1.0, cos_theta));
+
+        double angle_rad = std::acos(cos_theta);
+        angle_deg = angle_rad * 180.0 / M_PI;
+        //cout << "angle_rad: " << angle_rad << "   angle_deg: " << angle_deg << endl;
+    }	
+    return angle_deg;
+}
+
 bool align_models_with_pca(const std::string& model1_path, const std::string& model2_path, const std::string& output_path) 
 {
     // 读取模型
