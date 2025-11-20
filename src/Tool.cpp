@@ -164,7 +164,7 @@ void view_three_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V
     V_shifted3.rowwise() += shift;  // 向右移动 1 个单位
 
     viewer.data(id3).set_mesh(V_shifted3, F3);
-    viewer.data(id3).set_colors(Eigen::RowVector3d(0.1, 0.1, 0.8));
+    viewer.data(id3).set_colors(Eigen::RowVector3d(0.8, 0.8, 0.8));
     // 添加辅助点 (高斯核的中心)，设置为红色
    // viewer.data().add_points(kernel_points, Eigen::RowVector3d(1, 0, 0));
     viewer.data().point_size = 10; // 让点更显眼
@@ -291,6 +291,11 @@ double abs_angle(Vector3d v1, Vector3d v2)
         //cout << "angle_rad: " << angle_rad << "   angle_deg: " << angle_deg << endl;
     }	
     return angle_deg;
+}
+
+double distance(Vector3d v1, Vector3d v2)
+{
+	return (v1 - v2).norm();
 }
 
 bool align_models_with_pca(const std::string& model1_path, const std::string& model2_path, const std::string& output_path) 

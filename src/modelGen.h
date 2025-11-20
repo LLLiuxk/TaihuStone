@@ -27,6 +27,7 @@ public:
 struct Edge {
     int from;
     int to;
+    double length;
     double weight;
 };
 
@@ -53,20 +54,21 @@ public:
     double combinedSDF(Eigen::Vector3d& p, std::vector<GaussianKernel> G_kernels, double C);
 
     void show_model();
-    std::vector<Edge>  pores_connection_mst(const std::vector<GaussianKernel>& gau);
 
-    double generate_tube(const Eigen::Vector3d& p, const GaussianKernel& k1, const GaussianKernel& k2, double iso_level_C, double mid_radius_factor);
-    
+    std::vector<Edge>  pores_connection_mst(const std::vector<GaussianKernel>& gau);
+    std::vector<int> all_leafs_mst(std::vector<Edge>& mst_tree);
+
+    double generate_tube(const Eigen::Vector3d& p, const GaussianKernel& k1, const GaussianKernel& k2, double iso_level_C, double mid_radius_factor);    
     double generate_tube2( Eigen::Vector3d& p,  GaussianKernel& k1,  GaussianKernel& k2, double iso_level_C, double mid_radius_factor = 0.5);
 
     double calculate_edge_weight(GaussianKernel k1, GaussianKernel k2);
 
     std::vector<int> find_path_in_tree(int start_node_id, int end_node_id, std::vector<Edge> graph, int num_nodes);
-	
+	double length_graph_path(int p1, int p2);
+    double length_path(int p1, int p2);
     int find_edge_by_nodes(int from_node, int to_node, const std::vector<Edge> edge_list);
 
     std::pair<double, double> calculate_each_path(const std::vector<int>& path);
-
     double calculate_score(std::vector<std::vector<int>>  Paths);
 
 private:

@@ -68,7 +68,13 @@ void ModelGenerator::generateGaussianSDF()
     Eigen::VectorXd SDF_gaussian(grid_num);
     Eigen::VectorXd SDF_gaussian_tubes(grid_num);
     Tube_edges = pores_connection_mst(Kernels);
-
+    vector<int> leafs_nidex = all_leafs_mst(Tube_edges);
+    vector<int> inner_leafs;
+    for (auto t : leafs_nidex)
+		if (!Kernels[t].on_surface) 
+            inner_leafs.push_back(t);
+        
+	cout << "inner_leafs_num: " << inner_leafs.size() << endl;
     //-----------test---------------
 
 
@@ -187,7 +193,7 @@ void ModelGenerator::generateGaussianSDF()
     Eigen::MatrixXd V_t; //输出网格顶点
     Eigen::MatrixXi F_t; // 输出网格面片
     MarchingCubes(SDF_gaussian_tubes2, GV, resolution, resolution, resolution, isolevel, V_t, F_t);
-    view_model(V_t, F_t);
+    //view_model(V_t, F_t);
 
 
 	// ------------check single component--------------
@@ -205,7 +211,8 @@ void ModelGenerator::generateGaussianSDF()
     // 保存STL文件
     //bool stl_success = igl::writeSTL(filename, V, F, N, igl::FileEncoding::Binary);
 
-    view_three_models(V_out, F_out, V_g, F_g, V_t, F_t, Eigen::RowVector3d(1, 0, 0));
+    //view_three_models(V_out, F_out, V_g, F_g, V_t, F_t, Eigen::RowVector3d(1, 0, 0));
+    view_three_models(V_out, F_out, V_t, F_t, V_t, F_t, Eigen::RowVector3d(1, 0, 0));
     //view_two_models(V_out, F_out, V_g, F_g, Eigen::RowVector3d(1, 0,0));
     // calculate normal
     //Eigen::MatrixXd N;
@@ -333,8 +340,9 @@ std::vector<Edge> ModelGenerator::pores_connection_mst(const std::vector<Gaussia
 
     // 初始化：加入与第一个节点相连的所有边
     for (int j = 1; j < n; ++j) {
-        double dist  = calculate_edge_weight(gau[0], gau[j]);
-        pq.push({ 0, j, dist });
+        double dist = distance(gau[0].center, gau[j].center);
+        double dist_w = dist * calculate_edge_weight(gau[0], gau[j]);
+        pq.push({ 0, j, dist, dist_w });
     }
 
     // 逐步扩展生成树
@@ -351,12 +359,40 @@ std::vector<Edge> ModelGenerator::pores_connection_mst(const std::vector<Gaussia
         // 将新加入节点的边放入队列
         for (int j = 0; j < n; ++j) {
             if (!visited[j]) {
-                double dist = calculate_edge_weight(gau[e.to], gau[j]);
-                pq.push({ e.to, j, dist });
+                double dist = distance(gau[e.to].center, gau[j].center);
+                double dist_w = dist * calculate_edge_weight(gau[e.to], gau[j]);
+                pq.push({ e.to, j, dist, dist_w });
             }
         }
     }
     return mst_edges;
+}
+
+std::vector<int> ModelGenerator::all_leafs_mst(std::vector<Edge>& mst_tree) 
+{
+    // 使用哈希表存储每个节点的度数
+    // Key: 节点ID, Value: 度数
+    std::unordered_map<int, int> node_degrees;
+
+    // 1. 遍历所有边，统计度数
+    for (const auto& edge : mst_tree) {
+        node_degrees[edge.from]++;
+        node_degrees[edge.to]++;
+    }
+
+    std::vector<int> leaves;
+
+    // 2. 找出度数为 1 的节点
+    for (const auto& pair : node_degrees) {
+        if (pair.second == 1) {
+            leaves.push_back(pair.first);
+        }
+    }
+
+    // 3. 对结果进行排序（可选，但通常为了结果确定性建议排序）
+    std::sort(leaves.begin(), leaves.end());
+
+    return leaves;
 }
 
 double ModelGenerator::generate_tube(const Eigen::Vector3d& p, const GaussianKernel& k1, const GaussianKernel& k2, double iso_level_C, double mid_radius_factor) // 中间最小半径相对端点半径的初值
@@ -462,11 +498,7 @@ double ModelGenerator::generate_tube2( Eigen::Vector3d& p,   GaussianKernel& k1,
 
 double ModelGenerator::calculate_edge_weight(GaussianKernel k1, GaussianKernel k2)
 {
-    bool dis_dir = Direct_dis;
-    double dist = (k1.center - k2.center).norm();
-    
-    if (dis_dir) return dist;
-    vector<double> weights{ 0.8, 1.2, 1.0 };
+	vector<double> weights{ 0.8, 1.0, 1.2 };  // 分类系数权重：边界-内部，内部-内部，边界-边界
     // 1. 确定分类系数 C(i, j)
     double connect_weight;
     if (k1.on_surface != k2.on_surface) {
@@ -491,7 +523,7 @@ double ModelGenerator::calculate_edge_weight(GaussianKernel k1, GaussianKernel k
     //double O = calculate_overlap_factor(node1, node2, k_o);
 
     // 4. 计算最终权重 W(i, j) = d * C * O
-    return dist * connect_weight * overlap_weight;
+    return connect_weight * overlap_weight;
 }
 
 
@@ -565,7 +597,29 @@ std::vector<int> ModelGenerator::find_path_in_tree(int start_node_id, int end_no
     return path;
 }
 
-int ModelGenerator::find_edge_by_nodes(int from_node, int to_node, const std::vector<Edge> edge_list)
+double ModelGenerator::length_graph_path(int p1, int p2)
+{
+    std::vector<Edge> mst = Tube_edges;
+    if (p1 == p2) return 0.0;
+    if (mst.empty()) return -1.0; // 错误：没有树
+
+    std::vector<int> path_ = find_path_in_tree(p1, p2, mst, Kernels.size());
+
+    double length_graph = 0.0;
+    for (auto p : path_)
+    {
+		length_graph += Tube_edges[p].length;
+        //length_graph += Tube_edges[p].weight;
+    }
+    return length_graph; // 如果图不连通（理论上MST应该是连通的），返回-1
+}
+
+double ModelGenerator::length_path(int p1, int p2)
+{
+	return distance(Kernels[p1].center, Kernels[p2].center);
+}
+
+int  ModelGenerator::find_edge_by_nodes(int from_node, int to_node, const std::vector<Edge> edge_list)
 {
     for (int i = 0; i < edge_list.size(); i++)
     {
