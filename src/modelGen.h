@@ -29,15 +29,23 @@ struct Edge {
     int to;
     double length;
     double weight;
-};
 
-struct CompareEdge {
-    bool operator()(const Edge& e1, const Edge& e2) const {
-        return e1.weight > e2.weight;
+    // 重载 > 运算符以实现最小堆
+    bool operator>(const Edge& other) const {
+        return weight > other.weight;
     }
 };
 
-using Graph = std::vector<std::vector<Edge>>;
+
+
+struct NodeDist {
+    int id;
+    double dist;
+    // 重载 > 运算符以实现最小堆
+    bool operator>(const NodeDist& other) const {
+        return dist > other.dist;
+    }
+};
 
 class ModelGenerator {
 public:
@@ -56,6 +64,14 @@ public:
     void show_model();
 
     std::vector<Edge>  pores_connection_mst(const std::vector<GaussianKernel>& gau);
+    std::vector<std::vector<int>> construct_adj_list(std::vector<Edge> edges_list, int kernel_num);
+    std::vector<double> construct_dist_map(int p_index, std::vector<std::vector<int>> adj);
+
+    std::vector<int> find_path_in_tree(int p1, int p2, int num_nodes);
+    double length_graph_path(int p1, int p2);
+    double length_path(int p1, int p2);
+    int find_edge_by_nodes(int from_node, int to_node, const std::vector<Edge> edge_list);
+
     std::vector<int> all_leafs_mst(std::vector<Edge>& mst_tree);
 
     double generate_tube(const Eigen::Vector3d& p, const GaussianKernel& k1, const GaussianKernel& k2, double iso_level_C, double mid_radius_factor);    
@@ -63,10 +79,7 @@ public:
 
     double calculate_edge_weight(GaussianKernel k1, GaussianKernel k2);
 
-    std::vector<int> find_path_in_tree(int start_node_id, int end_node_id, std::vector<Edge> graph, int num_nodes);
-	double length_graph_path(int p1, int p2);
-    double length_path(int p1, int p2);
-    int find_edge_by_nodes(int from_node, int to_node, const std::vector<Edge> edge_list);
+
 
     std::pair<double, double> calculate_each_path(const std::vector<int>& path);
     double calculate_score(std::vector<std::vector<int>>  Paths);
@@ -101,7 +114,7 @@ private:
     std::vector<int> surface_kernels;
 
     std::vector<Edge> Tube_edges;
-
+    std::vector<std::vector<int>> Adj_list;
 
 	double smooth_t = SmoothT;         //平滑参数，值越大，平滑效果越小，趋近于普通并集
     int m_cachedRes = 0;                   // 分辨率

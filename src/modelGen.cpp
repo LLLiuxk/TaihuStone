@@ -62,12 +62,17 @@ void ModelGenerator::generateGaussianSDF()
 
     generate_gaussians(pore_centers, pore_sdfs, gen);
 
+	int kernel_num = Kernels.size();
     double void_count = 0;
     SDF_out.resize(grid_num);
 	//单独保存高斯孔隙场SDF
     Eigen::VectorXd SDF_gaussian(grid_num);
     Eigen::VectorXd SDF_gaussian_tubes(grid_num);
     Tube_edges = pores_connection_mst(Kernels);
+
+	// 构建邻接表
+    Adj_list = construct_adj_list(Tube_edges, kernel_num);
+    
     vector<int> leafs_nidex = all_leafs_mst(Tube_edges);
     vector<int> inner_leafs;
     for (auto t : leafs_nidex)
@@ -85,7 +90,7 @@ void ModelGenerator::generateGaussianSDF()
         for (auto k2 : surface_kernels)
             if (k1 != k2)
             {
-                std::vector<int>  path_ = find_path_in_tree(k1, k2, Tube_edges, Kernels.size());
+                std::vector<int>  path_ = find_path_in_tree(k1, k2, kernel_num);
 				surface_paths.push_back(path_);
             }
 	std::cout << "Surface kernel paths number: " << surface_paths.size() << std::endl;
@@ -333,7 +338,7 @@ std::vector<Edge> ModelGenerator::pores_connection_mst(const std::vector<Gaussia
     }
 
     std::vector<bool> visited(n, false);
-    std::priority_queue<Edge, std::vector<Edge>, CompareEdge> pq;
+    std::priority_queue<Edge, std::vector<Edge>, std::greater<Edge>> pq;
 
     // 从第一个节点开始
     visited[0] = true;
@@ -366,6 +371,147 @@ std::vector<Edge> ModelGenerator::pores_connection_mst(const std::vector<Gaussia
         }
     }
     return mst_edges;
+}
+
+std::vector<std::vector<int>> ModelGenerator::construct_adj_list(std::vector<Edge> edges_list, int kernel_num)
+{
+    std::vector<std::vector<int>> adj_list(kernel_num);
+    for (const auto& edge : edges_list) {
+        // 由于最小生成树是无向图，一条边代表双向连接。
+        // 我们需要将 `to` 添加到 `from` 的邻居列表，同时将 `from` 添加到 `to` 的邻居列表。
+        if (edge.from < kernel_num && edge.to < kernel_num) {
+            adj_list[edge.from].push_back(edge.to);
+            adj_list[edge.to].push_back(edge.from);
+        }
+    }
+	return adj_list;
+}
+
+std::vector<double> ModelGenerator::construct_dist_map(int p_index, std::vector<std::vector<int>> adj)
+{
+    int n = Kernels.size();
+    double INF = std::numeric_limits<double>::max();
+    std::priority_queue<NodeDist, std::vector<NodeDist>, std::greater<NodeDist>> pq;
+    std::vector<double> dist_map(n, INF);
+    dist_map[p_index] = 0.0;
+    pq.push({ p_index, 0.0 });
+
+    while (!pq.empty()) {
+        NodeDist current = pq.top();
+        pq.pop();
+
+        int u = current.id;
+        double d = current.dist;
+
+        if (d > dist_map[u]) continue;
+
+        for (const auto& neighbor : adj[u]) {
+            int v = neighbor;
+			double length = length_path(u, v);
+
+            if (dist_map[u] + length < dist_map[v]) {
+                dist_map[v] = dist_map[u] + length;
+                pq.push({ v, dist_map[v] });
+            }
+        }
+    }
+}
+
+
+std::vector<int> ModelGenerator::find_path_in_tree(int p1, int p2,  int num_nodes)
+{
+    // --- 步骤 1: 将边列表转换为邻接表 ，其中 adj_list[i] 将存储所有与节点 i 直接相连的节点的ID。
+    if (num_nodes <= 0) {
+        return {}; // 如果没有节点，则不可能有路径
+    }
+    std::vector<std::vector<int>> adj_list = Adj_list;
+
+    // --- 步骤 2: 使用广度优先搜索 (BFS) 查找路径 , BFS 是在树或图中查找最短路径（按边数计）的经典算法。
+    std::queue<int> q; // q: 一个队列，用于存放待访问的节点
+    q.push(p1);
+
+    // parent: 一个数组，用于在找到路径后进行回溯。parent[i] 存储的是在路径上节点 i 的前一个节点。
+    std::vector<int> parent(num_nodes, -1);
+
+    // visited: 一个布尔数组，用于标记节点是否已被访问，防止在图中走回头路或陷入循环。
+    std::vector<bool> visited(num_nodes, false);
+    visited[p1] = true;
+
+    bool path_found = false;
+    while (!q.empty()) {
+        int u = q.front();
+        q.pop();
+
+        if (u == p2) {
+            path_found = true;
+            break; // 找到了终点，可以提前结束搜索
+        }
+
+        // 遍历当前节点 u 的所有邻居
+        // 这里体现了邻接表的效率优势：直接访问 adj_list[u] 即可。
+        for (int v : adj_list[u]) {
+            if (!visited[v]) {
+                visited[v] = true; // 标记为已访问
+                parent[v] = u;    // 记录父节点，用于后续路径重构
+                q.push(v);        // 将邻居节点加入待访问队列
+            }
+        }
+    }
+
+    // --- 步骤 3: 路径重构 ---
+    // 如果找到了路径（即BFS到达了终点），我们从终点开始，
+    // 利用 `parent` 数组反向回溯，直到回到起点。
+
+    std::vector<int> path;
+    if (path_found) {
+        int current = p2;
+        while (current != -1) {
+            path.push_back(current);
+            current = parent[current]; // 移动到路径上的前一个节点
+        }
+        // 因为我们是-从终点回溯到起点，所以得到的路径是反的，需要反转一次。
+        std::reverse(path.begin(), path.end());
+    }
+    else if (p1 == p2) {
+        // 处理起点和终点是同一个节点的特殊情况
+        path.push_back(p1);
+    }
+
+    return path;
+}
+
+double ModelGenerator::length_graph_path(int p1, int p2)
+{
+    std::vector<Edge> mst = Tube_edges;
+    if (p1 == p2) return 0.0;
+    if (mst.empty()) return -1.0; // 错误：没有树
+
+    std::vector<int> path_ = find_path_in_tree(p1, p2, Kernels.size());
+
+    double length_graph = 0.0;
+    for (auto p : path_)
+    {
+        length_graph += mst[p].length;
+        //length_graph += Tube_edges[p].weight;
+    }
+    return length_graph; // 如果图不连通（理论上MST应该是连通的），返回-1
+}
+
+double ModelGenerator::length_path(int p1, int p2)
+{
+    return distance(Kernels[p1].center, Kernels[p2].center);
+}
+
+int  ModelGenerator::find_edge_by_nodes(int from_node, int to_node, const std::vector<Edge> edge_list)
+{
+    for (int i = 0; i < edge_list.size(); i++)
+    {
+        if ((edge_list[i].from == from_node && edge_list[i].to == to_node) ||
+            (edge_list[i].from == to_node && edge_list[i].to == from_node))
+        {
+            return i;
+        }
+    }
 }
 
 std::vector<int> ModelGenerator::all_leafs_mst(std::vector<Edge>& mst_tree) 
@@ -527,109 +673,7 @@ double ModelGenerator::calculate_edge_weight(GaussianKernel k1, GaussianKernel k
 }
 
 
-std::vector<int> ModelGenerator::find_path_in_tree(int start_node_id, int end_node_id, std::vector<Edge> edge_list, int num_nodes)
-{
-    // --- 步骤 1: 将边列表转换为邻接表 ，其中 adj_list[i] 将存储所有与节点 i 直接相连的节点的ID。
-    if (num_nodes <= 0) {
-        return {}; // 如果没有节点，则不可能有路径
-    }
-    std::vector<std::vector<int>> adj_list(num_nodes);
-    for (const auto& edge : edge_list) {
-        // 由于最小生成树是无向图，一条边代表双向连接。
-        // 我们需要将 `to` 添加到 `from` 的邻居列表，同时将 `from` 添加到 `to` 的邻居列表。
-        if (edge.from < num_nodes && edge.to < num_nodes) {
-            adj_list[edge.from].push_back(edge.to);
-            adj_list[edge.to].push_back(edge.from);
-        }
-    }
 
-    // --- 步骤 2: 使用广度优先搜索 (BFS) 查找路径 , BFS 是在树或图中查找最短路径（按边数计）的经典算法。
-    std::queue<int> q; // q: 一个队列，用于存放待访问的节点
-    q.push(start_node_id);
-
-    // parent: 一个数组，用于在找到路径后进行回溯。parent[i] 存储的是在路径上节点 i 的前一个节点。
-    std::vector<int> parent(num_nodes, -1);
-
-    // visited: 一个布尔数组，用于标记节点是否已被访问，防止在图中走回头路或陷入循环。
-    std::vector<bool> visited(num_nodes, false);
-    visited[start_node_id] = true;
-
-    bool path_found = false;
-    while (!q.empty()) {
-        int u = q.front();
-        q.pop();
-
-        if (u == end_node_id) {
-            path_found = true;
-            break; // 找到了终点，可以提前结束搜索
-        }
-
-        // 遍历当前节点 u 的所有邻居
-        // 这里体现了邻接表的效率优势：直接访问 adj_list[u] 即可。
-        for (int v : adj_list[u]) {
-            if (!visited[v]) {
-                visited[v] = true; // 标记为已访问
-                parent[v] = u;    // 记录父节点，用于后续路径重构
-                q.push(v);        // 将邻居节点加入待访问队列
-            }
-        }
-    }
-
-    // --- 步骤 3: 路径重构 ---
-    // 如果找到了路径（即BFS到达了终点），我们从终点开始，
-    // 利用 `parent` 数组反向回溯，直到回到起点。
-
-    std::vector<int> path;
-    if (path_found) {
-        int current = end_node_id;
-        while (current != -1) {
-            path.push_back(current);
-            current = parent[current]; // 移动到路径上的前一个节点
-        }
-        // 因为我们是-从终点回溯到起点，所以得到的路径是反的，需要反转一次。
-        std::reverse(path.begin(), path.end());
-    }
-    else if (start_node_id == end_node_id) {
-        // 处理起点和终点是同一个节点的特殊情况
-        path.push_back(start_node_id);
-    }
-
-    return path;
-}
-
-double ModelGenerator::length_graph_path(int p1, int p2)
-{
-    std::vector<Edge> mst = Tube_edges;
-    if (p1 == p2) return 0.0;
-    if (mst.empty()) return -1.0; // 错误：没有树
-
-    std::vector<int> path_ = find_path_in_tree(p1, p2, mst, Kernels.size());
-
-    double length_graph = 0.0;
-    for (auto p : path_)
-    {
-		length_graph += Tube_edges[p].length;
-        //length_graph += Tube_edges[p].weight;
-    }
-    return length_graph; // 如果图不连通（理论上MST应该是连通的），返回-1
-}
-
-double ModelGenerator::length_path(int p1, int p2)
-{
-	return distance(Kernels[p1].center, Kernels[p2].center);
-}
-
-int  ModelGenerator::find_edge_by_nodes(int from_node, int to_node, const std::vector<Edge> edge_list)
-{
-    for (int i = 0; i < edge_list.size(); i++)
-    {
-        if ((edge_list[i].from == from_node && edge_list[i].to == to_node) ||
-            (edge_list[i].from == to_node && edge_list[i].to == from_node))
-        {
-            return i;
-        }
-    }
-}
 
 std::pair<double, double> ModelGenerator::calculate_each_path(const std::vector<int>& path)
 {
