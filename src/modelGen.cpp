@@ -84,7 +84,16 @@ void ModelGenerator::generateGaussianSDF()
 
 
     for (Edge e : Tube_edges)
-		std::cout << "Edge from " << e.from << " to " << e.to << " with weight " << e.weight << std::endl;
+		std::cout << "Edge from " << e.from << " to " << e.to << " with weight " << e.weight << " with length " << e.length << std::endl;
+
+// ----------test construct_dist_map--------------------------------
+ //   std::vector<int>  path_ = find_path_in_tree(0, 13, kernel_num);
+	//for (auto p : path_) cout << "path_p: " << p << " ";
+ //   double lg1 = length_graph_path(0, 13);
+ //   std::vector<double> dis_map = construct_dist_map(0, Adj_list);
+ //   cout << "lg1 : " << lg1 << "   lg2 : " << dis_map[13] << endl;
+
+
     std::vector<std::vector<int>>  surface_paths;
     for(auto k1: surface_kernels)
         for (auto k2 : surface_kernels)
@@ -94,6 +103,13 @@ void ModelGenerator::generateGaussianSDF()
 				surface_paths.push_back(path_);
             }
 	std::cout << "Surface kernel paths number: " << surface_paths.size() << std::endl;
+    int p_index = 0;
+    int min_s1 = 0, min_s2 = 0;
+
+    double score_p = cal_kernel_translucency(p_index, min_s1, min_s2);
+    
+
+
     double score_ = calculate_score(surface_paths);
     cout << "Tube_edges.size: " << Tube_edges.size() << "  score: " << score_ << endl;
     //generate tubes
@@ -390,7 +406,6 @@ std::vector<std::vector<int>> ModelGenerator::construct_adj_list(std::vector<Edg
 std::vector<double> ModelGenerator::construct_dist_map(int p_index, std::vector<std::vector<int>> adj)
 {
     int n = Kernels.size();
-    double INF = std::numeric_limits<double>::max();
     std::priority_queue<NodeDist, std::vector<NodeDist>, std::greater<NodeDist>> pq;
     std::vector<double> dist_map(n, INF);
     dist_map[p_index] = 0.0;
@@ -415,6 +430,7 @@ std::vector<double> ModelGenerator::construct_dist_map(int p_index, std::vector<
             }
         }
     }
+	return dist_map;
 }
 
 
@@ -489,9 +505,12 @@ double ModelGenerator::length_graph_path(int p1, int p2)
     std::vector<int> path_ = find_path_in_tree(p1, p2, Kernels.size());
 
     double length_graph = 0.0;
-    for (auto p : path_)
+    for (int i = 0; i < path_.size() - 1; i++) 
     {
-        length_graph += mst[p].length;
+        {
+            length_graph += distance(Kernels[path_[i]].center, Kernels[path_[i + 1]].center);
+        }
+        //length_graph += mst[p].length;
         //length_graph += Tube_edges[p].weight;
     }
     return length_graph; // 如果图不连通（理论上MST应该是连通的），返回-1
@@ -673,7 +692,63 @@ double ModelGenerator::calculate_edge_weight(GaussianKernel k1, GaussianKernel k
 }
 
 
+double ModelGenerator::cal_kernel_translucency(int p_index, int & min_s1, int & min_s2 )  //计算点p所在的所有路径中通透性最小的一条路径作为通透性值
+{
+    double min_perm = INF;
+    min_s1 = -1;
+    min_s2 = -1;
+    std::vector<double> dist_map = construct_dist_map(p_index, Adj_list);
+    // 双重循环遍历所有 s1, s2 组合
+    // 复杂度 O(K^2)，其中 K 是 surface_points 的数量
+    for (int s1 : surface_kernels)
+    {
+        // 剪枝：如果 s1 无法到达 p_index，则跳过
+        if (dist_map[s1] == INF) continue;
 
+        for (int s2 : surface_kernels) 
+        {
+            // 剪枝：如果 s2 无法到达 p_index，或者 s1==s2 (距离为0)，跳过
+            if (dist_map[s2] == INF || s1 == s2) continue;
+
+            // 1. 计算图上距离 (Graph Distance)
+            // 路径: s1 -> p_index -> s2
+            // 因为是无向图，dist(s1, p) + dist(p, s2) 等价于 dist_map[s1] + dist_map[s2]
+            double graph_dist = dist_map[s1] + dist_map[s2];
+
+            // 防止除以零（虽然理论上 s1!=s2 且经过 p_index 距离不应为0）
+            if (graph_dist < 1e-9) continue;
+
+            // 2. 计算欧氏距离 (Euclidean Distance)
+            // 使用 Eigen 的 norm() 函数
+            double euclidean_dist = distance(Kernels[s1].center, Kernels[s2].center);
+
+            // 3. 计算通透性
+            double perm = euclidean_dist / graph_dist;
+
+            // 4. 更新最小值
+            if (perm < min_perm) 
+            {
+                min_perm = perm;
+                min_s1 = s1;
+                min_s2 = s2;
+            }
+        }
+    }
+}
+
+double ModelGenerator::cal_tree_translucency(std::vector<GaussianKernel> gau, std::vector<int> surface_ks)
+{
+    int kernels_num = Kernels.size();
+    double total_score = 0.0;
+    vector<pair<int, int>> min_paths_kernel;
+    for (int i = 0; i < kernels_num; i++)
+    {
+        int start = -1, end = -1;
+        total_score += cal_kernel_translucency(i, start, end);
+        min_paths_kernel.push_back(make_pair(start, end));
+    }
+    return total_score;
+}
 
 std::pair<double, double> ModelGenerator::calculate_each_path(const std::vector<int>& path)
 {

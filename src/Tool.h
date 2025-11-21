@@ -17,6 +17,7 @@
 #include "globalPara.h" 
 
 #define M_PI 3.1415926
+#define INF std::numeric_limits<double>::infinity()
 using namespace std;
 using namespace Eigen;
 

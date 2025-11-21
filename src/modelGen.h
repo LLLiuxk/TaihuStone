@@ -80,7 +80,8 @@ public:
 
     double calculate_edge_weight(GaussianKernel k1, GaussianKernel k2);
 
-
+    double cal_kernel_translucency(int p_index, int & min_s1, int & min_s2);
+    double cal_tree_translucency(std::vector<GaussianKernel> gau, std::vector<int> surface_ks);
 
     std::pair<double, double> calculate_each_path(const std::vector<int>& path);
     double calculate_score(std::vector<std::vector<int>>  Paths);
