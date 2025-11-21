@@ -32,7 +32,8 @@ struct Edge {
 
     // 重载 > 运算符以实现最小堆
     bool operator>(const Edge& other) const {
-        return weight > other.weight;
+		if (Direct_dis) return length > other.length;
+        else return weight > other.weight;
     }
 };
 

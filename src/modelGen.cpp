@@ -198,7 +198,7 @@ void ModelGenerator::generateGaussianSDF()
     Eigen::MatrixXd V_t; //输出网格顶点
     Eigen::MatrixXi F_t; // 输出网格面片
     MarchingCubes(SDF_gaussian_tubes2, GV, resolution, resolution, resolution, isolevel, V_t, F_t);
-    //view_model(V_t, F_t);
+    view_model(V_t, F_t);
 
 
 	// ------------check single component--------------
