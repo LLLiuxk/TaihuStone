@@ -35,7 +35,11 @@ ModelGenerator::ModelGenerator(std::string input_file, int pores)
     pore_num = pores;
     //std::cout << "Model A loaded successfully." << std::endl;
     Mesh2SDF(V_ini, F_ini, GV, SDF_ini);
-    generateGaussianSDF();
+    int dd = 157;
+    Eigen::Vector3d p = GV.row(dd);// Eigen::Vector3d(GV.row(dd)(0), GV.row(dd)(1), GV.row(dd)(2));
+    int tt = findNearestGrid(GV, p);
+    cout << dd << "    " << tt << endl;
+    //generateGaussianSDF();
 }
 
 
@@ -72,20 +76,30 @@ void ModelGenerator::generateGaussianSDF()
 
 	// 构建邻接表
     Adj_list = construct_adj_list(Tube_edges, kernel_num);
-    
-    vector<int> leafs_nidex = all_leafs_mst(Tube_edges);
+
+
+    vector<int> leafs_index = all_leafs_mst(Tube_edges);
     vector<int> inner_leafs;
-    for (auto t : leafs_nidex)
+    for (auto t : leafs_index)
 		if (!Kernels[t].on_surface) 
             inner_leafs.push_back(t);
         
 	cout << "inner_leafs_num: " << inner_leafs.size() << endl;
     //-----------test---------------
+    
+    double trans_score = cal_total_translucency(Kernels, surface_kernels);
 
+    cout << "total score: " << trans_score << endl;
 
-    for (Edge e : Tube_edges)
-		std::cout << "Edge from " << e.from << " to " << e.to << " with weight " << e.weight << " with length " << e.length << std::endl;
+ //   int p_index = 8;
+	//int max_s1 = -1, max_s2 = -1;
+ //  double p_score = cal_kernel_translucency(p_index, max_s1, max_s2);
+	////cout << "p_index: " << p_index << "   max_s1: " << max_s1 << "   max_s2: " << max_s2 << "   p_score: " << p_score << endl;
 
+ //   std::vector<int> path_ = find_specified_path(0, 0, 8);
+ //   double path_translucency = calculate_path_translucency(path_);
+    
+	//cout << "path_score: " << path_score << endl;
 // ----------test construct_dist_map--------------------------------
  //   std::vector<int>  path_ = find_path_in_tree(0, 13, kernel_num);
 	//for (auto p : path_) cout << "path_p: " << p << " ";
@@ -103,15 +117,12 @@ void ModelGenerator::generateGaussianSDF()
 				surface_paths.push_back(path_);
             }
 	std::cout << "Surface kernel paths number: " << surface_paths.size() << std::endl;
-    int p_index = 0;
-    int min_s1 = 0, min_s2 = 0;
 
-    double score_p = cal_kernel_translucency(p_index, min_s1, min_s2);
     
 
 
-    double score_ = calculate_score(surface_paths);
-    cout << "Tube_edges.size: " << Tube_edges.size() << "  score: " << score_ << endl;
+    /*double score_ = calculate_score(surface_paths);
+    cout << "Tube_edges.size: " << Tube_edges.size() << "  score: " << score_ << endl;*/
     //generate tubes
 	double tube_radius = Tube_radius_factor;
     for (int idx = 0; idx < grid_num; ++idx) {
@@ -291,8 +302,9 @@ void ModelGenerator::sample_interior_points(std::vector<Eigen::Vector3d>& pore_c
 
         if (valid) {
             pore_centers.push_back(candidate_center);
-            cout << "pore_sdfs: " << SDF_ini(chosen_idx) << endl;
             pore_sdfs.push_back(SDF_ini(chosen_idx));
+            if(debug_show)
+                cout << "pore_sdfs: " << SDF_ini(chosen_idx) << endl;
         }
     }
 
@@ -320,6 +332,12 @@ void ModelGenerator::generate_gaussians(std::vector<Eigen::Vector3d> pore_center
     }
 
     std::cout << "Combine " << Kernels.size() << " Gaussian fileds with " << surface_kernels.size() << " kernels in the model" << std::endl;
+    if(debug_show)
+    {
+        cout << "surface index:  ";
+        for (auto i : surface_kernels) cout << i << "  ";
+        cout << endl;
+    }
 }
 
 
@@ -386,6 +404,9 @@ std::vector<Edge> ModelGenerator::pores_connection_mst(const std::vector<Gaussia
             }
         }
     }
+    if(debug_show)
+        for (Edge e : mst_edges)
+            std::cout << "Edge from " << e.from << " to " << e.to << " with weight " << e.weight << " with length " << e.length << std::endl;
     return mst_edges;
 }
 
@@ -440,6 +461,10 @@ std::vector<int> ModelGenerator::find_path_in_tree(int p1, int p2,  int num_node
     if (num_nodes <= 0) {
         return {}; // 如果没有节点，则不可能有路径
     }
+    if (p1 == p2) {
+        // 处理起点和终点是同一个节点的特殊情况
+        return {p1}; // 如果节点重复，则输出p1
+    }
     std::vector<std::vector<int>> adj_list = Adj_list;
 
     // --- 步骤 2: 使用广度优先搜索 (BFS) 查找路径 , BFS 是在树或图中查找最短路径（按边数计）的经典算法。
@@ -487,10 +512,6 @@ std::vector<int> ModelGenerator::find_path_in_tree(int p1, int p2,  int num_node
         }
         // 因为我们是-从终点回溯到起点，所以得到的路径是反的，需要反转一次。
         std::reverse(path.begin(), path.end());
-    }
-    else if (p1 == p2) {
-        // 处理起点和终点是同一个节点的特殊情况
-        path.push_back(p1);
     }
 
     return path;
@@ -622,8 +643,7 @@ double ModelGenerator::generate_tube2( Eigen::Vector3d& p,   GaussianKernel& k1,
     const Eigen::Vector3d& c1 = k1.center;
     const Eigen::Vector3d& c2 = k2.center;
 
-    // 1. 计算 ω_i 和 ω_j（根据sigma转换）
-// 论文中使用 ω 控制孔隙大小，这里根据sigma进行转换
+    // 1. 计算 ω_i 和 ω_j, 这里根据sigma进行转换
 // 假设 ω = 1/(2 * sigma^2)，保持与标准高斯函数一致
     double omega1 = 1.0 / (2.0 * k1.sigma * k1.sigma);
     double omega2 = 1.0 / (2.0 * k2.sigma * k2.sigma);
@@ -654,7 +674,7 @@ double ModelGenerator::generate_tube2( Eigen::Vector3d& p,   GaussianKernel& k1,
     // 4. 计算要减去的两个孔隙函数部分
      double pore1 = k1.gaussian_fun(p);
      double pore2 = k2.gaussian_fun(p);
-     // 5. 组合管道函数（根据论文公式2）
+     // 5. 组合管道函数
      double tubeValue = tunnelMain + pore1 + pore2;
      //cout << "tunnelMain:  " << tunnelMain << "   " << pore1 << "   " << pore2 << endl;
      //return  tubeValue;
@@ -692,96 +712,173 @@ double ModelGenerator::calculate_edge_weight(GaussianKernel k1, GaussianKernel k
 }
 
 
-double ModelGenerator::cal_kernel_translucency(int p_index, int & min_s1, int & min_s2 )  //计算点p所在的所有路径中通透性最小的一条路径作为通透性值
+double ModelGenerator::calculate_path_translucency(std::vector<int>& path, bool show_debug)
 {
-    double min_perm = INF;
-    min_s1 = -1;
-    min_s2 = -1;
-    std::vector<double> dist_map = construct_dist_map(p_index, Adj_list);
-    // 双重循环遍历所有 s1, s2 组合
-    // 复杂度 O(K^2)，其中 K 是 surface_points 的数量
-    for (int s1 : surface_kernels)
-    {
-        // 剪枝：如果 s1 无法到达 p_index，则跳过
-        if (dist_map[s1] == INF) continue;
-
-        for (int s2 : surface_kernels) 
-        {
-            // 剪枝：如果 s2 无法到达 p_index，或者 s1==s2 (距离为0)，跳过
-            if (dist_map[s2] == INF || s1 == s2) continue;
-
-            // 1. 计算图上距离 (Graph Distance)
-            // 路径: s1 -> p_index -> s2
-            // 因为是无向图，dist(s1, p) + dist(p, s2) 等价于 dist_map[s1] + dist_map[s2]
-            double graph_dist = dist_map[s1] + dist_map[s2];
-
-            // 防止除以零（虽然理论上 s1!=s2 且经过 p_index 距离不应为0）
-            if (graph_dist < 1e-9) continue;
-
-            // 2. 计算欧氏距离 (Euclidean Distance)
-            // 使用 Eigen 的 norm() 函数
-            double euclidean_dist = distance(Kernels[s1].center, Kernels[s2].center);
-
-            // 3. 计算通透性
-            double perm = euclidean_dist / graph_dist;
-
-            // 4. 更新最小值
-            if (perm < min_perm) 
-            {
-                min_perm = perm;
-                min_s1 = s1;
-                min_s2 = s2;
-            }
-        }
+    int psize = path.size();
+    if (psize < 2) {
+        cout << "Warnning: illegal path!" << endl;
+        return 0.0; // 单个点
     }
-}
-
-double ModelGenerator::cal_tree_translucency(std::vector<GaussianKernel> gau, std::vector<int> surface_ks)
-{
-    int kernels_num = Kernels.size();
-    double total_score = 0.0;
-    vector<pair<int, int>> min_paths_kernel;
-    for (int i = 0; i < kernels_num; i++)
-    {
-        int start = -1, end = -1;
-        total_score += cal_kernel_translucency(i, start, end);
-        min_paths_kernel.push_back(make_pair(start, end));
-    }
-    return total_score;
-}
-
-std::pair<double, double> ModelGenerator::calculate_each_path(const std::vector<int>& path)
-{
-    if (path.size() < 2) {
-        return { 1.0, 0.0 }; // 路径太短，无转角，长度为0
-    }
-
-    double total_length = 0.0;
-    if (path.size() < 3) {
-        return { 1.0, total_length }; // 直线路径，无内部节点，通透性为1
+    if (psize < 3) {
+        return 1.0; // 直线路径，无内部节点，通透性为1
     }
 
     std::vector<GaussianKernel> all_nodes = Kernels;
-    for (size_t i = 0; i < path.size() - 1; ++i) {
-        total_length += (Kernels[path[i]].center - Kernels[path[i + 1]].center).norm();  //length
-        //total_length += Tube_edges[find_edge_by_nodes(path[i], path[i + 1], Tube_edges)].weight; //weight
-    }
-    double permeability_score = 1.0;
-
-    for (size_t i = 1; i < path.size() - 1; ++i) 
+    double translucency_score = 1.0;
+    vector<double> angle_degrees;
+    for (size_t i = 1; i < psize - 1; ++i)
     {
         Vector3d prev = all_nodes[path[i - 1]].center;
         Vector3d curr = all_nodes[path[i]].center;
         Vector3d next = all_nodes[path[i + 1]].center;
 
-        double angle_deg = abs_angle(prev - curr, next - curr);
-
-        permeability_score *= (angle_deg / 180.0);
+        double angle_deg = abs_angle(prev - curr, next - curr) / 180.0;
+        translucency_score *= angle_deg;
+        angle_degrees.push_back(angle_deg);
     }
-
-    return { permeability_score, total_length };
+    if(show_debug)
+    {
+        cout << "angle_deg: "; 
+        for (auto ang_ : angle_degrees)
+            cout << ang_ << "  ";
+        cout << endl;
+    }
+    translucency_score = std::pow(translucency_score, 1.0 / (psize - 2)) * log(psize);// / Kernels.size();
+    return translucency_score;
 }
 
+
+double ModelGenerator::cal_kernel_translucency(int p_index, int & max_s1, int & max_s2 )  //计算点p所在的所有路径中通透性最大的一条路径作为通透性值
+{
+    double max_perm = 0.0;
+    max_s1 = -1;
+    max_s2 = -1;
+    std::vector<double> dist_map = construct_dist_map(p_index, Adj_list);
+    // 双重循环遍历所有 s1, s2 组合
+    // 复杂度 O(K^2)，其中 K 是 surface_points 的数量
+    //for (int s1 : surface_kernels)
+    for (int i = 0; i < surface_kernels.size(); i++) 
+    {
+        // 剪枝：如果 s1 无法到达 p_index，则跳过
+        int s1 = surface_kernels[i];
+        if (dist_map[s1] == INF) continue;
+        for (int j = i+1; j < surface_kernels.size(); j++) 
+        //for (int s2 : surface_kernels) 
+        {
+            int s2 = surface_kernels[j];
+            //cout << "s1: " << s1 << "  s2: " << s2 << endl;
+            // 剪枝：如果 s2 无法到达 p_index，或者 s1==s2 (距离为0)，跳过
+            if (dist_map[s2] == INF || s1 == s2) continue;
+
+            // 1. 计算图上距离 (Graph Distance) 路径: s1 -> p_index -> s2
+            double graph_dist = dist_map[s1] + dist_map[s2];
+
+            if (graph_dist < 1e-9) continue;
+
+            // 2. 计算欧氏距离 (Euclidean Distance)
+            double euclidean_dist = distance(Kernels[s1].center, Kernels[s2].center);
+
+            std::vector<int> path_ = find_specified_path(p_index, s1, s2, debug_show);
+			double path_translucency = calculate_path_translucency(path_, debug_show);
+            cout << "angle trans: " << path_translucency << "   length ratio: " << euclidean_dist / graph_dist << endl;
+            // 3. 计算通透性
+            double perm = path_translucency * euclidean_dist / graph_dist;
+
+            // 4. 更新最大值
+            if (perm > max_perm)
+            {
+                max_perm = perm;
+                max_s1 = s1;
+                max_s2 = s2;
+            }
+        }
+    }
+
+    //show max case
+    //std::vector<int> path_ = find_specified_path(p_index, max_s1, max_s2);
+    //double path_score = calculate_path_translucency(path_);
+
+
+    return max_perm;
+}
+
+double ModelGenerator::cal_total_translucency(std::vector<GaussianKernel> gau, std::vector<int> surface_ks)
+{
+    int kernels_num = Kernels.size();
+    double total_score = 0.0;
+    vector<pair<int, int>> max_paths_kernel;
+    for (int i = 12; i < 13; i++)
+    //for (int i = 0; i < kernels_num; i++)
+    {
+        int start = -1, end = -1;
+        double score_p = cal_kernel_translucency(i, start, end);
+        total_score += score_p;
+        max_paths_kernel.push_back(make_pair(start, end));
+
+        cout << "Kernel " << i << " :  max translucency: " << score_p << "   from " << start << " to " << end << endl;
+        std::vector<int> path_ = find_specified_path(i, start, end, debug_show);
+        double path_translucency = calculate_path_translucency(path_, debug_show);
+    }
+    return total_score;
+}
+
+std::vector<int> ModelGenerator::find_specified_path(int p_index, int s1, int s2, bool show_debug)
+{
+	int kernel_num = Kernels.size();
+    std::vector<int> path1 = find_path_in_tree(p_index, s1, kernel_num);
+    //for (auto pp : path1) cout << "path1 : " << pp << "  ";
+    std::vector<int> path2 = find_path_in_tree(p_index, s2, kernel_num);
+    
+    // 合并路径，避免重复包含 p_index
+    std::vector<int> full_path(path1.rbegin(), path1.rend());
+    full_path.insert(full_path.end(), path2.begin() + 1, path2.end()); // 从 path2 的倒数第二个元素开始添加
+    if(show_debug)
+    {
+        cout << "full path steps: " << full_path.size() << endl;
+        for (auto p : full_path) cout << p << " ";
+        cout << endl;
+    }
+    return full_path;
+}
+
+int ModelGenerator::findNearestGrid(Eigen::MatrixXd GV, Eigen::Vector3d& point)
+{
+	GV = this->GV;
+    int nearest_index = 0;
+    double min_distance = INF;
+
+    int grid_size = Resolution;
+    double step = 1.0 / (grid_size - 1);
+
+    // 2. 映射到网格坐标系并四舍五入 (Round)
+    // std::round 自动寻找最近的整数，即寻找最近的网格点
+    int ix = static_cast<int>(std::round(point.x() / step));
+    int iy = static_cast<int>(std::round(point.y() / step));
+    int iz = static_cast<int>(std::round(point.z() / step));
+
+    // 3. 边界检查 (Clamp)
+    // 防止采样点略微超出 (0,0,0)~(1,1,1) 导致索引越界
+    ix = std::max(0, std::min(ix, grid_size - 1));
+    iy = std::max(0, std::min(iy, grid_size - 1));
+    iz = std::max(0, std::min(iz, grid_size - 1));
+
+    // 4. 将 3D 坐标转换为 1D 索引
+    // 重要：这里假设数据的存储顺序是 X变化最快 (X-fastest / Row-major-like)
+    // 顺序通常是：(0,0,0), (1,0,0), ... (99,0,0), (0,1,0) ...
+    // 公式: index = x + y * DIM + z * DIM * DIM
+   // int index = ix + iy * grid_size + iz * grid_size * grid_size;
+    int index = iz + iy * grid_size + ix * grid_size * grid_size;
+
+    /*
+       如果不确定存储顺序，请检查你的 GV 数据生成方式：
+       如果是 Z 变化最快 (Z-fastest):
+       int index = iz + iy * GRID_DIM + ix * GRID_DIM * GRID_DIM;
+    */
+
+    return index;
+
+    return nearest_index;
+}
 
 double ModelGenerator::calculate_score(std::vector<std::vector<int>>  Paths)
 {
@@ -802,12 +899,12 @@ double ModelGenerator::calculate_score(std::vector<std::vector<int>>  Paths)
     {
         for (auto path_ : Paths)
         {
-            std::pair<double, double>  properties = calculate_each_path(path_);
-            double path_permeability = properties.first;
-            double path_length = properties.second;
+            //std::pair<double, double>  properties = calculate_path_translucency(path_);
+            //double path_permeability = properties.first;
+            //double path_length = properties.second;
 
-            total_weighted_permeability += path_permeability * path_length;
-            total_path_length_sum += path_length;
+            //total_weighted_permeability += path_permeability * path_length;
+            //total_path_length_sum += path_length;
         }
     }
     // --- 1. 计算通透性 Permeability(G) ---

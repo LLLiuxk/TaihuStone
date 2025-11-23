@@ -80,10 +80,16 @@ public:
 
     double calculate_edge_weight(GaussianKernel k1, GaussianKernel k2);
 
-    double cal_kernel_translucency(int p_index, int & min_s1, int & min_s2);
-    double cal_tree_translucency(std::vector<GaussianKernel> gau, std::vector<int> surface_ks);
 
-    std::pair<double, double> calculate_each_path(const std::vector<int>& path);
+	double calculate_path_translucency(std::vector<int>& path, bool show_debug = false);  //path里存放的是kernel的索引
+    double cal_kernel_translucency(int p_index, int& max_s1, int& max_s2);
+    double cal_total_translucency(std::vector<GaussianKernel> gau, std::vector<int> surface_ks);
+
+    std::vector<int>  find_specified_path(int p_index, int s1, int s2, bool show_debug = false);
+
+    int findNearestGrid(Eigen::MatrixXd GV, Eigen::Vector3d& point);
+
+
     double calculate_score(std::vector<std::vector<int>>  Paths);
 
 private:
