@@ -6,6 +6,7 @@ extern double Isolevel;
 
 extern int PoresNum;
 
+extern int Min_degree;
 extern double Amplitude_min;
 extern double Amplitude_max;
 extern double Sigma_min;

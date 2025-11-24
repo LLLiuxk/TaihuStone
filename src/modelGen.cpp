@@ -35,11 +35,7 @@ ModelGenerator::ModelGenerator(std::string input_file, int pores)
     pore_num = pores;
     //std::cout << "Model A loaded successfully." << std::endl;
     Mesh2SDF(V_ini, F_ini, GV, SDF_ini);
-    int dd = 157;
-    Eigen::Vector3d p = GV.row(dd);// Eigen::Vector3d(GV.row(dd)(0), GV.row(dd)(1), GV.row(dd)(2));
-    int tt = findNearestGrid(GV, p);
-    cout << dd << "    " << tt << endl;
-    //generateGaussianSDF();
+    generateGaussianSDF();
 }
 
 
@@ -72,7 +68,9 @@ void ModelGenerator::generateGaussianSDF()
 	//单独保存高斯孔隙场SDF
     Eigen::VectorXd SDF_gaussian(grid_num);
     Eigen::VectorXd SDF_gaussian_tubes(grid_num);
-    Tube_edges = pores_connection_mst(Kernels);
+    int degree_limit = (kernel_num - 1) / (kernel_num - surface_kernels.size());
+    degree_limit = max(degree_limit, Min_degree);
+    Tube_edges = pores_connection_mst(Kernels, degree_limit);
 
 	// 构建邻接表
     Adj_list = construct_adj_list(Tube_edges, kernel_num);
@@ -81,8 +79,11 @@ void ModelGenerator::generateGaussianSDF()
     vector<int> leafs_index = all_leafs_mst(Tube_edges);
     vector<int> inner_leafs;
     for (auto t : leafs_index)
-		if (!Kernels[t].on_surface) 
+        if (!Kernels[t].on_surface)
+        {
+            cout << "inner t: " << t << endl;
             inner_leafs.push_back(t);
+        }
         
 	cout << "inner_leafs_num: " << inner_leafs.size() << endl;
     //-----------test---------------
@@ -194,7 +195,7 @@ void ModelGenerator::generateGaussianSDF()
     else
     {
         std::cout << "Kernel size: " << Kernels.size() << endl;
-		Tube_edges = pores_connection_mst(Kernels);
+		Tube_edges = pores_connection_mst(Kernels, degree_limit);
         for (int idx = 0; idx < grid_num; ++idx) {
             Eigen::Vector3d p = GV.row(idx);
             //SDF_gaussian_tubes(idx) = -max(-SDF_gaussian(idx), generate_tube(p, Kernels[0], Kernels[1], 0.5, 0.5));
@@ -331,7 +332,7 @@ void ModelGenerator::generate_gaussians(std::vector<Eigen::Vector3d> pore_center
         pore_sigmas.push_back(dist_sigma(gen));*/
     }
 
-    std::cout << "Combine " << Kernels.size() << " Gaussian fileds with " << surface_kernels.size() << " kernels in the model" << std::endl;
+    std::cout << "--------------------1. Combine " << Kernels.size() << " Gaussian fileds with " << surface_kernels.size() << " kernels on the surface--------------------" << std::endl;
     if(debug_show)
     {
         cout << "surface index:  ";
@@ -360,18 +361,20 @@ void ModelGenerator::show_model()
 }
 
 
-std::vector<Edge> ModelGenerator::pores_connection_mst(const std::vector<GaussianKernel>& gau)
+std::vector<Edge> ModelGenerator::pores_connection_mst(const std::vector<GaussianKernel>& gau, int Dmax)
 {
+    cout << "--------------------2. Constructing connection MST with most degree Dmax: " << Dmax << "--------------------"<<endl;
     std::vector<Edge> mst_edges;
 
     int n = gau.size();
     if (n <= 1)
     {
-		"Only one or no Gaussian kernels provided.";
+        std::cout << "Only one or no Gaussian kernels provided." << std::endl;
         return mst_edges;
     }
 
     std::vector<bool> visited(n, false);
+    std::vector<int> degree(n, 0);   // <-- 新增：记录节点度数
     std::priority_queue<Edge, std::vector<Edge>, std::greater<Edge>> pq;
 
     // 从第一个节点开始
@@ -391,9 +394,15 @@ std::vector<Edge> ModelGenerator::pores_connection_mst(const std::vector<Gaussia
 
         if (visited[e.to]) continue; // 避免重复访问
 
+        // 度数限制检查
+        if (degree[e.from] >= Dmax || degree[e.to] >= Dmax)
+            continue;
         // 接受该边
         mst_edges.push_back(e);
         visited[e.to] = true;
+
+        degree[e.from]++;
+        degree[e.to]++;
 
         // 将新加入节点的边放入队列
         for (int j = 0; j < n; ++j) {
@@ -421,6 +430,13 @@ std::vector<std::vector<int>> ModelGenerator::construct_adj_list(std::vector<Edg
             adj_list[edge.to].push_back(edge.from);
         }
     }
+    //for (auto adj1 : adj_list)
+    //{
+    //    cout << "  adj1: " << adj1.size() << " ";
+    //    for (auto adj2 : adj1)
+    //        cout << "  adj2: " << adj2 << " ";
+    //}  
+
 	return adj_list;
 }
 
@@ -683,7 +699,7 @@ double ModelGenerator::generate_tube2( Eigen::Vector3d& p,   GaussianKernel& k1,
 
 double ModelGenerator::calculate_edge_weight(GaussianKernel k1, GaussianKernel k2)
 {
-	vector<double> weights{ 0.8, 1.0, 1.2 };  // 分类系数权重：边界-内部，内部-内部，边界-边界
+	vector<double> weights{ 0.7, 1.0, 1.3 };  // 分类系数权重：边界-内部，内部-内部，边界-边界
     // 1. 确定分类系数 C(i, j)
     double connect_weight;
     if (k1.on_surface != k2.on_surface) {
@@ -714,42 +730,55 @@ double ModelGenerator::calculate_edge_weight(GaussianKernel k1, GaussianKernel k
 
 double ModelGenerator::calculate_path_translucency(std::vector<int>& path, bool show_debug)
 {
+    double translucency_score = 1.0;
     int psize = path.size();
     if (psize < 2) {
         cout << "Warnning: illegal path!" << endl;
         return 0.0; // 单个点
     }
-    if (psize < 3) {
-        return 1.0; // 直线路径，无内部节点，通透性为1
-    }
-
-    std::vector<GaussianKernel> all_nodes = Kernels;
-    double translucency_score = 1.0;
-    vector<double> angle_degrees;
-    for (size_t i = 1; i < psize - 1; ++i)
+    if (psize == 2) 
     {
-        Vector3d prev = all_nodes[path[i - 1]].center;
-        Vector3d curr = all_nodes[path[i]].center;
-        Vector3d next = all_nodes[path[i + 1]].center;
-
-        double angle_deg = abs_angle(prev - curr, next - curr) / 180.0;
-        translucency_score *= angle_deg;
-        angle_degrees.push_back(angle_deg);
+        //是否横贯模型，如果是返回1，否则返回距离
+        int start_ = path[0];
+        int end_ = path[1];
+        int sam_num = 3;
+        double thres = min(Kernels[start_].center_value, Kernels[end_].center_value);
+        translucency_score = line_cross_surface(Kernels[start_].center, Kernels[end_].center, thres, sam_num);
     }
-    if(show_debug)
+    else
     {
-        cout << "angle_deg: "; 
-        for (auto ang_ : angle_degrees)
-            cout << ang_ << "  ";
-        cout << endl;
+        std::vector<GaussianKernel> all_nodes = Kernels;
+        int count_inner = 0;
+        vector<double> angle_degrees;
+        for (size_t i = 1; i < psize - 1; ++i)
+        {
+            Vector3d prev = all_nodes[path[i - 1]].center;
+            Vector3d curr = all_nodes[path[i]].center;
+            Vector3d next = all_nodes[path[i + 1]].center;
+            if (!all_nodes[path[i]].on_surface) count_inner++;
+            double angle_deg = abs_angle(prev - curr, next - curr) / 180.0;
+            translucency_score *= angle_deg;
+            angle_degrees.push_back(angle_deg);
+        }
+        if (show_debug)
+        {
+            cout << "angle_deg: ";
+            for (auto ang_ : angle_degrees)
+                cout << ang_ << "  ";
+            cout << endl;
+        }
+        translucency_score = std::pow(translucency_score, 1.0 / (psize - 2 + count_inner));// / Kernels.size();
+        //translucency_score = std::pow(translucency_score, 1.0 / (psize - 2)) * (1+ 1.0* count_inner / psize);// / Kernels.size();
     }
-    translucency_score = std::pow(translucency_score, 1.0 / (psize - 2)) * log(psize);// / Kernels.size();
-    return translucency_score;
+    
+    return translucency_score * log(psize);
 }
 
 
 double ModelGenerator::cal_kernel_translucency(int p_index, int & max_s1, int & max_s2 )  //计算点p所在的所有路径中通透性最大的一条路径作为通透性值
 {
+    double ave_perm = 0.0;
+    int count_ = 0;
     double max_perm = 0.0;
     max_s1 = -1;
     max_s2 = -1;
@@ -766,7 +795,6 @@ double ModelGenerator::cal_kernel_translucency(int p_index, int & max_s1, int & 
         //for (int s2 : surface_kernels) 
         {
             int s2 = surface_kernels[j];
-            //cout << "s1: " << s1 << "  s2: " << s2 << endl;
             // 剪枝：如果 s2 无法到达 p_index，或者 s1==s2 (距离为0)，跳过
             if (dist_map[s2] == INF || s1 == s2) continue;
 
@@ -778,12 +806,15 @@ double ModelGenerator::cal_kernel_translucency(int p_index, int & max_s1, int & 
             // 2. 计算欧氏距离 (Euclidean Distance)
             double euclidean_dist = distance(Kernels[s1].center, Kernels[s2].center);
 
-            std::vector<int> path_ = find_specified_path(p_index, s1, s2, debug_show);
-			double path_translucency = calculate_path_translucency(path_, debug_show);
-            cout << "angle trans: " << path_translucency << "   length ratio: " << euclidean_dist / graph_dist << endl;
+            std::vector<int> path_ = find_specified_path(p_index, s1, s2);
+			double path_translucency = calculate_path_translucency(path_);
+            if(debug_show)
+                cout << "s1: " << s1 << "  s2: " << s2 << endl
+                << "angle trans: " << path_translucency << "   length ratio: " << euclidean_dist / graph_dist << endl;
             // 3. 计算通透性
             double perm = path_translucency * euclidean_dist / graph_dist;
-
+            ave_perm += perm;
+            count_++;
             // 4. 更新最大值
             if (perm > max_perm)
             {
@@ -798,17 +829,18 @@ double ModelGenerator::cal_kernel_translucency(int p_index, int & max_s1, int & 
     //std::vector<int> path_ = find_specified_path(p_index, max_s1, max_s2);
     //double path_score = calculate_path_translucency(path_);
 
-
+    //return ave_perm / count_;
     return max_perm;
 }
 
 double ModelGenerator::cal_total_translucency(std::vector<GaussianKernel> gau, std::vector<int> surface_ks)
 {
+    cout << "--------------------3. Calculating total translucency of mst --------------------" << endl;
     int kernels_num = Kernels.size();
     double total_score = 0.0;
     vector<pair<int, int>> max_paths_kernel;
-    for (int i = 12; i < 13; i++)
-    //for (int i = 0; i < kernels_num; i++)
+    //for (int i = 0; i < 1; i++)
+    for (int i = 0; i < kernels_num; i++)
     {
         int start = -1, end = -1;
         double score_p = cal_kernel_translucency(i, start, end);
@@ -816,14 +848,20 @@ double ModelGenerator::cal_total_translucency(std::vector<GaussianKernel> gau, s
         max_paths_kernel.push_back(make_pair(start, end));
 
         cout << "Kernel " << i << " :  max translucency: " << score_p << "   from " << start << " to " << end << endl;
+        debug_show = false;
         std::vector<int> path_ = find_specified_path(i, start, end, debug_show);
         double path_translucency = calculate_path_translucency(path_, debug_show);
     }
-    return total_score;
+    return total_score/ kernels_num;
 }
 
 std::vector<int> ModelGenerator::find_specified_path(int p_index, int s1, int s2, bool show_debug)
 {
+    if(s1 ==s2|| s1<0||s2<0) 
+    {
+        cout << "Warnning: illegal path!" << endl;
+        return {};
+	}
 	int kernel_num = Kernels.size();
     std::vector<int> path1 = find_path_in_tree(p_index, s1, kernel_num);
     //for (auto pp : path1) cout << "path1 : " << pp << "  ";
@@ -841,43 +879,48 @@ std::vector<int> ModelGenerator::find_specified_path(int p_index, int s1, int s2
     return full_path;
 }
 
-int ModelGenerator::findNearestGrid(Eigen::MatrixXd GV, Eigen::Vector3d& point)
+int ModelGenerator::find_nearest_grid(Eigen::Vector3d point)
 {
-	GV = this->GV;
-    int nearest_index = 0;
-    double min_distance = INF;
-
-    int grid_size = Resolution;
-    double step = 1.0 / (grid_size - 1);
-
-    // 2. 映射到网格坐标系并四舍五入 (Round)
+    int res = Resolution;
+    double dx = 1.0 / (res - 1);
     // std::round 自动寻找最近的整数，即寻找最近的网格点
-    int ix = static_cast<int>(std::round(point.x() / step));
-    int iy = static_cast<int>(std::round(point.y() / step));
-    int iz = static_cast<int>(std::round(point.z() / step));
+    int ix = static_cast<int>(std::round((point.x() + 0.5) / dx));
+    int iy = static_cast<int>(std::round((point.y() + 0.5) / dx));
+    int iz = static_cast<int>(std::round((point.z() + 0.5) / dx));
+    //cout << "point: "<<point <<"  "<<ix<<"   "<<iy<<"  "<<iz<< endl;
+    // 边界检查, 防止采样点略微超出 (0,0,0)~(1,1,1) 导致索引越界
+    ix = std::max(0, std::min(ix, res - 1));
+    iy = std::max(0, std::min(iy, res - 1));
+    iz = std::max(0, std::min(iz, res - 1));
 
-    // 3. 边界检查 (Clamp)
-    // 防止采样点略微超出 (0,0,0)~(1,1,1) 导致索引越界
-    ix = std::max(0, std::min(ix, grid_size - 1));
-    iy = std::max(0, std::min(iy, grid_size - 1));
-    iz = std::max(0, std::min(iz, grid_size - 1));
-
-    // 4. 将 3D 坐标转换为 1D 索引
-    // 重要：这里假设数据的存储顺序是 X变化最快 (X-fastest / Row-major-like)
-    // 顺序通常是：(0,0,0), (1,0,0), ... (99,0,0), (0,1,0) ...
-    // 公式: index = x + y * DIM + z * DIM * DIM
-   // int index = ix + iy * grid_size + iz * grid_size * grid_size;
-    int index = iz + iy * grid_size + ix * grid_size * grid_size;
-
-    /*
-       如果不确定存储顺序，请检查你的 GV 数据生成方式：
-       如果是 Z 变化最快 (Z-fastest):
-       int index = iz + iy * GRID_DIM + ix * GRID_DIM * GRID_DIM;
-    */
+    int index = ix * res * res + iy * res + iz;
 
     return index;
 
-    return nearest_index;
+}
+
+double ModelGenerator::line_cross_surface(Eigen::Vector3d p1, Eigen::Vector3d p2, double thres, int sam_num)
+{
+    double sum_sdf = 0;
+    for (int t = 1; t <= sam_num; t++)
+    {
+        double dt = 1.0 / (sam_num + 1);
+        Eigen::Vector3d point = p1 * (1 - t * dt) + p2 * (t * dt);
+        double sdf_val = SDF_ini[find_nearest_grid(point)];
+        sum_sdf += sdf_val;
+    }
+    double center_sdf = sum_sdf / sam_num;
+    if (center_sdf + 1e-2 < thres)
+    {
+        //cout << "the line cross the model!" << endl;
+        return 1.0; // 横贯模型
+    }
+    else
+    {
+        //cout << "the line on the surafece!" << endl;
+        //cout << center_sdf - thres << "  " << abs((center_sdf - thres) / (2 * thres)) << endl;
+        return 1.0 - abs((center_sdf - thres) / thres); //表面路径，无内部节点，通透性为1
+    }
 }
 
 double ModelGenerator::calculate_score(std::vector<std::vector<int>>  Paths)

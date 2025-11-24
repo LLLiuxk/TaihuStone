@@ -64,7 +64,7 @@ public:
 
     void show_model();
 
-    std::vector<Edge>  pores_connection_mst(const std::vector<GaussianKernel>& gau);
+    std::vector<Edge>  pores_connection_mst(const std::vector<GaussianKernel>& gau, int Dmax = 7);
     std::vector<std::vector<int>> construct_adj_list(std::vector<Edge> edges_list, int kernel_num);
     std::vector<double> construct_dist_map(int p_index, std::vector<std::vector<int>> adj);
 
@@ -87,7 +87,8 @@ public:
 
     std::vector<int>  find_specified_path(int p_index, int s1, int s2, bool show_debug = false);
 
-    int findNearestGrid(Eigen::MatrixXd GV, Eigen::Vector3d& point);
+    int find_nearest_grid(Eigen::Vector3d point);
+	double line_cross_surface(Eigen::Vector3d p1, Eigen::Vector3d p2, double thres, int sam_num);
 
 
     double calculate_score(std::vector<std::vector<int>>  Paths);
