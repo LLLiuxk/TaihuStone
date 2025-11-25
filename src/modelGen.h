@@ -67,6 +67,7 @@ public:
     std::vector<Edge>  pores_connection_mst(const std::vector<GaussianKernel>& gau, int Dmax = 7);
     std::vector<std::vector<int>> construct_adj_list(std::vector<Edge> edges_list, int kernel_num);
     std::vector<double> construct_dist_map(int p_index, std::vector<std::vector<int>> adj);
+    std::vector<std::vector<int>> get_unused_edge_adj(std::vector<std::vector<int>> Adj_list, double dis_thres);
 
     std::vector<int> find_path_in_tree(int p1, int p2, int num_nodes);
     double length_graph_path(int p1, int p2);
@@ -85,13 +86,18 @@ public:
     double cal_kernel_translucency(int p_index, int& max_s1, int& max_s2);
     double cal_total_translucency(std::vector<GaussianKernel> gau, std::vector<int> surface_ks);
 
-    std::vector<int>  find_specified_path(int p_index, int s1, int s2, bool show_debug = false);
+	std::vector<int>  find_specified_path(int p_index, int s1, int s2, bool show_debug = false); //经过点p_index的，两端点为s1s2的路径
 
     int find_nearest_grid(Eigen::Vector3d point);
 	double line_cross_surface(Eigen::Vector3d p1, Eigen::Vector3d p2, double thres, int sam_num);
 
 
     double calculate_score(std::vector<std::vector<int>>  Paths);
+
+    //---------------optimize------------------
+    vector<int> cal_edge_usage(std::vector<std::vector<int>> Paths);
+    double change_edges(std::vector<Edge> Tube_edges, Edge cand_edge);
+    void optimize_mst(vector<int> leafs_index);
 
 private:
     double m_currentPorosity = 0; 
@@ -121,9 +127,12 @@ private:
     double sigma_max = Sigma_max;
     std::vector<GaussianKernel> Kernels;
     std::vector<int> surface_kernels;
+    vector<pair<int, int>> max_paths_kernel;  //每个kernel通透性最大的路径两端
+    vector<double> kernel_translucency;
 
     std::vector<Edge> Tube_edges;
     std::vector<std::vector<int>> Adj_list;
+    std::vector<std::vector<int>> Unused_adj_list;
 
 	double smooth_t = SmoothT;         //平滑参数，值越大，平滑效果越小，趋近于普通并集
     int m_cachedRes = 0;                   // 分辨率

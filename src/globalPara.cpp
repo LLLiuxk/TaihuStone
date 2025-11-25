@@ -5,7 +5,7 @@ int Resolution =100;
 
 double Isolevel = 0;
 
-int PoresNum = 50;
+int PoresNum = 15;
 
 int Min_degree = 4;
 
@@ -21,4 +21,5 @@ double Safe_distance_ratio = 0.45;
 
 
 bool debug_show = false;
+bool standard_show = true;
 bool Direct_dis = true;

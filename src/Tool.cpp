@@ -298,6 +298,11 @@ double distance(Vector3d v1, Vector3d v2)
 	return (v1 - v2).norm();
 }
 
+double squared_distance(Vector3d v1, Vector3d v2)
+{
+    return (v1 - v2).squaredNorm();
+}
+
 bool align_models_with_pca(const std::string& model1_path, const std::string& model2_path, const std::string& output_path) 
 {
     // ¶ÁÈ¡Ä£ÐÍ

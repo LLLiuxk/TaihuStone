@@ -20,6 +20,7 @@ extern double Tube_radius_factor;  // 控制管道半径相对于高斯核半径的比例
 extern double Safe_distance_ratio; // Dart throwing安全距离比例
 
 extern bool debug_show;
+extern bool standard_show;
 extern bool Direct_dis;
 //struct Parameters {
 //    Eigen::Vector3d radii = { 1, 0.5, 0.5 };

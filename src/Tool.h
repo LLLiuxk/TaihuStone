@@ -54,6 +54,7 @@ int  single_component(Eigen::MatrixXd V, Eigen::MatrixXi F);
 //三角运算
 double abs_angle(Vector3d v1, Vector3d v2);
 double distance(Vector3d v1, Vector3d v2);
+double squared_distance(Vector3d v1, Vector3d v2);
 
 //Bernstein基函数 
 double bernstein_basis(int i, int n, double t);
