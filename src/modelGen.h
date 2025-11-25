@@ -48,6 +48,8 @@ struct NodeDist {
     }
 };
 
+using AdjacencyList = std::vector<std::vector<int>>;
+
 class ModelGenerator {
 public:
     ModelGenerator() {};
@@ -66,11 +68,11 @@ public:
 
     std::vector<Edge>  pores_connection_mst(const std::vector<GaussianKernel>& gau, int Dmax = 7);
     std::vector<std::vector<int>> construct_adj_list(std::vector<Edge> edges_list, int kernel_num);
-    std::vector<double> construct_dist_map(int p_index, std::vector<std::vector<int>> adj);
-    std::vector<std::vector<int>> get_unused_edge_adj(std::vector<std::vector<int>> Adj_list, double dis_thres);
+    std::vector<double> construct_dist_map(int p_index, AdjacencyList adj);
+    std::vector<std::vector<int>> get_unused_edge_adj(AdjacencyList Adj_list, double dis_thres);
 
-    std::vector<int> find_path_in_tree(int p1, int p2, int num_nodes);
-    double length_graph_path(int p1, int p2);
+    std::vector<int> find_path_in_tree(int p1, int p2, int num_nodes, AdjacencyList adj);
+    double length_graph_path(int p1, int p2, AdjacencyList adj);
     double length_path(int p1, int p2);
     int find_edge_by_nodes(int from_node, int to_node, const std::vector<Edge> edge_list);
 
@@ -83,10 +85,10 @@ public:
 
 
 	double calculate_path_translucency(std::vector<int>& path, bool show_debug = false);  //path里存放的是kernel的索引
-    double cal_kernel_translucency(int p_index, int& max_s1, int& max_s2);
-    double cal_total_translucency(std::vector<GaussianKernel> gau, std::vector<int> surface_ks);
+    double cal_kernel_translucency(int p_index, int& max_s1, int& max_s2, AdjacencyList adj);
+    double cal_total_translucency(std::vector<GaussianKernel> gau, std::vector<int> surface_ks, AdjacencyList adj);
 
-	std::vector<int>  find_specified_path(int p_index, int s1, int s2, bool show_debug = false); //经过点p_index的，两端点为s1s2的路径
+	std::vector<int>  find_specified_path(int p_index, int s1, int s2, AdjacencyList adj, bool show_debug = false); //经过点p_index的，两端点为s1s2的路径
 
     int find_nearest_grid(Eigen::Vector3d point);
 	double line_cross_surface(Eigen::Vector3d p1, Eigen::Vector3d p2, double thres, int sam_num);
@@ -96,7 +98,7 @@ public:
 
     //---------------optimize------------------
     vector<int> cal_edge_usage(std::vector<std::vector<int>> Paths);
-    double change_edges(std::vector<Edge> Tube_edges, Edge cand_edge);
+    double change_edges(std::vector<Edge> Tube_edges, Edge cand_edge, AdjacencyList adj);
     void optimize_mst(vector<int> leafs_index);
 
 private:
