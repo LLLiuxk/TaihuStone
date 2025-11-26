@@ -85,7 +85,7 @@ public:
 
 
 	double calculate_path_translucency(std::vector<int>& path, bool show_debug = false);  //path里存放的是kernel的索引
-    double cal_kernel_translucency(int p_index, int& max_s1, int& max_s2, AdjacencyList adj);
+    double cal_kernel_translucency(int p_index, int& max_s1, int& max_s2, std::vector<int>& max_path, AdjacencyList adj);
     double cal_total_translucency(std::vector<GaussianKernel> gau, std::vector<int> surface_ks, AdjacencyList adj);
 
 	std::vector<int>  find_specified_path(int p_index, int s1, int s2, AdjacencyList adj, bool show_debug = false); //经过点p_index的，两端点为s1s2的路径
@@ -98,7 +98,7 @@ public:
 
     //---------------optimize------------------
     vector<int> cal_edge_usage(std::vector<std::vector<int>> Paths);
-    double change_edges(std::vector<Edge> Tube_edges, Edge cand_edge, AdjacencyList adj);
+    double add_edges(std::vector<Edge> Tube_edges, Edge cand_edge, AdjacencyList adj);
     void optimize_mst(vector<int> leafs_index);
 
 private:
@@ -129,6 +129,7 @@ private:
     double sigma_max = Sigma_max;
     std::vector<GaussianKernel> Kernels;
     std::vector<int> surface_kernels;
+    std::vector<std::vector<int>> Paths;
     vector<pair<int, int>> max_paths_kernel;  //每个kernel通透性最大的路径两端
     vector<double> kernel_translucency;
 
