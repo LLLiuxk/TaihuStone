@@ -439,5 +439,13 @@ bool exportSDF(Eigen::VectorXd& sdf, std::string& filename)
     return true;
 }
 
+void show_path(std::vector<int> path)
+{
+    cout << "path with "<<path.size()<<" steps : ";
+    for (auto p : path)
+        cout << p << "  ";
+    cout << endl;
+}
+
 
 

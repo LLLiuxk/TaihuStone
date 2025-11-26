@@ -63,4 +63,7 @@ double bernstein_basis(int i, int n, double t);
 bool exportSDF(Eigen::VectorXd& sdf, std::string& filename);
 
 bool align_models_with_pca(const std::string& model1_path, const std::string& model2_path, const std::string& output_path);
+
+//show_result 
+void show_path(std::vector<int> path);
  
