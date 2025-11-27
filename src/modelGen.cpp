@@ -654,7 +654,12 @@ std::vector<int> ModelGenerator::all_leafs_mst(std::vector<Edge>& mst_tree)
 
 bool ModelGenerator::find_edge_in_path(Edge cand_edge, vector<int> path)
 {
-    if (path.empty()) return true;  //如果路径为空，默认为在
+    if (path.empty()) 
+    {
+        cout << "Empty path!" << endl;
+        return true;  //如果路径为空，默认为在
+    }
+    show_path(path);
     bool in = false;
     int sd = cand_edge.from;
 	int ed = cand_edge.to;
@@ -887,7 +892,7 @@ double ModelGenerator::cal_kernel_translucency(int p_index, int & max_s1, int & 
             // 2. 计算欧氏距离 (Euclidean Distance)
             double euclidean_dist = distance(Kernels[s1].center, Kernels[s2].center);
 
-            std::vector<int> path_ = find_specified_path(p_index, s1, s2, adj, debug);
+            std::vector<int> path_ = find_specified_path(p_index, s1, s2, adj, false);
 			double path_translucency = calculate_path_translucency(path_, debug);
             if(debug)
                 cout << "s1: " << s1 << "  s2: " << s2 << endl
@@ -1203,7 +1208,7 @@ bool ModelGenerator::replace_edges(int p_index, int replace_e, std::vector<Edge>
         Paths[p_index] = max_path1;
         Paths[chosen_cand] = max_path2;
  
-        cout <<"Replace Edge ("<< re_edge.from<<", "<< re_edge.to<<") to Edge ("<< p_index << ", " << chosen_cand << "),  increasing Kernel " << p_index << " 's score to " << kernel_translucency[p_index] << "  by: " << delta_score_max_pair.first << ", new edge num : " << curr_edge_num << endl;
+        cout <<"Replace Edge ("<< re_edge.from<<", "<< re_edge.to<<") to Edge ("<< p_index << ", " << chosen_cand << "),  increasing Kernel " << p_index << " 's score to " << kernel_translucency[p_index] << "  by: " << delta_score_max_pair.first << endl;
         
         Tube_edges = edge_mst_new;
         adj = adj_new;
@@ -1301,7 +1306,8 @@ void ModelGenerator::optimize_mst(vector<int> leafs_index, bool debug)
 					Paths[chosen_cand] = max_path2;
                     curr_edge_num++;
                     opt_count_total++;
-                    
+                    cout << "==========================" <<
+                        "===========================================================================" << endl << "===========================================================================" << endl;;
                     cout << "Add edge from " << i << " to " << chosen_cand << "  increasing Kernel "<<i<<" 's score to "<< kernel_translucency[i] <<"  by: "<< delta_score_max_pair.first <<", new edge num : " << curr_edge_num << endl;
                 }
                 else
@@ -1322,16 +1328,22 @@ void ModelGenerator::optimize_mst(vector<int> leafs_index, bool debug)
                     }
                     return a.first < b.first; // 如果次数相同，按索引从小到大排序 (保持稳定性，可选)
                     });
+                cout << "sorted_edges.size(): " << sorted_edges.size() << endl;
                 for (int s_index = 0; s_index < sorted_edges.size(); s_index++) 
                 {
                     std::pair<int, int> sorted_e = sorted_edges[s_index];
 					int replace_e = sorted_e.first;
 					cout << "Edge index: " << replace_e << "  usage count: " << sorted_e.second << endl;
-					if ((i != Tube_edges[replace_e].from && i != Tube_edges[replace_e].to) || !find_edge_in_path(Tube_edges[replace_e], Paths[i]))  //非kernel i 的边，或者不在kernel i 的最大通透性路径上，跳过
+                    cout << "Tube_edges[replace_e].from: " << Tube_edges[replace_e].from << "  " << Tube_edges[replace_e].to << endl;
+                    if ((i != Tube_edges[replace_e].from && i != Tube_edges[replace_e].to) || sorted_e.second!=0/*!find_edge_in_path(Tube_edges[replace_e], Paths[i])*/)  //非kernel i 的边，或者不在kernel i 的最大通透性路径上，跳过
+                    {
+                        cout << "skip!" << endl;
                         continue;
+                    }
                     else {
                         //尝试替换这条边
                         //Edge removed_edge = Tube_edges[replace_i];
+                        cout << i << " replace " << replace_e << endl;
                         if (replace_edges(i, replace_e, Tube_edges, Adj_list, Unused_adj_list))
                         {
                             opt_count_total++;
