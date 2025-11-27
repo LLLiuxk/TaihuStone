@@ -75,6 +75,8 @@ public:
     double length_graph_path(int p1, int p2, AdjacencyList adj);
     double length_path(int p1, int p2);
     int find_edge_by_nodes(int from_node, int to_node, const std::vector<Edge> edge_list);
+    bool find_edge_in_path(Edge cand_edge, vector<int> path);
+    std::vector<int>  find_specified_path(int p_index, int s1, int s2, AdjacencyList adj, bool show_debug = false); //经过点p_index的，两端点为s1s2的路径
 
     std::vector<int> all_leafs_mst(std::vector<Edge>& mst_tree);
 
@@ -88,8 +90,7 @@ public:
     double cal_kernel_translucency(int p_index, int& max_s1, int& max_s2, std::vector<int>& max_path, AdjacencyList adj, bool debug=false);
     double cal_total_translucency(std::vector<GaussianKernel> gau, std::vector<int> surface_ks, AdjacencyList adj);
 
-	std::vector<int>  find_specified_path(int p_index, int s1, int s2, AdjacencyList adj, bool show_debug = false); //经过点p_index的，两端点为s1s2的路径
-
+	
     int find_nearest_grid(Eigen::Vector3d point);
 	double line_cross_surface(Eigen::Vector3d p1, Eigen::Vector3d p2, double thres, int sam_num);
 
@@ -98,7 +99,8 @@ public:
 
     //---------------optimize------------------
     vector<int> cal_edge_usage(std::vector<std::vector<int>> Paths);
-    pair<double, double> add_edges(std::vector<Edge> Tube_edges, Edge cand_edge, AdjacencyList adj);
+    pair<double, double> add_edges(Edge cand_edge, AdjacencyList adj, std::vector<int>& max_path1, std::vector<int>& max_path2);
+    bool replace_edges(int p_index, int replace_e, std::vector<Edge>& Tube_edges, AdjacencyList& adj, AdjacencyList& unused_adj);
     void optimize_mst(vector<int> leafs_index, bool debug = false);
 
 private:

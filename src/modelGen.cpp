@@ -74,7 +74,7 @@ void ModelGenerator::generateGaussianSDF()
 
 	// 构建邻接表
     Adj_list = construct_adj_list(Tube_edges, kernel_num);
-    Unused_adj_list = get_unused_edge_adj(Adj_list, 0.4);
+    Unused_adj_list = get_unused_edge_adj(Adj_list, 0.8);
 
     vector<int> leafs_index = all_leafs_mst(Tube_edges);
 
@@ -93,8 +93,8 @@ void ModelGenerator::generateGaussianSDF()
   //  }
     vector<int> edge_improtance = cal_edge_usage(Paths);
 	// 输出每条边的重要性分数
-	for (auto ei : edge_improtance) 
-        cout << "edge_importance: " << ei << endl;
+	//for (auto ei : edge_improtance) 
+ //       cout << "edge_importance: " << ei << endl;
 
     optimize_mst(leafs_index);
 
@@ -652,6 +652,26 @@ std::vector<int> ModelGenerator::all_leafs_mst(std::vector<Edge>& mst_tree)
     return leaves;
 }
 
+bool ModelGenerator::find_edge_in_path(Edge cand_edge, vector<int> path)
+{
+    if (path.empty()) return true;  //如果路径为空，默认为在
+    bool in = false;
+    int sd = cand_edge.from;
+	int ed = cand_edge.to;
+    for (int ii = 0; ii < path.size()-1; ii++)
+    {
+        if (path[ii] == sd || path[ii] == ed)
+        {
+            if (path[ii + 1] == sd || path[ii + 1] == ed)
+            {
+                in = true;
+				break;
+            }
+		}
+    }
+    return in;
+}
+
 double ModelGenerator::generate_tube(const Eigen::Vector3d& p, const GaussianKernel& k1, const GaussianKernel& k2, double iso_level_C, double mid_radius_factor) // 中间最小半径相对端点半径的初值
 {
     // degree n = 4 -> 5 control samples
@@ -822,12 +842,16 @@ double ModelGenerator::calculate_path_translucency(std::vector<int>& path, bool 
                 cout << ang_ << "  ";
             cout << "  translucency_score: "<< translucency_score<<endl;
         }
-        translucency_score = std::pow(translucency_score, 1.0 / min(psize - 2 + count_inner, 9));// / Kernels.size();
+        if (translucency_score < 1e-8) translucency_score = 0.0;
+        else  translucency_score = std::pow(translucency_score, 1.0 / min(psize - 2 + count_inner, 9));// / Kernels.size();
         //cout << "Translucency_score2: " << translucency_score << "     "<< translucency_score * log(psize)<<endl;
         //translucency_score = std::pow(translucency_score, 1.0 / (psize - 2)) * (1+ 1.0* count_inner / psize);// / Kernels.size();
     }
     
     return translucency_score * log(psize);
+    //double max_val = 2.0;
+    //int ideal_num = 4;
+    //return translucency_score * max_val / (1.0 + std::exp(- (psize - ideal_num)));
 }
 
 
@@ -1059,8 +1083,12 @@ vector<int> ModelGenerator::cal_edge_usage(std::vector<std::vector<int>> Paths)
 {
     std::map<std::pair<int, int>, int> edge_count;
 	vector<int> edge_usage_count;
+    int count = 0;
     for(auto path : Paths)
     {
+        cout << "path " << count++ << endl;
+        for (auto p_in : path) cout << p_in << "  ";
+
         if (path.size() < 2)
         {
 			cout << "A path with less than 2 nodes found, skipping." << endl;
@@ -1076,21 +1104,20 @@ vector<int> ModelGenerator::cal_edge_usage(std::vector<std::vector<int>> Paths)
         }
     }
     //cout << "edge_count size: " << edge_count.size() << endl;
-    for (auto e : Tube_edges)
+    for (int ei = 0; ei < Tube_edges.size(); ei++) 
     {
+        Edge e = Tube_edges[ei];
         auto edge = std::minmax(e.from, e.to);
-        auto it = edge_count.find(edge);
-        edge_usage_count.push_back(it->second);
+        edge_usage_count.push_back(edge_count[edge]);
+        cout << "Edge: " << ei <<"  from "<< e.from<<"  to "<<e.to <<"  is used "<< edge_count[edge] <<"  times"<<endl;
     }
     
     return edge_usage_count;
 }
 
-pair<double, double> ModelGenerator::add_edges(std::vector<Edge> Tube_edges, Edge cand_edge, AdjacencyList adj)
+pair<double, double> ModelGenerator::add_edges(Edge cand_edge, AdjacencyList adj, std::vector<int>& max_path1, std::vector<int>& max_path2)
 {
     int kernels_num = Kernels.size();
-    std::vector<Edge> edge_mst_new = Tube_edges;
-	edge_mst_new.push_back(cand_edge);
     AdjacencyList adj_new = adj;
     //update adj_list
     if (cand_edge.from < kernels_num && cand_edge.to < kernels_num) {
@@ -1100,7 +1127,6 @@ pair<double, double> ModelGenerator::add_edges(std::vector<Edge> Tube_edges, Edg
 	int p1 = cand_edge.from;
 	int p2 = cand_edge.to;
 	int start = -1, end = -1;
-	std::vector<int> max_path1, max_path2;
     double p1_add = cal_kernel_translucency(p1, start, end, max_path1, adj_new, false);
     p1_add = p1_add - kernel_translucency[p1];
     show_path(max_path1);
@@ -1115,6 +1141,88 @@ pair<double, double> ModelGenerator::add_edges(std::vector<Edge> Tube_edges, Edg
 
 }
 
+bool ModelGenerator::replace_edges(int p_index, int replace_e, std::vector<Edge>& Tube_edges, AdjacencyList& adj, AdjacencyList& unused_adj)
+{
+    int kernels_num = Kernels.size();
+    std::vector<Edge> edge_mst_new = Tube_edges;
+    AdjacencyList adj_new = adj;
+    AdjacencyList unused_adj_new = unused_adj;
+	Edge re_edge = Tube_edges[replace_e];
+    for (auto d : adj_new[p_index]) cout << d << "   ";
+    //update adj_list
+    if (re_edge.from < kernels_num && re_edge.to < kernels_num) {
+        auto& adj_a = adj_new[re_edge.from];
+        adj_a.erase(std::remove(adj_a.begin(), adj_a.end(), re_edge.to), adj_a.end());
+
+        auto& adj_b = adj_new[re_edge.to];
+        adj_b.erase(std::remove(adj_b.begin(), adj_b.end(), re_edge.from), adj_b.end());
+    }
+    for (auto d : adj_new[p_index]) cout << d << "   ";
+
+    //这里暂时不修改unused_adj_new，不需要再计算这条边
+
+    double max_delta_score = 0;
+    int chosen_cand = -1;
+    Edge chosen_e;
+    pair<double, double> delta_score_max_pair;
+    std::vector<int> max_path1, max_path2;
+
+    for (int candidate_p : unused_adj_new[p_index])
+    {
+        double dist = distance(Kernels[p_index].center, Kernels[candidate_p].center);
+        double dist_w = dist * calculate_edge_weight(Kernels[p_index], Kernels[candidate_p]);
+        Edge cand_edge = { p_index, candidate_p, dist, dist_w };
+        std::vector<int> path1, path2;
+        pair<double, double> delta_score = add_edges(cand_edge, adj_new, path1, path2);
+        double score_add = (delta_score.first + delta_score.second) / cand_edge.length;  //单位路径增加的通透性
+        if (score_add > max_delta_score)
+        {
+            max_delta_score = score_add;
+            chosen_cand = candidate_p;
+            chosen_e = cand_edge;
+            delta_score_max_pair = delta_score;
+            max_path1 = path1;
+            max_path2 = path2;
+        }
+    }
+    if (chosen_cand != -1)
+    {
+        edge_mst_new[replace_e] = chosen_e; //替换
+        //update adj_list
+        if (p_index < Kernels.size() && chosen_cand < Kernels.size()) {
+            adj_new[p_index].push_back(chosen_cand);
+            adj_new[chosen_cand].push_back(p_index);
+        }
+
+        unused_adj_new[p_index].erase(std::remove(unused_adj_new[p_index].begin(), unused_adj_new[p_index].end(), chosen_cand), unused_adj_new[p_index].end());
+        unused_adj_new[chosen_cand].erase(std::remove(unused_adj_new[chosen_cand].begin(), unused_adj_new[chosen_cand].end(), p_index), unused_adj_new[chosen_cand].end());
+        unused_adj_new[re_edge.from].push_back(re_edge.to);  //删掉的边
+        unused_adj_new[re_edge.to].push_back(re_edge.from);
+        kernel_translucency[p_index] += delta_score_max_pair.first;
+        kernel_translucency[chosen_cand] += delta_score_max_pair.second;
+        Paths[p_index] = max_path1;
+        Paths[chosen_cand] = max_path2;
+ 
+        cout <<"Replace Edge ("<< re_edge.from<<", "<< re_edge.to<<") to Edge ("<< p_index << ", " << chosen_cand << "),  increasing Kernel " << p_index << " 's score to " << kernel_translucency[p_index] << "  by: " << delta_score_max_pair.first << ", new edge num : " << curr_edge_num << endl;
+        
+        Tube_edges = edge_mst_new;
+        adj = adj_new;
+        unused_adj = unused_adj_new;
+        return true;
+    }
+    else
+    {
+        cout << "No useful candidate edge found to replace!" << endl;
+        return false;
+    }
+
+
+
+    
+
+}
+
+
 void ModelGenerator::optimize_mst(vector<int> leafs_index, bool debug)
 {
     cout << "--------------------4. Optimizing the connection trees --------------------" << endl;
@@ -1122,7 +1230,7 @@ void ModelGenerator::optimize_mst(vector<int> leafs_index, bool debug)
     int kernels_num = Kernels.size();
 	int curr_edge_num = Tube_edges.size();
     int edge_max_num = max(int (curr_edge_num * 1.2), curr_edge_num + 2);
-    int opt_times = 5;
+    int opt_times_once = 5;
     cout << "curr_edge: " << curr_edge_num << "   max_edge: " << edge_max_num << endl;
     vector<int> inner_leafs;
     for (auto t : leafs_index)
@@ -1137,30 +1245,33 @@ void ModelGenerator::optimize_mst(vector<int> leafs_index, bool debug)
     {
         int inner_index = inner_leafs[i];
     }*/
-    int opt_count = 0;
+    int opt_count_total = 0;
+	//check each kernel's translucency
     for(int i=0;i< kernels_num;i++)
     {
-        while(kernel_translucency[i] < thres_tran && opt_count < opt_times)
+        int opt_count = 0;
+        while(kernel_translucency[i] < thres_tran && opt_count < opt_times_once && opt_count_total< opt_times_once * kernels_num)
         //if (kernel_translucency[i] < thres_tran) //存在通透性很小的点
         {
+            opt_count++;
             cout << "Kernel " << i << " has a low translucency: " << kernel_translucency[i] << "  lower than thres_tran:" << thres_tran << endl;
             if (curr_edge_num < edge_max_num)  //没有到边数上限，选择添加边
             {
                 double max_delta_score = 0;
                 int chosen_cand = -1;
                 Edge chosen_e;
-                pair<double, double> delta_score_max;
+                pair<double, double> delta_score_max_pair;
+                std::vector<int> max_path1, max_path2;
                 cout << "adj i: " << Adj_list[i].size() << "     Unused_adj_list[i] :" << Unused_adj_list[i].size() << endl;
-                for (int candidate_p : Unused_adj_list[i])
-                {
-                    cout << "Unused_adj_list[i]" << candidate_p << "  ";
-                }
+                for (int candidate_p : Unused_adj_list[i])   cout << candidate_p << "  ";
+                cout << endl;
                 for (int candidate_p : Unused_adj_list[i])
                 {
                     double dist = distance(Kernels[i].center, Kernels[candidate_p].center);
                     double dist_w = dist * calculate_edge_weight(Kernels[i], Kernels[candidate_p]);
                     Edge cand_edge = { i, candidate_p, dist, dist_w };
-                    pair<double, double> delta_score = add_edges(Tube_edges, cand_edge, Adj_list);
+                    std::vector<int> path1, path2;
+                    pair<double, double> delta_score = add_edges(cand_edge, Adj_list, path1, path2);
                     double score_add = (delta_score.first + delta_score.second) / cand_edge.length;  //单位路径增加的通透性
                     if(debug)
 						cout << "===============Adding edge from " << i << " to " << candidate_p << "  can increase score by : " << score_add <<"============"<< endl;
@@ -1169,7 +1280,9 @@ void ModelGenerator::optimize_mst(vector<int> leafs_index, bool debug)
                         max_delta_score = score_add;
                         chosen_cand = candidate_p;
                         chosen_e = cand_edge;
-                        delta_score_max = delta_score;
+                        delta_score_max_pair = delta_score;
+                        max_path1 = path1;
+						max_path2 = path2;
                     }
                 }
                 if (chosen_cand != -1)
@@ -1181,17 +1294,54 @@ void ModelGenerator::optimize_mst(vector<int> leafs_index, bool debug)
                         Adj_list[chosen_cand].push_back(i);
                     }
 					Unused_adj_list[i].erase(std::remove(Unused_adj_list[i].begin(), Unused_adj_list[i].end(), chosen_cand), Unused_adj_list[i].end());
-                    kernel_translucency[i] += delta_score_max.first;
-                    kernel_translucency[chosen_cand] += delta_score_max.second;
-
+                    Unused_adj_list[chosen_cand].erase(std::remove(Unused_adj_list[chosen_cand].begin(), Unused_adj_list[chosen_cand].end(), i), Unused_adj_list[chosen_cand].end());
+                    kernel_translucency[i] += delta_score_max_pair.first;
+                    kernel_translucency[chosen_cand] += delta_score_max_pair.second;
+					Paths[i] = max_path1;
+					Paths[chosen_cand] = max_path2;
                     curr_edge_num++;
-                    opt_count++;
-                    cout << "Add edge from " << i << " to " << chosen_cand << "  increasing score by: "<< max_delta_score<<" , new edge num : " << curr_edge_num << endl;
+                    opt_count_total++;
+                    
+                    cout << "Add edge from " << i << " to " << chosen_cand << "  increasing Kernel "<<i<<" 's score to "<< kernel_translucency[i] <<"  by: "<< delta_score_max_pair.first <<", new edge num : " << curr_edge_num << endl;
                 }
-                else //到达边数上限，选择替换边
+                else
+					cout << "No useful candidate edge found to add!" << endl;
+            }
+            else //到达边数上限，选择替换边
+            {
+                vector<int> edge_importance = cal_edge_usage(Paths);
+                std::vector<std::pair<int, int>> sorted_edges;
+                sorted_edges.reserve(edge_importance.size());
+                for (int ei = 0; ei < edge_importance.size(); ++ei) {
+                    sorted_edges.push_back({ ei, edge_importance[ei]});
+                }
+                std::sort(sorted_edges.begin(), sorted_edges.end(), [](const std::pair<int, int>& a, const std::pair<int, int>& b) {
+                    // 如果次数不同，按次数从小到大排序 (降序)
+                    if (a.second != b.second) {
+                        return a.second < b.second;
+                    }
+                    return a.first < b.first; // 如果次数相同，按索引从小到大排序 (保持稳定性，可选)
+                    });
+                for (int s_index = 0; s_index < sorted_edges.size(); s_index++) 
                 {
+                    std::pair<int, int> sorted_e = sorted_edges[s_index];
+					int replace_e = sorted_e.first;
+					cout << "Edge index: " << replace_e << "  usage count: " << sorted_e.second << endl;
+					if ((i != Tube_edges[replace_e].from && i != Tube_edges[replace_e].to) || !find_edge_in_path(Tube_edges[replace_e], Paths[i]))  //非kernel i 的边，或者不在kernel i 的最大通透性路径上，跳过
+                        continue;
+                    else {
+                        //尝试替换这条边
+                        //Edge removed_edge = Tube_edges[replace_i];
+                        if (replace_edges(i, replace_e, Tube_edges, Adj_list, Unused_adj_list))
+                        {
+                            opt_count_total++;
+                            break; //成功替换，跳出循环
+						}
+
+                    }
                 }
             }
+
         }
     }
 
