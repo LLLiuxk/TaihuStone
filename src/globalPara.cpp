@@ -22,4 +22,4 @@ double Safe_distance_ratio = 0.45;
 
 bool debug_show = false;
 bool standard_show = true;
-bool Direct_dis = true;
+bool Direct_dis = false;

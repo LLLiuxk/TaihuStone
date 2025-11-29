@@ -96,10 +96,9 @@ void ModelGenerator::generateGaussianSDF()
 	//for (auto ei : edge_improtance) 
  //       cout << "edge_importance: " << ei << endl;
 
-    optimize_mst(leafs_index);
-
+    /*optimize_mst(leafs_index);
     double trans_score_opt = cal_total_translucency(Kernels, surface_kernels, Adj_list);
-    cout << "After optimization, total score: " << trans_score_opt << endl;
+    cout << "After optimization, total score: " << trans_score_opt << endl;*/
 
  //   int p_index = 8;
 	//int max_s1 = -1, max_s2 = -1;
@@ -164,8 +163,8 @@ void ModelGenerator::generateGaussianSDF()
     //std::cout << "成功在仿生形状内放置 " << void_centers.size() << " 个空洞点" << std::endl;
  
      // 计算孔隙率
-    double porosity = void_count / model_count;
-    std::cout << "Porosity: " << porosity * 100 << "%" << std::endl;
+    double porosity = 1.0 - void_count / model_count;
+    std::cout << "Porosity: " << porosity * 100 << "%" << "    --------:" << void_count << "   " << model_count << std::endl;
 
     // 存储最终的孔隙率
     finalPorosity = porosity;
@@ -812,6 +811,7 @@ double ModelGenerator::calculate_path_translucency(std::vector<int>& path, bool 
 {
     double translucency_score = 1.0;
     int psize = path.size();
+    int sam_num = 3;
     if (psize < 2) {
         cout << "Warnning: illegal path!" << endl;
         return 0.0; // 单个点
@@ -821,14 +821,15 @@ double ModelGenerator::calculate_path_translucency(std::vector<int>& path, bool 
         //是否横贯模型，如果是返回1，否则返回距离
         int start_ = path[0];
         int end_ = path[1];
-        int sam_num = 3;
         double thres = min(Kernels[start_].center_value, Kernels[end_].center_value);
         translucency_score = line_cross_surface(Kernels[start_].center, Kernels[end_].center, thres, sam_num);
     }
     else
     {
+        double angle_product = 1.0;
         std::vector<GaussianKernel> all_nodes = Kernels;
         int count_inner = 0;
+        int count_surface_line = 0;
         vector<double> angle_degrees;
         for (size_t i = 1; i < psize - 1; ++i)
         {
@@ -836,19 +837,40 @@ double ModelGenerator::calculate_path_translucency(std::vector<int>& path, bool 
             Vector3d curr = all_nodes[path[i]].center;
             Vector3d next = all_nodes[path[i + 1]].center;
             if (!all_nodes[path[i]].on_surface) count_inner++;
+
+            double thres = min(all_nodes[path[i - 1]].center_value, all_nodes[path[i]].center_value);
+            //line_cross_surface返回1.0，贯通； <1.0，属于表面，计数
+            if (line_cross_surface(prev, curr, thres, sam_num) < 0.999)
+                count_surface_line++;
+            if (i == psize - 2)
+            {
+                thres = min(all_nodes[path[i]].center_value, all_nodes[path[i + 1]].center_value);
+                if (line_cross_surface(curr, next, thres, sam_num) < 0.999)
+                    count_surface_line++;
+            }
+
             double angle_deg = abs_angle(prev - curr, next - curr) / 180.0;
-            translucency_score *= angle_deg;
+            angle_product *= angle_deg;
             angle_degrees.push_back(angle_deg);
         }
+
+        double e_index = psize - 2 + 1.5*count_inner - 1.0* count_surface_line / (psize - 1);
+        if (e_index > 9) e_index = 9;
+        //int e_index = psize - 2 + count_inner - count_surface_line;
+        if (angle_product < 1e-8) translucency_score = 0.0;
+        else  translucency_score = std::pow(angle_product, 1.0 / e_index);// / Kernels.size();
+
         if (show_debug)
         {
             cout << "angle_deg: ";
             for (auto ang_ : angle_degrees)
                 cout << ang_ << "  ";
-            cout << "  translucency_score: "<< translucency_score<<endl;
+            cout << "  angle_deg product: "<< angle_product <<endl;
+            cout << "count_inner: " << count_inner << "   count_surface_line: " << count_surface_line << "  e index:" << e_index << "    "<<1.0/ e_index <<endl
+                <<translucency_score << "  * " << log(psize) << " = " << translucency_score * log(psize) << endl;
         }
-        if (translucency_score < 1e-8) translucency_score = 0.0;
-        else  translucency_score = std::pow(translucency_score, 1.0 / min(psize - 2 + count_inner, 9));// / Kernels.size();
+       
+        
         //cout << "Translucency_score2: " << translucency_score << "     "<< translucency_score * log(psize)<<endl;
         //translucency_score = std::pow(translucency_score, 1.0 / (psize - 2)) * (1+ 1.0* count_inner / psize);// / Kernels.size();
     }
@@ -928,12 +950,12 @@ double ModelGenerator::cal_total_translucency(std::vector<GaussianKernel> gau, s
     max_paths_kernel.clear();
     kernel_translucency.clear();
     Paths.clear();
-    //for (int i = 2; i < 3; i++)
+    //for (int i = 3; i < 4; i++)
     for (int i = 0; i < kernels_num; i++)
     {
         int start = -1, end = -1;
         std::vector<int> max_path;
-        double score_p = cal_kernel_translucency(i, start, end, max_path, adj);
+        double score_p = cal_kernel_translucency(i, start, end, max_path, adj, false);
         total_score += score_p;
         max_paths_kernel.push_back(make_pair(start, end));
 		kernel_translucency.push_back(score_p);
@@ -944,10 +966,11 @@ double ModelGenerator::cal_total_translucency(std::vector<GaussianKernel> gau, s
             for (auto p : max_path) cout << p << "  ";
             cout << endl;
         }
-        if(debug_show)
+        bool debug_ = false;
+        if(debug_)
         {
-            std::vector<int> path_ = find_specified_path(i, start, end, adj, debug_show);
-            double path_translucency = calculate_path_translucency(path_, debug_show);
+            std::vector<int> path_ = find_specified_path(i, start, end, adj, debug_);
+            double path_translucency = calculate_path_translucency(path_, debug_);
         }
     }
     return total_score/ kernels_num;
@@ -1017,7 +1040,7 @@ double ModelGenerator::line_cross_surface(Eigen::Vector3d p1, Eigen::Vector3d p2
     {
         //cout << "the line on the surafece!" << endl;
         //cout << center_sdf - thres << "  " << abs((center_sdf - thres) / (2 * thres)) << endl;
-        return 1.0 - abs((center_sdf - thres) / thres); //表面路径，无内部节点，通透性为1
+        return 1.0 - abs((center_sdf - thres) / thres); //表面路径，无内部节点，通透性为1-dis
     }
 }
 
@@ -1091,9 +1114,9 @@ vector<int> ModelGenerator::cal_edge_usage(std::vector<std::vector<int>> Paths)
     int count = 0;
     for(auto path : Paths)
     {
-        cout << "path " << count++ << endl;
+        cout << "path " << count++ << "    : ";
         for (auto p_in : path) cout << p_in << "  ";
-
+        cout << endl;
         if (path.size() < 2)
         {
 			cout << "A path with less than 2 nodes found, skipping." << endl;
@@ -1139,7 +1162,11 @@ pair<double, double> ModelGenerator::add_edges(Edge cand_edge, AdjacencyList adj
     end = -1;
     double p2_add = cal_kernel_translucency(p2, start, end, max_path2, adj_new);
 	p2_add = p2_add - kernel_translucency[p2];
-	cout << "cal kernel score: " << p1_add << "  " << p2_add << endl;
+
+    /*double thres = min(Kernels[start_].center_value, Kernels[end_].center_value);
+    translucency_score = line_cross_surface(Kernels[start_].center, Kernels[end_].center, thres, sam_num);*/
+
+	cout << "cal kernel score: " << p1_add << "  " << p2_add << "cand_edge.length: "<< cand_edge.length<< "   delta_s: "<< (p1_add + p2_add) / cand_edge.length<<endl;
     //double score_add = (p1_add + p2_add)/ cand_edge.length;  //单位路径增加的通透性
 
     return make_pair(p1_add, p2_add);
@@ -1231,10 +1258,10 @@ bool ModelGenerator::replace_edges(int p_index, int replace_e, std::vector<Edge>
 void ModelGenerator::optimize_mst(vector<int> leafs_index, bool debug)
 {
     cout << "--------------------4. Optimizing the connection trees --------------------" << endl;
-    double thres_tran = 0.5;
+    double thres_tran = 0.8;
     int kernels_num = Kernels.size();
 	int curr_edge_num = Tube_edges.size();
-    int edge_max_num = max(int (curr_edge_num * 1.2), curr_edge_num + 2);
+    int edge_max_num = max(int (curr_edge_num * 1.2), curr_edge_num + 5);
     int opt_times_once = 5;
     cout << "curr_edge: " << curr_edge_num << "   max_edge: " << edge_max_num << endl;
     vector<int> inner_leafs;
@@ -1308,7 +1335,7 @@ void ModelGenerator::optimize_mst(vector<int> leafs_index, bool debug)
                     opt_count_total++;
                     cout << "==========================" <<
                         "===========================================================================" << endl << "===========================================================================" << endl;;
-                    cout << "Add edge from " << i << " to " << chosen_cand << "  increasing Kernel "<<i<<" 's score to "<< kernel_translucency[i] <<"  by: "<< delta_score_max_pair.first <<", new edge num : " << curr_edge_num << endl;
+                    cout << "Add edge from " << i << " to " << chosen_cand << "  increasing Kernel "<<i<<" 's score to "<< kernel_translucency[i] <<"  by: "<< delta_score_max_pair.first <<",  edge length: "<< chosen_e.length<<"new edge num : " << curr_edge_num << endl;
                 }
                 else
 					cout << "No useful candidate edge found to add!" << endl;
@@ -1335,12 +1362,18 @@ void ModelGenerator::optimize_mst(vector<int> leafs_index, bool debug)
 					int replace_e = sorted_e.first;
 					cout << "Edge index: " << replace_e << "  usage count: " << sorted_e.second << endl;
                     cout << "Tube_edges[replace_e].from: " << Tube_edges[replace_e].from << "  " << Tube_edges[replace_e].to << endl;
-                    if ((i != Tube_edges[replace_e].from && i != Tube_edges[replace_e].to) || sorted_e.second!=0/*!find_edge_in_path(Tube_edges[replace_e], Paths[i])*/)  //非kernel i 的边，或者不在kernel i 的最大通透性路径上，跳过
+                    if ( i != Tube_edges[replace_e].from && i != Tube_edges[replace_e].to)  //非kernel i 的边
                     {
-                        cout << "skip!" << endl;
+                        cout << "The edge is not one of Kernel i!  Skip!" << endl;
                         continue;
                     }
-                    else {
+                    else  if (sorted_e.second != 0 && !find_edge_in_path(Tube_edges[replace_e], Paths[i])) //有用过，但不在kernel i 的最大通透性路径上，跳过
+                    {
+                        cout << "The edge is used in other paths!  Skip!" << endl;
+                        continue;
+                    }
+					else  
+                    {
                         //尝试替换这条边
                         //Edge removed_edge = Tube_edges[replace_i];
                         cout << i << " replace " << replace_e << endl;
