@@ -9,8 +9,8 @@ int PoresNum = 15;
 
 int Min_degree = 4;
 
-double Amplitude_min = 1;
-double Amplitude_max = 1;
+double Amplitude_min = 1.0;
+double Amplitude_max = 1.0;
 double Sigma_min = 0.025;
 double Sigma_max = 0.04;
 double Gauss_level = 0.5;
