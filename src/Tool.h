@@ -4,10 +4,11 @@
 
 #include <igl/marching_cubes.h>
 #include <igl/read_triangle_mesh.h>
+#include <igl/write_triangle_mesh.h>
 #include <igl/voxel_grid.h>
 #include <igl/opengl/glfw/Viewer.h>
-#include <igl/write_triangle_mesh.h>
 
+#include <filesystem>
 #include <Eigen/Core>
 #include <iostream>
 #include <vector>
@@ -27,7 +28,7 @@ struct ErrorPoint {
 
 };
 void Mesh2SDF(Eigen::MatrixXd& V, Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Eigen::VectorXd& S);
-
+bool saveMesh(std::string filename, Eigen::MatrixXd V, Eigen::MatrixXi F);
 
 // SDF平滑并集。k越大，平滑效果越小，趋近于普通并集
 double smooth_UnionSDF(double sdf1, double sdf2, double k);

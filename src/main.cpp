@@ -1,7 +1,7 @@
 #include <igl/marching_cubes.h>
 #include <igl/opengl/glfw/Viewer.h>
 #include <igl/copyleft/cgal/mesh_boolean.h>
-#include <igl/read_triangle_mesh.h>
+
 #include <Eigen/Dense>
 #include <iostream>
 #include <vector>
@@ -23,6 +23,7 @@ int main(int argc, char* argv[])
     std::string input_file = "D:/VSprojects/TaihuStone/model/high_rock.stl";
     //std::string input_file = "D:/VSprojects/TaihuStone/cube.obj";
     ModelGenerator mg(input_file);
+
     mg.show_model();
 
 	// ------------------------------------- view two models after alignment -------------------------------------

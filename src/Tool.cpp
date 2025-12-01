@@ -55,6 +55,17 @@ void Mesh2SDF(Eigen::MatrixXd& V,  Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Eige
     igl::signed_distance( GV, V, F, igl::SIGNED_DISTANCE_TYPE_FAST_WINDING_NUMBER, SDF, I, C, N );
 }
 
+bool saveMesh(std::string filename, Eigen::MatrixXd V, Eigen::MatrixXi F)
+{
+    // 确保输出目录存在
+    std::filesystem::path filePath(filename);
+    std::filesystem::path dir = filePath.parent_path();
+    if (!dir.empty() && !std::filesystem::exists(dir)) {
+        std::filesystem::create_directories(dir);
+    }
+    igl::write_triangle_mesh(filename, V, F);
+}
+
 //平滑并集  softmin , k越大，平滑效果越小，趋近于普通并集
 double smooth_UnionSDF(double sdf1, double sdf2, double k)   //k y
 {
