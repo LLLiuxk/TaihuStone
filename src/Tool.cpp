@@ -25,7 +25,7 @@ void Mesh2SDF(Eigen::MatrixXd& V,  Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Eige
     bb_min = Vector3d(-0.5, -0.5, -0.5);
     //cout << "bb_min: " << bb_min << endl;
     //bb_min = V.colwise().minCoeff();
-
+    
     int res = Resolution;  // 网格分辨率，可调高以提升精度
     //double dx = bb_size.maxCoeff() / (res - 1);
     double dx = 1.0 / (res - 1);
@@ -37,10 +37,11 @@ void Mesh2SDF(Eigen::MatrixXd& V,  Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Eige
  
    std:: vector<Eigen::Vector3d> grid_points;
     grid_points.reserve(res * res * res);
-    for (int i = 0; i < res; ++i) {
-        for (int j = 0; j < res; ++j) {
-            for (int k = 0; k < res; ++k) {
-                Eigen::Vector3d p = bb_min + Eigen::Vector3d(i, j, k) * dx;
+    //
+    for (int z = 0; z < res; ++z) {
+        for (int y = 0; y < res; ++y) {
+            for (int x = 0; x < res; ++x) {
+                Eigen::Vector3d p = bb_min + Eigen::Vector3d(x, y, z) * dx;
                 grid_points.push_back(p);
             }
         }
@@ -52,7 +53,14 @@ void Mesh2SDF(Eigen::MatrixXd& V,  Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Eige
      std::cout << "Sample resolution: " << res<<"  "<< res<<"  "<< res<<" = "<< GV.rows() << std::endl;
 
     // 调用 libigl 的 signed_distance()
+
     igl::signed_distance( GV, V, F, igl::SIGNED_DISTANCE_TYPE_FAST_WINDING_NUMBER, SDF, I, C, N );
+
+    //Eigen::MatrixXd V_t; //输出网格顶点
+    //Eigen::MatrixXi F_t; // 输出网格面片
+    //MarchingCubes(SDF, GV, res, res, res, 0, V_t, F_t);  //gaussian combined with tubes
+    //view_model(V_t, F_t);
+
 }
 
 bool saveMesh(std::string filename, Eigen::MatrixXd V, Eigen::MatrixXi F)
@@ -102,7 +110,6 @@ void MarchingCubes(Eigen::VectorXd& S, Eigen::MatrixXd& GV, int nx, int ny, int 
         std::cerr << "Marching Cubes failed: Empty mesh" << std::endl;
         return;
     }
-    F.col(0).swap(F.col(1));  //翻转marching cubes生成的法线方向
 }
 
 
@@ -456,6 +463,45 @@ void show_path(std::vector<int> path)
     for (auto p : path)
         cout << p << "  ";
     cout << endl;
+}
+
+
+
+void geometry_analyzer(Eigen::VectorXd SDF, int resolution, double thres_degree)
+{
+    //double overhang_threshold = -std::cos(thres_degree * M_PI / 180.0f);
+    //std::vector<uint8_t> overhang_mask; // 1表示该位置存在悬垂违规
+    //std::vector<uint8_t> floating_mask; // 1表示该位置是悬空孤岛
+    //int overhang_count = 0;
+    //int floating_count = 0;
+
+    //int total_voxels = resolution * resolution * resolution;
+    //overhang_mask.resize(total_voxels, 0);
+    //floating_mask.resize(total_voxels, 0);
+
+    //for (int z = 1; z < resolution - 1; ++z) {
+    //    for (int y = 1; y < resolution - 1; ++y) {
+    //        for (int x = 1; x < resolution - 1; ++x) {
+    //            int idx = getIndex(x, y, z);
+    //            float val = sdf_data_[idx];
+
+    //            // 这里的 0.5 是假设体素大小为1，只检测表面附近的体素
+    //            // 在实际应用中，通常检测 abs(val) < voxel_size * sqrt(3)
+    //            if (std::abs(val) < 0.8f) {
+    //                Vec3 normal = computeGradient(x, y, z);
+
+    //                // 检查法线Z分量
+    //                // normal.z < 0 表示朝下
+    //                // normal.z < -0.707 表示角度陡于45度
+    //                if (normal.z < overhang_threshold_) {
+    //                    result.overhang_mask[idx] = 1;
+    //                    result.overhang_count++;
+    //                }
+    //            }
+    //        }
+    //    }
+    //}
+
 }
 
 

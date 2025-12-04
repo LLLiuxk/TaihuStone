@@ -22,11 +22,7 @@
 using namespace std;
 using namespace Eigen;
 
-struct ErrorPoint {
-    int x, y, z;
-    double value1, value2, error;
 
-};
 void Mesh2SDF(Eigen::MatrixXd& V, Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Eigen::VectorXd& S);
 bool saveMesh(std::string filename, Eigen::MatrixXd V, Eigen::MatrixXi F);
 
@@ -67,4 +63,7 @@ bool align_models_with_pca(const std::string& model1_path, const std::string& mo
 
 //show_result 
 void show_path(std::vector<int> path);
+
+//kinds of check
+void geometry_analyzer(Eigen::VectorXd SDF, int resolution, double thres_degree);
  

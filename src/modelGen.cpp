@@ -35,6 +35,8 @@ ModelGenerator::ModelGenerator(std::string input_file, int pores)
     pore_num = pores;
     //std::cout << "Model A loaded successfully." << std::endl;
     Mesh2SDF(V_ini, F_ini, GV, SDF_ini);
+    //Vector3d point = GV.row(10010);
+    //cout << "point index: " << find_nearest_grid(point) << endl;
     generateGaussianSDF();
 }
 
@@ -887,7 +889,7 @@ int ModelGenerator::find_nearest_grid(Eigen::Vector3d point)
     iy = std::max(0, std::min(iy, res - 1));
     iz = std::max(0, std::min(iz, res - 1));
 
-    int index = ix * res * res + iy * res + iz;
+    int index = ix + iy * res + iz * res * res;
 
     return index;
 
