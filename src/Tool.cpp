@@ -467,41 +467,117 @@ void show_path(std::vector<int> path)
 
 
 
-void geometry_analyzer(Eigen::VectorXd SDF, int resolution, double thres_degree)
+void geometry_analyzer(Eigen::VectorXd SDF, int resolution, double thres_degree, int overhang_count, int floating_count, std::vector<uint8_t> &overhang_mask, std::vector<uint8_t> &floating_mask)
 {
-    //double overhang_threshold = -std::cos(thres_degree * M_PI / 180.0f);
-    //std::vector<uint8_t> overhang_mask; // 1表示该位置存在悬垂违规
-    //std::vector<uint8_t> floating_mask; // 1表示该位置是悬空孤岛
-    //int overhang_count = 0;
-    //int floating_count = 0;
+    double overhang_threshold = -std::cos(thres_degree * M_PI / 180.0f);
+    overhang_mask.clear(); // 1表示该位置存在悬垂违规
+    floating_mask.clear(); // 1表示该位置是悬空孤岛
+    overhang_count = 0;
+    floating_count = 0;
 
-    //int total_voxels = resolution * resolution * resolution;
-    //overhang_mask.resize(total_voxels, 0);
-    //floating_mask.resize(total_voxels, 0);
+    int total_voxels = resolution * resolution * resolution;
+    overhang_mask.resize(total_voxels, 0);
+    floating_mask.resize(total_voxels, 0);
 
-    //for (int z = 1; z < resolution - 1; ++z) {
-    //    for (int y = 1; y < resolution - 1; ++y) {
-    //        for (int x = 1; x < resolution - 1; ++x) {
-    //            int idx = getIndex(x, y, z);
-    //            float val = sdf_data_[idx];
+    for (int z = 1; z < resolution - 1; ++z) {
+        for (int y = 1; y < resolution - 1; ++y) {
+            for (int x = 1; x < resolution - 1; ++x) {
+                int idx = x + y * resolution + z* resolution* resolution;
+                double val = SDF[idx];
 
-    //            // 这里的 0.5 是假设体素大小为1，只检测表面附近的体素
-    //            // 在实际应用中，通常检测 abs(val) < voxel_size * sqrt(3)
-    //            if (std::abs(val) < 0.8f) {
-    //                Vec3 normal = computeGradient(x, y, z);
+                // 这里的 0.5 是假设体素大小为1，只检测表面附近的体素
+                // 在实际应用中，通常检测 abs(val) < voxel_size * sqrt(3)
+                if (std::abs(val) < 0.8f) {
+                    Vector3d normal = computeGradient(x, y, z, resolution, SDF);
 
-    //                // 检查法线Z分量
-    //                // normal.z < 0 表示朝下
-    //                // normal.z < -0.707 表示角度陡于45度
-    //                if (normal.z < overhang_threshold_) {
-    //                    result.overhang_mask[idx] = 1;
-    //                    result.overhang_count++;
-    //                }
-    //            }
-    //        }
-    //    }
-    //}
+                    // 检查法线Z分量
+                    // normal.z < 0 表示朝下
+                    // normal.z < -0.707 表示角度陡于45度
+                    if (normal.z() < overhang_threshold) {
+                        overhang_mask[idx] = 1;
+                        overhang_count++;
+                    }
+                }
+            }
+        }
+    }
+    // 2. 检测悬空特征 (Floating Islands)
+        // 使用 BFS 从 Z=0 开始标记
+    std::vector<bool> visited(total_voxels, false);
+    std::queue<int> q;
 
+    // A. 初始化种子：将 Z=0 平面上的所有实体体素加入队列
+    for (int y = 0; y < resolution; ++y) {
+        for (int x = 0; x < resolution; ++x) {
+            int idx = x+ y* resolution;
+            // 假设 SDF <= 0 表示实体
+            if (SDF[idx] <= 0.0f) {
+                q.push(idx);
+                visited[idx] = true;
+            }
+        }
+    }
+
+    // B. 广度优先搜索 (BFS) 传播支撑
+    int dx[] = { 1, -1, 0, 0, 0, 0 };
+    int dy[] = { 0, 0, 1, -1, 0, 0 };
+    int dz[] = { 0, 0, 0, 0, 1, -1 };
+
+    while (!q.empty()) {
+        int curr_idx = q.front();
+        q.pop();
+
+        int cx, cy, cz;
+        getCoord(curr_idx, cx, cy, cz);
+
+        for (int i = 0; i < 6; ++i) {
+            int nx = cx + dx[i];
+            int ny = cy + dy[i];
+            int nz = cz + dz[i];
+
+            if (nx>=0&&nx< resolution&& ny >= 0 && ny < resolution&& nz >= 0 && nz < resolution)
+            {
+                int n_idx = nx+ ny*resolution+ nz* resolution* resolution;
+                // 如果邻居是实体 且 未被访问
+                if (SDF[n_idx] <= 0.0f && !visited[n_idx]) {
+                    visited[n_idx] = true;
+                    q.push(n_idx);
+                }
+            }
+        }
+    }
+
+    // C. 寻找未被访问的实体 (即悬空部分)
+    for (int i = 0; i < total_voxels; ++i) {
+        if (SDF[i] <= 0.0f && !visited[i]) {
+            floating_mask[i] = 1;
+            floating_count++;
+        }
+    }
+
+}
+
+Vector3d computeGradient(int x, int y, int z, int res, Eigen::VectorXd SDF)
+{
+    // 边界检查略，循环中已控制范围
+    double dx = SDF[x + 1 + y * res + z * res * res] - SDF[x - 1 + y * res + z * res * res];
+    double dy = SDF[x + (y + 1) * res + z * res * res] - SDF[x + (y - 1) * res + z * res * res];
+    double dz = SDF[x + y * res + (z + 1) * res * res] - SDF[x + y * res + (z - 1) * res * res];
+
+    Vector3d normal(dx, dy, dz);
+    double normal_l = normal.norm();
+    if(normal_l < 1e-9)
+		return Vector3d(0, 0, 0);
+    else
+        return normal / normal_l;
+}
+
+void getCoord(int idx, int res, int& x, int& y, int& z) 
+{
+    x = idx % res;
+    int temp = idx / res;
+    y = temp % res;
+    z = temp / res;
 }
 
 

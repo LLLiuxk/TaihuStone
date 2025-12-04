@@ -14,6 +14,7 @@
 #include <vector>
 #include <string>
 #include <iomanip>
+#include <queue>
 
 #include "globalPara.h" 
 
@@ -65,5 +66,7 @@ bool align_models_with_pca(const std::string& model1_path, const std::string& mo
 void show_path(std::vector<int> path);
 
 //kinds of check
-void geometry_analyzer(Eigen::VectorXd SDF, int resolution, double thres_degree);
+void geometry_analyzer(Eigen::VectorXd SDF, int resolution, double thres_degree, int overhang_count, int floating_count, std::vector<uint8_t>& overhang_mask, std::vector<uint8_t>& floating_mask);
+Vector3d computeGradient(int x, int y, int z, int res, Eigen::VectorXd SDF);
+void getCoord(int idx, int res, int& x, int& y, int& z);
  
