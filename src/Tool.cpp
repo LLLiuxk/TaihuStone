@@ -580,5 +580,63 @@ void getCoord(int idx, int res, int& x, int& y, int& z)
     z = temp / res;
 }
 
+//TO
+double smoothHeaviside(double s, double eps)
+{
+    s = -s;
+    if (s > eps) return 1.0;
+    if (s < -eps) return 0.0;
+
+    return 0.5 + s / (2.0 * eps)
+        + 0.5 / M_PI * sin(M_PI * s / eps);
+}
+
+double hardTrans(double s, double iso)
+{
+    if (s < iso) return 1.0;
+    else
+        return 0.0;
+}
+
+VoxelGrid SDFtoVoxel(std::function<double(const Eigen::Vector3d&)> sdf, Eigen::Vector3d minBox, Eigen::Vector3d maxBox, int nx, int ny, int nz, double eps)
+{
+    VoxelGrid grid;
+    grid.nx = nx; grid.ny = ny; grid.nz = nz;
+    grid.origin = minBox;
+
+    grid.dx = (maxBox.x() - minBox.x()) / (nx - 1);
+    grid.dy = (maxBox.y() - minBox.y()) / (ny - 1);
+    grid.dz = (maxBox.z() - minBox.z()) / (nz - 1);
+
+    grid.rho.resize(nx * ny * nz);
+
+    for (int k = 0; k < nz; ++k)
+        for (int j = 0; j < ny; ++j)
+            for (int i = 0; i < nx; ++i)
+            {
+                Eigen::Vector3d x(
+                    minBox.x() + i * grid.dx,
+                    minBox.y() + j * grid.dy,
+                    minBox.z() + k * grid.dz
+                );
+
+                double phi = sdf(x);   // ÄãµÄ SDF ²éÑ¯
+                double rho = smoothHeaviside(phi, eps);
+                //double rho = hardTrans(phi, 0.0);
+
+                grid.at(i, j, k) = rho;
+            }
+
+    return grid;
+}
+
+void saveRawDensity(const VoxelGrid& grid, const std::string& filename)
+{
+    std::ofstream out(filename, std::ios::binary);
+    out.write(reinterpret_cast<const char*>(grid.rho.data()),
+        grid.rho.size() * sizeof(double));
+    out.close();
+}
+
 
 

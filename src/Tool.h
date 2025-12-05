@@ -24,6 +24,24 @@ using namespace std;
 using namespace Eigen;
 
 
+struct VoxelGrid
+{
+    int nx, ny, nz;
+    double dx, dy, dz;          // 体素尺寸
+    Eigen::Vector3d origin;     // 左下角原点
+    std::vector<double> rho;   // 密度场 [0,1]
+
+    inline int index(int i, int j, int k) const
+    {
+        return i + nx * (j + ny * k);
+    }
+
+    double& at(int i, int j, int k)
+    {
+        return rho[index(i, j, k)];
+    }
+};
+
 void Mesh2SDF(Eigen::MatrixXd& V, Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Eigen::VectorXd& S);
 bool saveMesh(std::string filename, Eigen::MatrixXd V, Eigen::MatrixXi F);
 
@@ -69,4 +87,12 @@ void show_path(std::vector<int> path);
 void geometry_analyzer(Eigen::VectorXd SDF, int resolution, double thres_degree, int overhang_count, int floating_count, std::vector<uint8_t>& overhang_mask, std::vector<uint8_t>& floating_mask);
 Vector3d computeGradient(int x, int y, int z, int res, Eigen::VectorXd SDF);
 void getCoord(int idx, int res, int& x, int& y, int& z);
- 
+
+
+//TO
+double smoothHeaviside(double s, double eps);
+double hardTrans(double s, double iso);
+
+VoxelGrid SDFtoVoxel(std::function<double(const Eigen::Vector3d&)> sdf, Eigen::Vector3d minBox, Eigen::Vector3d maxBox, int nx, int ny, int nz, double eps);   // Heaviside 平滑宽度（建议 = 1~2 个体素尺寸）
+
+void saveRawDensity(const VoxelGrid& grid, const std::string& filename);
