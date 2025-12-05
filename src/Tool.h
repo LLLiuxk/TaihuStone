@@ -95,4 +95,6 @@ double hardTrans(double s, double iso);
 
 VoxelGrid SDFtoVoxel(std::function<double(const Eigen::Vector3d&)> sdf, Eigen::Vector3d minBox, Eigen::Vector3d maxBox, int nx, int ny, int nz, double eps);   // Heaviside 平滑宽度（建议 = 1~2 个体素尺寸）
 
-void saveRawDensity(const VoxelGrid& grid, const std::string& filename);
+void saveVoxelToRaw(const VoxelGrid& grid, const std::string& filename);
+
+void saveVoxelToVTK(const VoxelGrid& grid, const std::string& filename);

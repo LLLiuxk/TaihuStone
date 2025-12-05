@@ -630,11 +630,43 @@ VoxelGrid SDFtoVoxel(std::function<double(const Eigen::Vector3d&)> sdf, Eigen::V
     return grid;
 }
 
-void saveRawDensity(const VoxelGrid& grid, const std::string& filename)
+void saveVoxelToRaw(const VoxelGrid& grid, const std::string& filename)
 {
     std::ofstream out(filename, std::ios::binary);
     out.write(reinterpret_cast<const char*>(grid.rho.data()),
         grid.rho.size() * sizeof(double));
+    out.close();
+}
+
+void saveVoxelToVTK(const VoxelGrid& grid, const std::string& filename)
+{
+    std::ofstream out(filename);
+    out << "# vtk DataFile Version 3.0\n";
+    out << "Voxel Density\n";
+    out << "ASCII\n";
+    out << "DATASET STRUCTURED_POINTS\n";
+    out << "DIMENSIONS "
+        << grid.nx << " "
+        << grid.ny << " "
+        << grid.nz << "\n";
+
+    out << "ORIGIN "
+        << grid.origin.x() << " "
+        << grid.origin.y() << " "
+        << grid.origin.z() << "\n";
+
+    out << "SPACING "
+        << grid.dx << " "
+        << grid.dy << " "
+        << grid.dz << "\n";
+
+    out << "POINT_DATA " << grid.nx * grid.ny * grid.nz << "\n";
+    out << "SCALARS density double\n";
+    out << "LOOKUP_TABLE default\n";
+
+    for (double v : grid.rho)
+        out << v << "\n";
+
     out.close();
 }
 
