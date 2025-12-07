@@ -467,7 +467,7 @@ void show_path(std::vector<int> path)
 
 
 
-void geometry_analyzer(Eigen::VectorXd SDF, int resolution, double thres_degree, int overhang_count, int floating_count, std::vector<uint8_t> &overhang_mask, std::vector<uint8_t> &floating_mask)
+void geometry_analyzer(Eigen::VectorXd SDF, int resolution, double thres_degree, int &overhang_count, int& floating_count, std::vector<uint8_t> &overhang_mask, std::vector<uint8_t> &floating_mask)
 {
     double overhang_threshold = -std::cos(thres_degree * M_PI / 180.0f);
     overhang_mask.clear(); // 1表示该位置存在悬垂违规
@@ -479,12 +479,16 @@ void geometry_analyzer(Eigen::VectorXd SDF, int resolution, double thres_degree,
     overhang_mask.resize(total_voxels, 0);
     floating_mask.resize(total_voxels, 0);
 
+    int cal_num = 0;
     for (int z = 1; z < resolution - 1; ++z) {
         for (int y = 1; y < resolution - 1; ++y) {
             for (int x = 1; x < resolution - 1; ++x) {
                 int idx = x + y * resolution + z* resolution* resolution;
                 double val = SDF[idx];
-
+                cal_num++;
+                //if(cal_num%100==0)
+                if (val<0)
+                    cout << "idx: " << idx << "  val:"<< val<<endl;
                 // 这里的 0.5 是假设体素大小为1，只检测表面附近的体素
                 // 在实际应用中，通常检测 abs(val) < voxel_size * sqrt(3)
                 if (std::abs(val) < 0.8f) {
@@ -501,6 +505,7 @@ void geometry_analyzer(Eigen::VectorXd SDF, int resolution, double thres_degree,
             }
         }
     }
+    cout << "cal_num: " << cal_num << endl;
     // 2. 检测悬空特征 (Floating Islands)
         // 使用 BFS 从 Z=0 开始标记
     std::vector<bool> visited(total_voxels, false);
@@ -528,7 +533,7 @@ void geometry_analyzer(Eigen::VectorXd SDF, int resolution, double thres_degree,
         q.pop();
 
         int cx, cy, cz;
-        getCoord(curr_idx, cx, cy, cz);
+        getCoord(curr_idx, resolution, cx, cy, cz);
 
         for (int i = 0; i < 6; ++i) {
             int nx = cx + dx[i];
@@ -546,7 +551,7 @@ void geometry_analyzer(Eigen::VectorXd SDF, int resolution, double thres_degree,
             }
         }
     }
-
+    cout << "寻找未被访问的实体 (即悬空部分)" << endl;
     // C. 寻找未被访问的实体 (即悬空部分)
     for (int i = 0; i < total_voxels; ++i) {
         if (SDF[i] <= 0.0f && !visited[i]) {
@@ -598,7 +603,7 @@ double hardTrans(double s, double iso)
         return 0.0;
 }
 
-VoxelGrid SDFtoVoxel(std::function<double(const Eigen::Vector3d&)> sdf, Eigen::Vector3d minBox, Eigen::Vector3d maxBox, int nx, int ny, int nz, double eps)
+VoxelGrid SDFtoVoxel(Eigen::VectorXd& sdf, Eigen::Vector3d minBox, Eigen::Vector3d maxBox, int nx, int ny, int nz, double eps)
 {
     VoxelGrid grid;
     grid.nx = nx; grid.ny = ny; grid.nz = nz;
@@ -614,15 +619,10 @@ VoxelGrid SDFtoVoxel(std::function<double(const Eigen::Vector3d&)> sdf, Eigen::V
         for (int j = 0; j < ny; ++j)
             for (int i = 0; i < nx; ++i)
             {
-                Eigen::Vector3d x(
-                    minBox.x() + i * grid.dx,
-                    minBox.y() + j * grid.dy,
-                    minBox.z() + k * grid.dz
-                );
-
-                double phi = sdf(x);   // 你的 SDF 查询
-                double rho = smoothHeaviside(phi, eps);
-                //double rho = hardTrans(phi, 0.0);
+				int index = i + j * nx + k * nx * ny;
+                double phi = sdf(index);   // 你的 SDF 查询
+                //double rho = smoothHeaviside(phi, eps);
+                double rho = hardTrans(phi, 0.0);
 
                 grid.at(i, j, k) = rho;
             }
@@ -630,7 +630,7 @@ VoxelGrid SDFtoVoxel(std::function<double(const Eigen::Vector3d&)> sdf, Eigen::V
     return grid;
 }
 
-void saveVoxelToRaw(const VoxelGrid& grid, const std::string& filename)
+void saveVoxelToRaw(std::string filename, VoxelGrid& grid)
 {
     std::ofstream out(filename, std::ios::binary);
     out.write(reinterpret_cast<const char*>(grid.rho.data()),
@@ -638,7 +638,7 @@ void saveVoxelToRaw(const VoxelGrid& grid, const std::string& filename)
     out.close();
 }
 
-void saveVoxelToVTK(const VoxelGrid& grid, const std::string& filename)
+void saveVoxelToVTK(std::string filename, VoxelGrid& grid)
 {
     std::ofstream out(filename);
     out << "# vtk DataFile Version 3.0\n";
@@ -669,6 +669,60 @@ void saveVoxelToVTK(const VoxelGrid& grid, const std::string& filename)
 
     out.close();
 }
+
+// 保存体素网格为NPY格式
+void saveVoxelGridAsNPY(std::vector<uint8_t>& voxel_grid, int res, std::string& filename) 
+{
+    std::ofstream file(filename, std::ios::binary);
+    if (!file.is_open()) {
+        std::cerr << "无法创建NPY文件: " << filename << std::endl;
+        return;
+    }
+
+    // NPY文件头格式
+    // Magic number (6 bytes): \x93NUMPY
+    file.write("\x93NUMPY", 6);
+    // Version (2 bytes): 1.0
+    file.write("\x01\x00", 2);
+
+    // Header dictionary
+    std::string dtype = "'|u1'";  // uint8
+    std::string fortran_order = "False";
+    std::string shape = "(" + std::to_string(res) + ", " + std::to_string(res) + ", " + std::to_string(res) + ")";
+
+    std::string header_dict = "{'descr': " + dtype + ", 'fortran_order': " + fortran_order + ", 'shape': " + shape + ", }";
+
+    // 补齐到16字节对齐
+    while ((header_dict.length() + 1) % 16 != 15) {
+        header_dict += " ";
+    }
+    header_dict += "\n";
+
+    // Header length (2 bytes, little endian)
+    uint16_t header_len = static_cast<uint16_t>(header_dict.length());
+    file.write(reinterpret_cast<const char*>(&header_len), 2);
+
+    // Header dictionary
+    file.write(header_dict.c_str(), header_dict.length());
+
+    std::vector<uint8_t> voxel_grid_reordered;
+    for (int z = 0; z < res; ++z) {
+        for (int y = 0; y < res; ++y) {
+            for (int x = 0; x < res; ++x) {
+                // 将数据按 z, y, x 顺序排列
+                int index = (z * res * res) + (y * res) + x;
+                voxel_grid_reordered.push_back(voxel_grid[index]);
+            }
+        }
+    }
+
+    // Data (按照x,y,z顺序存储)
+    file.write(reinterpret_cast<const char*>(voxel_grid_reordered.data()), voxel_grid_reordered.size());
+
+    file.close();
+    std::cout << "NPY文件保存成功: " << filename << " (大小: " << res << "x" << res << "x" << res << ")" << std::endl;
+}
+
 
 
 
