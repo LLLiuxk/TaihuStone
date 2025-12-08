@@ -17,14 +17,14 @@ int main(int argc, char* argv[])
 {
     auto start_time = std::chrono::high_resolution_clock::now();
 
-    std::string input_file = "D:/VSprojects/TaihuStone/model/high_rock.stl";
+    std::string input_file = "D:/VSprojects/TaihuStone/model/RockSet03-C.obj";
     //ModelGenerator mg(input_file);
 
     //mg.show_model();
 
 
     //----------test---------------
-    std::string input_file_ = "D:/VSprojects/TaihuStone/model/test_case.stl";
+    std::string input_file_ = "D:/VSprojects/TaihuStone/model/gaussian_pores150.stl";
     Eigen::MatrixXd V_ini; //初始网格顶点
     Eigen::MatrixXi F_ini; // 初始网格面片
     Eigen::VectorXd SDF_ini;           // 原始/已处理的SDF网格值
@@ -36,23 +36,23 @@ int main(int argc, char* argv[])
     Eigen::MatrixXd V_t; //输出网格顶点
     Eigen::MatrixXi F_t; // 输出网格面片
     MarchingCubes(SDF_ini, GV, Resolution, Resolution, Resolution, 0, V_t, F_t);  //gaussian combined with tubes
-    //view_model(V_t, F_t);
+    view_model(V_t, F_t);
 
-	VoxelGrid grid_ = SDFtoVoxel(SDF_ini, GV.row(0), GV.row(GV.rows() - 1), Resolution, Resolution, Resolution, 1.0);
-	saveVoxelToRaw( "D:/VSprojects/TaihuStone/model/raw/voxelized_model.raw", grid_);
-	saveVoxelToVTK("D:/VSprojects/TaihuStone/model/vtk/voxelized_model.vtk", grid_);
-    //    // 保存体素化结果为NPY格式
-    //std::cout << "开始保存体素化结果..." << std::endl;
-    //// 创建二值体素网格 (1=实心, 0=空心)
-    //std::vector<uint8_t> voxel_grid(Resolution * Resolution * Resolution, 0);
+	//VoxelGrid grid_ = SDFtoVoxel(SDF_ini, GV.row(0), GV.row(GV.rows() - 1), Resolution, Resolution, Resolution, 1.0);
+	//saveVoxelToRaw( "D:/VSprojects/TaihuStone/model/raw/voxelized_model.raw", grid_);
+	//saveVoxelToVTK("D:/VSprojects/TaihuStone/model/vtk/voxelized_model.vtk", grid_);
+    //  保存体素化结果为NPY格式
+    std::cout << "开始保存体素化结果..." << std::endl;
+    // 创建二值体素网格 (1=实心, 0=空心)
+    std::vector<uint8_t> voxel_grid(Resolution * Resolution * Resolution, 0);
 
-    //for (int i = 0; i < SDF_ini.size(); ++i) {
-    //    voxel_grid[i] = (SDF_ini(i) < 0) ? 1 : 0;
-    //}
+    for (int i = 0; i < SDF_ini.size(); ++i) {
+        voxel_grid[i] = (SDF_ini(i) < 0) ? 1 : 0;
+    }
 
-    //// 保存为NPY格式
-    //std::string npy_filename = "D:/VSprojects/TaihuStone/model/npy/voxelized_model.npy";
-    //saveVoxelGridAsNPY(voxel_grid, Resolution, npy_filename);
+    // 保存为NPY格式
+    std::string npy_filename = "D:/VSprojects/TaihuStone/model/npy/voxelized_model.npy";
+    saveVoxelGridAsNPY(voxel_grid, Resolution, npy_filename);
     // 
     // 
     // 

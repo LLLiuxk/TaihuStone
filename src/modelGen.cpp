@@ -38,6 +38,18 @@ ModelGenerator::ModelGenerator(std::string input_file, int pores)
     //Vector3d point = GV.row(10010);
     //cout << "point index: " << find_nearest_grid(point) << endl;
     generateGaussianSDF();
+
+    std::cout << "开始保存体素化结果..." << std::endl;
+    // 创建二值体素网格 (1=实心, 0=空心)
+    std::vector<uint8_t> voxel_grid(Resolution * Resolution * Resolution, 0);
+
+    for (int i = 0; i < SDF_out.size(); ++i) {
+        voxel_grid[i] = (SDF_out(i) < 0) ? 1 : 0;
+    }
+
+    // 保存为NPY格式
+    std::string npy_filename = "D:/VSprojects/TaihuStone/model/npy/voxelized_model_out.npy";
+    saveVoxelGridAsNPY(voxel_grid, Resolution, npy_filename);
 }
 
 
@@ -520,7 +532,7 @@ bool ModelGenerator::find_edge_in_path(Edge cand_edge, vector<int> path)
         cout << "Empty path!" << endl;
         return true;  //如果路径为空，默认为在
     }
-    show_path(path);
+    //show_path(path);
     bool in = false;
     int sd = cand_edge.from;
 	int ed = cand_edge.to;
@@ -1032,7 +1044,7 @@ pair<double, double> ModelGenerator::add_edges(Edge cand_edge, AdjacencyList adj
 	int start = -1, end = -1;
     double p1_add = cal_kernel_translucency(p1, start, end, max_path1, adj_new, false);
     p1_add = p1_add - kernel_translucency[p1];
-    show_path(max_path1);
+    //show_path(max_path1);
     start = -1;
     end = -1;
     double p2_add = cal_kernel_translucency(p2, start, end, max_path2, adj_new);
@@ -1055,7 +1067,7 @@ bool ModelGenerator::replace_edges(int p_index, int replace_e, std::vector<Edge>
     AdjacencyList adj_new = adj;
     AdjacencyList unused_adj_new = unused_adj;
 	Edge re_edge = Tube_edges[replace_e];
-    for (auto d : adj_new[p_index]) cout << d << "   ";
+    for (auto d : adj_new[p_index]) cout << "adj_new[p_index] size: "<< adj_new[p_index].size()<<"   "<<d << "   ";
     //update adj_list
     if (re_edge.from < kernels_num && re_edge.to < kernels_num) {
         auto& adj_a = adj_new[re_edge.from];
@@ -1064,7 +1076,7 @@ bool ModelGenerator::replace_edges(int p_index, int replace_e, std::vector<Edge>
         auto& adj_b = adj_new[re_edge.to];
         adj_b.erase(std::remove(adj_b.begin(), adj_b.end(), re_edge.from), adj_b.end());
     }
-    for (auto d : adj_new[p_index]) cout << d << "   ";
+    //for (auto d : adj_new[p_index]) cout << "adj_new[p_index] size: " << adj_new[p_index].size() << "   " << d << "   ";
 
     //这里暂时不修改unused_adj_new，不需要再计算这条边
 
@@ -1140,6 +1152,7 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
         int inner_index = inner_leafs[i];
     }*/
     int opt_count_total = 0;
+    int num_add = 0, num_replace = 0;
 	//check each kernel's translucency
     for(int i=0;i< kernels_num;i++)
     {
@@ -1198,6 +1211,8 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
 					Paths[chosen_cand] = max_path2;
                     curr_edge_num++;
                     opt_count_total++;
+                    num_add++;
+                    cout << "The num of " << num_add << " edges have beed added!" << endl;
                     cout << "===========================================================================" << endl << "Add edge from " << i << " to " << chosen_cand << "  increasing Kernel "<<i<<" 's score to "<< kernel_translucency[i] <<"  by: "<< delta_score_max_pair.first <<endl<<"Edge length: "<< chosen_e.length<<"   new edge num : " << curr_edge_num <<
                         endl << "===========================================================================" << endl;
                 }
@@ -1241,9 +1256,16 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
                         //尝试替换这条边
                         //Edge removed_edge = Tube_edges[replace_i];
                         cout << "Optimization: "<<i << " replace " << replace_e << endl;
-                        if (replace_edges(i, replace_e, Tube_edges, Adj_list, Unused_adj_list))
+                        if (Adj_list[i].size() < 2) //虽然替换，但是只有一条连接边，无法替换
+                        {
+                            edge_max_num++;
+                            break; //提升上限，跳出循环
+                        }
+                        else if (replace_edges(i, replace_e, Tube_edges, Adj_list, Unused_adj_list))
                         {
                             opt_count_total++;
+							num_replace++;
+                            cout << "The num of " << num_replace << " edges have beed repalced!" << endl;
                             break; //成功替换，跳出循环
 						}
 
@@ -1252,8 +1274,8 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
             }
 
         }
-        cout << "During the whole optimization, " << opt_count_total << " edge have beed added and repalced!" << endl;
     }
+    cout << "During the whole optimization, " << opt_count_total << " edge have beed added and repalced!" << endl;
 }
 
 int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double gaus_iso, double smooth_t)
