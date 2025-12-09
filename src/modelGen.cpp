@@ -1,18 +1,18 @@
-#include "modelGen.h"
+ï»¿#include "modelGen.h"
 
 GaussianKernel::GaussianKernel(Eigen::Vector3d center_, double sigma_, double amplitude_, double center_value_)
 {
     center = center_;
-    sigma = sigma_;         // ºËµÄ´óĞ¡/Ó°ÏìÁ¦·¶Î§ (¸ßË¹º¯ÊıµÄ±ê×¼²î)
+    sigma = sigma_;         // æ ¸çš„å¤§å°/å½±å“åŠ›èŒƒå›´ (é«˜æ–¯å‡½æ•°çš„æ ‡å‡†å·®)
     amplitude = amplitude_;
     center_value = center_value_;
-    on_surface = is_on_surface();
+    on_surface = is_on_surface();  //true: on surface
 }
 
 double GaussianKernel::gaussian_fun(const Eigen::Vector3d& p)
 {
 	double d2 = (p - center).squaredNorm();
-	double gau_value = amplitude * std::exp(-d2 / (2.0 * sigma * sigma));   //sigmaÔ½´ó£¬º¯ÊıÔ½Æ½»º
+	double gau_value = amplitude * std::exp(-d2 / (2.0 * sigma * sigma));   //sigmaè¶Šå¤§ï¼Œå‡½æ•°è¶Šå¹³ç¼“
     //std::cout << "  gau_value:"<< gau_value <<std::endl;
 	return gau_value;
 
@@ -39,15 +39,15 @@ ModelGenerator::ModelGenerator(std::string input_file, int pores)
     //cout << "point index: " << find_nearest_grid(point) << endl;
     generateGaussianSDF();
 
-    std::cout << "¿ªÊ¼±£´æÌåËØ»¯½á¹û..." << std::endl;
-    // ´´½¨¶şÖµÌåËØÍø¸ñ (1=ÊµĞÄ, 0=¿ÕĞÄ)
+    std::cout << "å¼€å§‹ä¿å­˜ä½“ç´ åŒ–ç»“æœ..." << std::endl;
+    // åˆ›å»ºäºŒå€¼ä½“ç´ ç½‘æ ¼ (1=å®å¿ƒ, 0=ç©ºå¿ƒ)
     std::vector<uint8_t> voxel_grid(Resolution * Resolution * Resolution, 0);
 
     for (int i = 0; i < SDF_out.size(); ++i) {
         voxel_grid[i] = (SDF_out(i) < 0) ? 1 : 0;
     }
 
-    // ±£´æÎªNPY¸ñÊ½
+    // ä¿å­˜ä¸ºNPYæ ¼å¼
     std::string npy_filename = "D:/VSprojects/TaihuStone/model/npy/voxelized_model_out.npy";
     saveVoxelGridAsNPY(voxel_grid, Resolution, npy_filename);
 }
@@ -55,7 +55,7 @@ ModelGenerator::ModelGenerator(std::string input_file, int pores)
 
 void ModelGenerator::generateGaussianSDF()
 {
-	// Ëæ»úÉú³É¿Õ¶´ÖĞĞÄÎ»ÖÃ£¬pores = 0 ²ÉÓÃ²»¿ÉÔ¤²âËæ»úÊı
+	// éšæœºç”Ÿæˆç©ºæ´ä¸­å¿ƒä½ç½®ï¼Œpores = 0 é‡‡ç”¨ä¸å¯é¢„æµ‹éšæœºæ•°
 	int pores = pore_num;
     pores = pores ? pores : (std::random_device{}()%PoresNum);
     std::cout << "pores: " << pores << std::endl;
@@ -82,23 +82,23 @@ void ModelGenerator::generateGaussianSDF()
     degree_limit = max(degree_limit, Min_degree);
     Tube_edges = pores_connection_mst(Kernels, degree_limit);
 
-	// ¹¹½¨ÁÚ½Ó±í
+	// æ„å»ºé‚»æ¥è¡¨
     Adj_list = construct_adj_list(Tube_edges, kernel_num);
     Unused_adj_list = get_unused_edge_adj(Adj_list, 0.8);
-
+	Dist_maps = construct_all_dmaps(Adj_list);
     vector<int> leafs_index = all_leafs_mst(Tube_edges);
     vector<int> inner_leafs = check_inner_leafs(leafs_index);
     
 	//---------calculate total translucency score------------------------------
     cout << "--------------------3. Calculating total translucency of mst --------------------" << endl;
-    double trans_score = cal_total_translucency(Kernels, surface_kernels, Adj_list);
+    double trans_score = cal_total_translucency(Kernels, Adj_list);
 	int ori_edge_num = Tube_edges.size();
     cout << "Before optimization, total score: " << trans_score << " with "<< ori_edge_num <<" edges."<<endl;
 
 	//--------------optimize connection edges------------------------------
 
     vector<int> edge_improtance = cal_edge_usage(Paths);
-	// Êä³öÃ¿Ìõ±ßµÄÖØÒªĞÔ·ÖÊı
+	// è¾“å‡ºæ¯æ¡è¾¹çš„é‡è¦æ€§åˆ†æ•°
 	//for (auto ei : edge_improtance) 
  //       cout << "edge_importance: " << ei << endl;
     int opt_times_once = 5;
@@ -106,7 +106,8 @@ void ModelGenerator::generateGaussianSDF()
     optimize_mst(opt_times_once, edge_max);
 
     cout << "--------------------5. Calculating translucency of optimized mst --------------------" << endl;
-    double trans_score_opt = cal_total_translucency(Kernels, surface_kernels, Adj_list);
+    //Dist_maps = construct_all_dmaps(Adj_list);
+    double trans_score_opt = cal_total_translucency(Kernels, Adj_list);
     cout << "After optimization, total score increases from: " << trans_score<<"  to "<< trans_score_opt << " with edges from " << ori_edge_num<<"  to "<< Tube_edges.size() << endl;
 
  //   int p_index = 8;
@@ -122,11 +123,11 @@ void ModelGenerator::generateGaussianSDF()
     //-----------------generate tubes------------------------------------------
     double void_count = generate_mst_tubes(grid_num, resolution, Isolevel, Gauss_level, SmoothT);
 
-    // ¼ÆËã¿×Ï¶ÂÊ
+    // è®¡ç®—å­”éš™ç‡
     double porosity = 1.0 - void_count / model_count;
     std::cout << "Porosity: " << porosity * 100 << "%" << "    --------:" << void_count << "   " << model_count << std::endl;
 
-    // ´æ´¢×îÖÕµÄ¿×Ï¶ÂÊ
+    // å­˜å‚¨æœ€ç»ˆçš„å­”éš™ç‡
     finalPorosity = porosity;
 
 	// ------------check single component--------------
@@ -155,7 +156,7 @@ void ModelGenerator::sample_interior_points(std::vector<Eigen::Vector3d>& pore_c
         return;
     }
 
-    // ÔÚÕû¸öĞÎ×´ÄÚ²¿²ÉÑù
+    // åœ¨æ•´ä¸ªå½¢çŠ¶å†…éƒ¨é‡‡æ ·
     std::uniform_int_distribution<int> index_dist(0, inside_indices.size() - 1);
 
     int attempts = 0;
@@ -163,11 +164,11 @@ void ModelGenerator::sample_interior_points(std::vector<Eigen::Vector3d>& pore_c
     while (pore_centers.size() < pores && attempts < max_attempts) {
         attempts++;
 
-        // Ëæ»úÑ¡ÔñÒ»¸öÄÚ²¿µã£¬±£´æÆäsdfÖµ
+        // éšæœºé€‰æ‹©ä¸€ä¸ªå†…éƒ¨ç‚¹ï¼Œä¿å­˜å…¶sdfå€¼
         int chosen_idx = inside_indices[index_dist(gen)];
         Eigen::Vector3d candidate_center = GV.row(chosen_idx).transpose();
 
-        // ¼ì²éÓëÒÑÓĞ¿Õ¶´ÖĞĞÄµÄ×îĞ¡¾àÀë
+        // æ£€æŸ¥ä¸å·²æœ‰ç©ºæ´ä¸­å¿ƒçš„æœ€å°è·ç¦»
         bool valid = true;
         Eigen::Vector3d min_pt = GV.colwise().minCoeff();
         Eigen::Vector3d max_pt = GV.colwise().maxCoeff();
@@ -200,7 +201,7 @@ void ModelGenerator::generate_gaussians(std::vector<Eigen::Vector3d> pore_center
     std::uniform_real_distribution<double> dist_amp(amplitude_min, amplitude_max);
     std::uniform_real_distribution<double> dist_sigma(sigma_min, sigma_max);
 
-    // ÎªÃ¿¸ö¿Õ¶´ÖĞĞÄÉú³ÉËæ»ú²ÎÊı
+    // ä¸ºæ¯ä¸ªç©ºæ´ä¸­å¿ƒç”Ÿæˆéšæœºå‚æ•°
     int pore_size = pore_centers.size();
     for (size_t i = 0; i < pore_size; ++i) {
         double sigma_val = dist_sigma(gen);
@@ -232,7 +233,7 @@ double ModelGenerator::combinedSDF(Eigen::Vector3d & p, std::vector<GaussianKern
         total_void += G_kernels[i].gaussian_fun(p);
     }
     //std::cout << "total_void: " << total_void << std::endl;
-    return  C - total_void;  // µ±Ç°Ê¹ÓÃ£º¸ºµÄ¿Õ¶´×ÜºÍ 
+    return  C - total_void;  // å½“å‰ä½¿ç”¨ï¼šè´Ÿçš„ç©ºæ´æ€»å’Œ 
 }
 
 void ModelGenerator::show_model()
@@ -255,37 +256,37 @@ std::vector<Edge> ModelGenerator::pores_connection_mst(const std::vector<Gaussia
     }
 
     std::vector<bool> visited(n, false);
-    std::vector<int> degree(n, 0);   // <-- ĞÂÔö£º¼ÇÂ¼½Úµã¶ÈÊı
+    std::vector<int> degree(n, 0);   // <-- æ–°å¢ï¼šè®°å½•èŠ‚ç‚¹åº¦æ•°
     std::priority_queue<Edge, std::vector<Edge>, std::greater<Edge>> pq;
 
-    // ´ÓµÚÒ»¸ö½Úµã¿ªÊ¼
+    // ä»ç¬¬ä¸€ä¸ªèŠ‚ç‚¹å¼€å§‹
     visited[0] = true;
 
-    // ³õÊ¼»¯£º¼ÓÈëÓëµÚÒ»¸ö½ÚµãÏàÁ¬µÄËùÓĞ±ß
+    // åˆå§‹åŒ–ï¼šåŠ å…¥ä¸ç¬¬ä¸€ä¸ªèŠ‚ç‚¹ç›¸è¿çš„æ‰€æœ‰è¾¹
     for (int j = 1; j < n; ++j) {
         double dist = distance(gau[0].center, gau[j].center);
         double dist_w = dist * calculate_edge_weight(gau[0], gau[j]);
         pq.push({ 0, j, dist, dist_w });
     }
 
-    // Öğ²½À©Õ¹Éú³ÉÊ÷
+    // é€æ­¥æ‰©å±•ç”Ÿæˆæ ‘
     while (!pq.empty() && mst_edges.size() < n - 1) {
         Edge e = pq.top();
         pq.pop();
 
-        if (visited[e.to]) continue; // ±ÜÃâÖØ¸´·ÃÎÊ
+        if (visited[e.to]) continue; // é¿å…é‡å¤è®¿é—®
 
-        // ¶ÈÊıÏŞÖÆ¼ì²é
+        // åº¦æ•°é™åˆ¶æ£€æŸ¥
         if (degree[e.from] >= Dmax || degree[e.to] >= Dmax)
             continue;
-        // ½ÓÊÜ¸Ã±ß
+        // æ¥å—è¯¥è¾¹
         mst_edges.push_back(e);
         visited[e.to] = true;
 
         degree[e.from]++;
         degree[e.to]++;
 
-        // ½«ĞÂ¼ÓÈë½ÚµãµÄ±ß·ÅÈë¶ÓÁĞ
+        // å°†æ–°åŠ å…¥èŠ‚ç‚¹çš„è¾¹æ”¾å…¥é˜Ÿåˆ—
         for (int j = 0; j < n; ++j) {
             if (!visited[j]) {
                 double dist = distance(gau[e.to].center, gau[j].center);
@@ -304,8 +305,8 @@ std::vector<std::vector<int>> ModelGenerator::construct_adj_list(std::vector<Edg
 {
     std::vector<std::vector<int>> adj_list(kernel_num);
     for (const auto& edge : edges_list) {
-        // ÓÉÓÚ×îĞ¡Éú³ÉÊ÷ÊÇÎŞÏòÍ¼£¬Ò»Ìõ±ß´ú±íË«ÏòÁ¬½Ó¡£
-        // ÎÒÃÇĞèÒª½« `to` Ìí¼Óµ½ `from` µÄÁÚ¾ÓÁĞ±í£¬Í¬Ê±½« `from` Ìí¼Óµ½ `to` µÄÁÚ¾ÓÁĞ±í¡£
+        // ç”±äºæœ€å°ç”Ÿæˆæ ‘æ˜¯æ— å‘å›¾ï¼Œä¸€æ¡è¾¹ä»£è¡¨åŒå‘è¿æ¥ã€‚
+        // æˆ‘ä»¬éœ€è¦å°† `to` æ·»åŠ åˆ° `from` çš„é‚»å±…åˆ—è¡¨ï¼ŒåŒæ—¶å°† `from` æ·»åŠ åˆ° `to` çš„é‚»å±…åˆ—è¡¨ã€‚
         if (edge.from < kernel_num && edge.to < kernel_num) {
             adj_list[edge.from].push_back(edge.to);
             adj_list[edge.to].push_back(edge.from);
@@ -321,7 +322,51 @@ std::vector<std::vector<int>> ModelGenerator::construct_adj_list(std::vector<Edg
 	return adj_list;
 }
 
-std::vector<double> ModelGenerator::construct_dist_map(int p_index, AdjacencyList adj)
+std::vector<std::vector<int>> ModelGenerator::get_unused_edge_adj(AdjacencyList Adj_list, double dis_thres)
+{
+    int n = Kernels.size();
+
+    // åˆå§‹åŒ–ç»“æœé‚»æ¥è¡¨
+    std::vector<std::vector<int>> unused_adj(n);
+
+    // é¢„è®¡ç®—é˜ˆå€¼çš„å¹³æ–¹ï¼Œé¿å…å¾ªç¯ä¸­å¼€æ ¹å·
+    double threshold_sq = dis_thres * dis_thres;
+
+    // éå†æ‰€æœ‰å”¯ä¸€çš„ç‚¹å¯¹ (i, j)
+    for (int i = 0; i < n; ++i)
+    {
+        for (int j = i + 1; j < n; ++j)
+        {
+            // 1. è·ç¦»ç­›é€‰ (æœ€å¿«ï¼Œå…ˆåš)
+            double dist_sq = squared_distance(Kernels[i].center, Kernels[j].center);
+
+            if (dist_sq > threshold_sq) {
+                continue; // è·ç¦»è¿‡å¤§ï¼Œå‰”é™¤
+            }
+
+            // MST å­˜åœ¨æ€§æ£€æŸ¥
+            bool is_in_mst = false;
+            for (int neighbor : Adj_list[i])
+            {
+                if (neighbor == j) {
+                    is_in_mst = true;
+                    break;
+                }
+            }
+
+            if (is_in_mst) {
+                continue; // è¾¹å·²è¢« MST ä½¿ç”¨ï¼Œå‰”é™¤
+            }
+
+            // 3. æ·»åŠ åˆ°ç»“æœ (åŒå‘)
+            unused_adj[i].push_back(j);
+            unused_adj[j].push_back(i);
+        }
+    }
+    return unused_adj;
+}
+
+std::vector<double> ModelGenerator::construct_dist_map(int p_index, AdjacencyList adj)   //æ„å»ºåŒå‘Dijkstra
 {
     int n = Kernels.size();
     std::priority_queue<NodeDist, std::vector<NodeDist>, std::greater<NodeDist>> pq;
@@ -351,72 +396,75 @@ std::vector<double> ModelGenerator::construct_dist_map(int p_index, AdjacencyLis
 	return dist_map;
 }
 
-std::vector<std::vector<int>> ModelGenerator::get_unused_edge_adj(AdjacencyList Adj_list, double dis_thres)
+std::vector<std::vector<double>> ModelGenerator::construct_all_dmaps(AdjacencyList adj)
 {
-    int n = Kernels.size();
+	std::vector<std::vector<double>> all_dmaps;
+    int n = adj.size();
+    for (int i = 0; i < n; ++i) {
+        std::vector<double> dist_map = construct_dist_map(i, adj);
+        all_dmaps.push_back(dist_map);
+	}
+    return all_dmaps;
+}
 
-    // ³õÊ¼»¯½á¹ûÁÚ½Ó±í
-    std::vector<std::vector<int>> unused_adj(n);
+void ModelGenerator::update_dist_map(std::vector<double>& dist_map, int u, int v, double w, AdjacencyList adj)
+{
+    std::priority_queue<NodeDist, std::vector<NodeDist>, std::greater<NodeDist>> pq;
 
-    // Ô¤¼ÆËããĞÖµµÄÆ½·½£¬±ÜÃâÑ­»·ÖĞ¿ª¸ùºÅ
-    double threshold_sq = dis_thres * dis_thres;
-
-    // ±éÀúËùÓĞÎ¨Ò»µÄµã¶Ô (i, j)
-    for (int i = 0; i < n; ++i) 
-    {
-        for (int j = i + 1; j < n; ++j) 
-        {
-            // 1. ¾àÀëÉ¸Ñ¡ (×î¿ì£¬ÏÈ×ö)
-            double dist_sq = squared_distance(Kernels[i].center, Kernels[j].center);
-
-            if (dist_sq > threshold_sq) {
-                continue; // ¾àÀë¹ı´ó£¬ÌŞ³ı
-            }
-
-            // MST ´æÔÚĞÔ¼ì²é
-            bool is_in_mst = false;
-            for (int neighbor : Adj_list[i]) 
-            {
-                if (neighbor == j) {
-                    is_in_mst = true;
-                    break;
-                }
-            }
-
-            if (is_in_mst) {
-                continue; // ±ßÒÑ±» MST Ê¹ÓÃ£¬ÌŞ³ı
-            }
-
-            // 3. Ìí¼Óµ½½á¹û (Ë«Ïò)
-            unused_adj[i].push_back(j);
-            unused_adj[j].push_back(i);
-        }
+    // å…ˆåˆ¤æ–­æ–°è¾¹æ˜¯å¦èƒ½æ¾å¼› u æˆ– v
+    if (dist_map[u] + w < dist_map[v]) {
+        dist_map[v] = dist_map[u] + w;
+        pq.push({ v, dist_map[v] });
     }
 
-    return unused_adj;
+    if (dist_map[v] + w < dist_map[u]) {
+        dist_map[u] = dist_map[v] + w;
+        pq.push({ u, dist_map[u] });
+    }
+
+    // ä»¥è¢«æ›´æ–°çš„ç‚¹ä¸ºèµ·ç‚¹ï¼Œç»§ç»­åš Dijkstra æ‰©æ•£
+    while (!pq.empty()) {
+        NodeDist current = pq.top();
+        pq.pop();
+
+        int x = current.id;
+        double d = current.dist;
+
+        if (d > dist_map[x]) continue;
+
+        for (int y : adj[x]) {
+            double len = length_path(x, y);
+
+            if (dist_map[x] + len < dist_map[y]) {
+                dist_map[y] = dist_map[x] + len;
+                pq.push({ y, dist_map[y] });
+            }
+        }
+    }
 }
+
 
 
 std::vector<int> ModelGenerator::find_path_in_tree(int p1, int p2,  int num_nodes, AdjacencyList adj)
 {
-    // --- ²½Öè 1: ½«±ßÁĞ±í×ª»»ÎªÁÚ½Ó±í £¬ÆäÖĞ adj_list[i] ½«´æ´¢ËùÓĞÓë½Úµã i Ö±½ÓÏàÁ¬µÄ½ÚµãµÄID¡£
+    // --- æ­¥éª¤ 1: å°†è¾¹åˆ—è¡¨è½¬æ¢ä¸ºé‚»æ¥è¡¨ ï¼Œå…¶ä¸­ adj_list[i] å°†å­˜å‚¨æ‰€æœ‰ä¸èŠ‚ç‚¹ i ç›´æ¥ç›¸è¿çš„èŠ‚ç‚¹çš„IDã€‚
     if (num_nodes <= 0) {
-        return {}; // Èç¹ûÃ»ÓĞ½Úµã£¬Ôò²»¿ÉÄÜÓĞÂ·¾¶
+        return {}; // å¦‚æœæ²¡æœ‰èŠ‚ç‚¹ï¼Œåˆ™ä¸å¯èƒ½æœ‰è·¯å¾„
     }
     if (p1 == p2) {
-        // ´¦ÀíÆğµãºÍÖÕµãÊÇÍ¬Ò»¸ö½ÚµãµÄÌØÊâÇé¿ö
-        return {p1}; // Èç¹û½ÚµãÖØ¸´£¬ÔòÊä³öp1
+        // å¤„ç†èµ·ç‚¹å’Œç»ˆç‚¹æ˜¯åŒä¸€ä¸ªèŠ‚ç‚¹çš„ç‰¹æ®Šæƒ…å†µ
+        return {p1}; // å¦‚æœèŠ‚ç‚¹é‡å¤ï¼Œåˆ™è¾“å‡ºp1
     }
     std::vector<std::vector<int>> adj_list = adj;
 
-    // --- ²½Öè 2: Ê¹ÓÃ¹ã¶ÈÓÅÏÈËÑË÷ (BFS) ²éÕÒÂ·¾¶ , BFS ÊÇÔÚÊ÷»òÍ¼ÖĞ²éÕÒ×î¶ÌÂ·¾¶£¨°´±ßÊı¼Æ£©µÄ¾­µäËã·¨¡£
-    std::queue<int> q; // q: Ò»¸ö¶ÓÁĞ£¬ÓÃÓÚ´æ·Å´ı·ÃÎÊµÄ½Úµã
+    // --- æ­¥éª¤ 2: ä½¿ç”¨å¹¿åº¦ä¼˜å…ˆæœç´¢ (BFS) æŸ¥æ‰¾è·¯å¾„ , BFS æ˜¯åœ¨æ ‘æˆ–å›¾ä¸­æŸ¥æ‰¾æœ€çŸ­è·¯å¾„ï¼ˆæŒ‰è¾¹æ•°è®¡ï¼‰çš„ç»å…¸ç®—æ³•ã€‚
+    std::queue<int> q; // q: ä¸€ä¸ªé˜Ÿåˆ—ï¼Œç”¨äºå­˜æ”¾å¾…è®¿é—®çš„èŠ‚ç‚¹
     q.push(p1);
 
-    // parent: Ò»¸öÊı×é£¬ÓÃÓÚÔÚÕÒµ½Â·¾¶ºó½øĞĞ»ØËİ¡£parent[i] ´æ´¢µÄÊÇÔÚÂ·¾¶ÉÏ½Úµã i µÄÇ°Ò»¸ö½Úµã¡£
+    // parent: ä¸€ä¸ªæ•°ç»„ï¼Œç”¨äºåœ¨æ‰¾åˆ°è·¯å¾„åè¿›è¡Œå›æº¯ã€‚parent[i] å­˜å‚¨çš„æ˜¯åœ¨è·¯å¾„ä¸ŠèŠ‚ç‚¹ i çš„å‰ä¸€ä¸ªèŠ‚ç‚¹ã€‚
     std::vector<int> parent(num_nodes, -1);
 
-    // visited: Ò»¸ö²¼¶ûÊı×é£¬ÓÃÓÚ±ê¼Ç½ÚµãÊÇ·ñÒÑ±»·ÃÎÊ£¬·ÀÖ¹ÔÚÍ¼ÖĞ×ß»ØÍ·Â·»òÏİÈëÑ­»·¡£
+    // visited: ä¸€ä¸ªå¸ƒå°”æ•°ç»„ï¼Œç”¨äºæ ‡è®°èŠ‚ç‚¹æ˜¯å¦å·²è¢«è®¿é—®ï¼Œé˜²æ­¢åœ¨å›¾ä¸­èµ°å›å¤´è·¯æˆ–é™·å…¥å¾ªç¯ã€‚
     std::vector<bool> visited(num_nodes, false);
     visited[p1] = true;
 
@@ -427,32 +475,32 @@ std::vector<int> ModelGenerator::find_path_in_tree(int p1, int p2,  int num_node
 
         if (u == p2) {
             path_found = true;
-            break; // ÕÒµ½ÁËÖÕµã£¬¿ÉÒÔÌáÇ°½áÊøËÑË÷
+            break; // æ‰¾åˆ°äº†ç»ˆç‚¹ï¼Œå¯ä»¥æå‰ç»“æŸæœç´¢
         }
 
-        // ±éÀúµ±Ç°½Úµã u µÄËùÓĞÁÚ¾Ó
-        // ÕâÀïÌåÏÖÁËÁÚ½Ó±íµÄĞ§ÂÊÓÅÊÆ£ºÖ±½Ó·ÃÎÊ adj_list[u] ¼´¿É¡£
+        // éå†å½“å‰èŠ‚ç‚¹ u çš„æ‰€æœ‰é‚»å±…
+        // è¿™é‡Œä½“ç°äº†é‚»æ¥è¡¨çš„æ•ˆç‡ä¼˜åŠ¿ï¼šç›´æ¥è®¿é—® adj_list[u] å³å¯ã€‚
         for (int v : adj_list[u]) {
             if (!visited[v]) {
-                visited[v] = true; // ±ê¼ÇÎªÒÑ·ÃÎÊ
-                parent[v] = u;    // ¼ÇÂ¼¸¸½Úµã£¬ÓÃÓÚºóĞøÂ·¾¶ÖØ¹¹
-                q.push(v);        // ½«ÁÚ¾Ó½Úµã¼ÓÈë´ı·ÃÎÊ¶ÓÁĞ
+                visited[v] = true; // æ ‡è®°ä¸ºå·²è®¿é—®
+                parent[v] = u;    // è®°å½•çˆ¶èŠ‚ç‚¹ï¼Œç”¨äºåç»­è·¯å¾„é‡æ„
+                q.push(v);        // å°†é‚»å±…èŠ‚ç‚¹åŠ å…¥å¾…è®¿é—®é˜Ÿåˆ—
             }
         }
     }
 
-    // --- ²½Öè 3: Â·¾¶ÖØ¹¹ ---
-    // Èç¹ûÕÒµ½ÁËÂ·¾¶£¨¼´BFSµ½´ïÁËÖÕµã£©£¬ÎÒÃÇ´ÓÖÕµã¿ªÊ¼£¬
-    // ÀûÓÃ `parent` Êı×é·´Ïò»ØËİ£¬Ö±µ½»Øµ½Æğµã¡£
+    // --- æ­¥éª¤ 3: è·¯å¾„é‡æ„ ---
+    // å¦‚æœæ‰¾åˆ°äº†è·¯å¾„ï¼ˆå³BFSåˆ°è¾¾äº†ç»ˆç‚¹ï¼‰ï¼Œæˆ‘ä»¬ä»ç»ˆç‚¹å¼€å§‹ï¼Œ
+    // åˆ©ç”¨ `parent` æ•°ç»„åå‘å›æº¯ï¼Œç›´åˆ°å›åˆ°èµ·ç‚¹ã€‚
 
     std::vector<int> path;
     if (path_found) {
         int current = p2;
         while (current != -1) {
             path.push_back(current);
-            current = parent[current]; // ÒÆ¶¯µ½Â·¾¶ÉÏµÄÇ°Ò»¸ö½Úµã
+            current = parent[current]; // ç§»åŠ¨åˆ°è·¯å¾„ä¸Šçš„å‰ä¸€ä¸ªèŠ‚ç‚¹
         }
-        // ÒòÎªÎÒÃÇÊÇ-´ÓÖÕµã»ØËİµ½Æğµã£¬ËùÒÔµÃµ½µÄÂ·¾¶ÊÇ·´µÄ£¬ĞèÒª·´×ªÒ»´Î¡£
+        // å› ä¸ºæˆ‘ä»¬æ˜¯-ä»ç»ˆç‚¹å›æº¯åˆ°èµ·ç‚¹ï¼Œæ‰€ä»¥å¾—åˆ°çš„è·¯å¾„æ˜¯åçš„ï¼Œéœ€è¦åè½¬ä¸€æ¬¡ã€‚
         std::reverse(path.begin(), path.end());
     }
 
@@ -463,7 +511,7 @@ double ModelGenerator::length_graph_path(int p1, int p2, AdjacencyList adj)
 {
     std::vector<Edge> mst = Tube_edges;
     if (p1 == p2) return 0.0;
-    if (mst.empty()) return -1.0; // ´íÎó£ºÃ»ÓĞÊ÷
+    if (mst.empty()) return -1.0; // é”™è¯¯ï¼šæ²¡æœ‰æ ‘
 
     std::vector<int> path_ = find_path_in_tree(p1, p2, Kernels.size(), adj);
 
@@ -476,7 +524,7 @@ double ModelGenerator::length_graph_path(int p1, int p2, AdjacencyList adj)
         //length_graph += mst[p].length;
         //length_graph += Tube_edges[p].weight;
     }
-    return length_graph; // Èç¹ûÍ¼²»Á¬Í¨£¨ÀíÂÛÉÏMSTÓ¦¸ÃÊÇÁ¬Í¨µÄ£©£¬·µ»Ø-1
+    return length_graph; // å¦‚æœå›¾ä¸è¿é€šï¼ˆç†è®ºä¸ŠMSTåº”è¯¥æ˜¯è¿é€šçš„ï¼‰ï¼Œè¿”å›-1
 }
 
 double ModelGenerator::length_path(int p1, int p2)
@@ -500,11 +548,11 @@ int  ModelGenerator::find_edge_by_nodes(int from_node, int to_node, const std::v
 
 std::vector<int> ModelGenerator::all_leafs_mst(std::vector<Edge>& mst_tree) 
 {
-    // Ê¹ÓÃ¹şÏ£±í´æ´¢Ã¿¸ö½ÚµãµÄ¶ÈÊı
-    // Key: ½ÚµãID, Value: ¶ÈÊı
+    // ä½¿ç”¨å“ˆå¸Œè¡¨å­˜å‚¨æ¯ä¸ªèŠ‚ç‚¹çš„åº¦æ•°
+    // Key: èŠ‚ç‚¹ID, Value: åº¦æ•°
     std::unordered_map<int, int> node_degrees;
 
-    // 1. ±éÀúËùÓĞ±ß£¬Í³¼Æ¶ÈÊı
+    // 1. éå†æ‰€æœ‰è¾¹ï¼Œç»Ÿè®¡åº¦æ•°
     for (const auto& edge : mst_tree) {
         node_degrees[edge.from]++;
         node_degrees[edge.to]++;
@@ -512,14 +560,14 @@ std::vector<int> ModelGenerator::all_leafs_mst(std::vector<Edge>& mst_tree)
 
     std::vector<int> leaves;
 
-    // 2. ÕÒ³ö¶ÈÊıÎª 1 µÄ½Úµã
+    // 2. æ‰¾å‡ºåº¦æ•°ä¸º 1 çš„èŠ‚ç‚¹
     for (const auto& pair : node_degrees) {
         if (pair.second == 1) {
             leaves.push_back(pair.first);
         }
     }
 
-    // 3. ¶Ô½á¹û½øĞĞÅÅĞò£¨¿ÉÑ¡£¬µ«Í¨³£ÎªÁË½á¹ûÈ·¶¨ĞÔ½¨ÒéÅÅĞò£©
+    // 3. å¯¹ç»“æœè¿›è¡Œæ’åºï¼ˆå¯é€‰ï¼Œä½†é€šå¸¸ä¸ºäº†ç»“æœç¡®å®šæ€§å»ºè®®æ’åºï¼‰
     std::sort(leaves.begin(), leaves.end());
 
     return leaves;
@@ -530,7 +578,7 @@ bool ModelGenerator::find_edge_in_path(Edge cand_edge, vector<int> path)
     if (path.empty()) 
     {
         cout << "Empty path!" << endl;
-        return true;  //Èç¹ûÂ·¾¶Îª¿Õ£¬Ä¬ÈÏÎªÔÚ
+        return true;  //å¦‚æœè·¯å¾„ä¸ºç©ºï¼Œé»˜è®¤ä¸ºåœ¨
     }
     //show_path(path);
     bool in = false;
@@ -550,7 +598,7 @@ bool ModelGenerator::find_edge_in_path(Edge cand_edge, vector<int> path)
     return in;
 }
 
-double ModelGenerator::generate_tube(const Eigen::Vector3d& p, const GaussianKernel& k1, const GaussianKernel& k2, double iso_level_C, double mid_radius_factor) // ÖĞ¼ä×îĞ¡°ë¾¶Ïà¶Ô¶Ëµã°ë¾¶µÄ³õÖµ
+double ModelGenerator::generate_tube(const Eigen::Vector3d& p, const GaussianKernel& k1, const GaussianKernel& k2, double iso_level_C, double mid_radius_factor) // ä¸­é—´æœ€å°åŠå¾„ç›¸å¯¹ç«¯ç‚¹åŠå¾„çš„åˆå€¼
 {
     // degree n = 4 -> 5 control samples
     const int n = 4;
@@ -563,22 +611,22 @@ double ModelGenerator::generate_tube(const Eigen::Vector3d& p, const GaussianKer
     Eigen::Vector3d line_dir = c2 - c1;
     double line_length = line_dir.squaredNorm();
 
-    // 2. ¼ÆËãµãÔÚÁ¬½ÓÏßÉÏµÄÍ¶Ó°²ÎÊıt [0,1]
+    // 2. è®¡ç®—ç‚¹åœ¨è¿æ¥çº¿ä¸Šçš„æŠ•å½±å‚æ•°t [0,1]
     double t_proj = (p - c1).dot(line_dir) / line_length;
 
-    // Èç¹ûÍ¶Ó°µã²»ÔÚÏß¶ÎÉÏ£¬·µ»ØÕıÖµ£¨²»ÔÚ¹ÜµÀÄÚ£©
+    // å¦‚æœæŠ•å½±ç‚¹ä¸åœ¨çº¿æ®µä¸Šï¼Œè¿”å›æ­£å€¼ï¼ˆä¸åœ¨ç®¡é“å†…ï¼‰
     if (t_proj <= 0.0 || t_proj >= 1.0) {
         //return abs(abs(t_proj - 0.5) - 0.5);
         return 1;
     }
-    // ½«tÏŞÖÆÔÚ[0, 1]Çø¼ä£¬ÕâÑù¿Õ¼äÖĞËùÓĞµÄµã¶¼»á±»Ó³Éäµ½Ïß¶ÎÉÏ×î½üµÄµã
+    // å°†té™åˆ¶åœ¨[0, 1]åŒºé—´ï¼Œè¿™æ ·ç©ºé—´ä¸­æ‰€æœ‰çš„ç‚¹éƒ½ä¼šè¢«æ˜ å°„åˆ°çº¿æ®µä¸Šæœ€è¿‘çš„ç‚¹
     t_proj = std::max(0.0, std::min(1.0, t_proj));
-    Eigen::Vector3d p_proj = c1 + t_proj * line_dir; // pÔÚÖáÏßÉÏµÄÍ¶Ó°µã
+    Eigen::Vector3d p_proj = c1 + t_proj * line_dir; // påœ¨è½´çº¿ä¸Šçš„æŠ•å½±ç‚¹
 
     double r0 = sqrt(mid_radius_factor) * k1.sigma;
     double r4 = sqrt(mid_radius_factor) * k2.sigma  ;
 
-    // ÉèÖÃÖĞ¼ä×îĞ¡°ë¾¶£¨°´ÂÛÎÄ£ºÓÉ¿ÉÖÆÔìĞÔ/¿×´óĞ¡Ô¼ÊøÉèÖÃ£©
+    // è®¾ç½®ä¸­é—´æœ€å°åŠå¾„ï¼ˆæŒ‰è®ºæ–‡ï¼šç”±å¯åˆ¶é€ æ€§/å­”å¤§å°çº¦æŸè®¾ç½®ï¼‰
     double r2 = std::max(mid_radius_factor * std::min(r0, r4), 1e-4);
 
     double r1 = (r0 + r2) / 2.0;
@@ -586,18 +634,18 @@ double ModelGenerator::generate_tube(const Eigen::Vector3d& p, const GaussianKer
 
     std::vector<double> control_radii = { r0, r1, r2, r3, r4 };
 
-    // Ê¹ÓÃBernstein¶àÏîÊ½¼ÆËãR(t)
+    // ä½¿ç”¨Bernsteinå¤šé¡¹å¼è®¡ç®—R(t)
     double R_t = 0.0;
     for (int i = 0; i <= 4; ++i) {
         R_t += bernstein_basis(i, 4, t_proj) * control_radii[i];
     }
 
-    // Èç¹ûÄ¿±ê°ë¾¶·Ç³£Ğ¡£¬ÔòÈÏÎªÃ»ÓĞÍ¨µÀ¹±Ï×
+    // å¦‚æœç›®æ ‡åŠå¾„éå¸¸å°ï¼Œåˆ™è®¤ä¸ºæ²¡æœ‰é€šé“è´¡çŒ®
     //if (R_t < 1e-6) {
     //    return 0.0;
     //}
-    // 3. ¼ÆËãµãpµÄÒşÊ½º¯ÊıÖµ
-// ºËĞÄË¼ÏëÊÇ£ºº¯ÊıÖµÓ¦¸ÃÔÚÍ¨µÀ±íÃæÉÏÎªC£¬ÔÚÖáÏßÉÏ×î´ó£¬ÏòÍâÎ§Ë¥¼õ¡£
+    // 3. è®¡ç®—ç‚¹pçš„éšå¼å‡½æ•°å€¼
+// æ ¸å¿ƒæ€æƒ³æ˜¯ï¼šå‡½æ•°å€¼åº”è¯¥åœ¨é€šé“è¡¨é¢ä¸Šä¸ºCï¼Œåœ¨è½´çº¿ä¸Šæœ€å¤§ï¼Œå‘å¤–å›´è¡°å‡ã€‚
     double dist_to_axis = (p - p_proj).norm();
     double energy = (dist_to_axis * dist_to_axis) / (R_t * R_t);
     //return iso_level_C - energy;
@@ -612,14 +660,14 @@ double ModelGenerator::generate_tube2( Eigen::Vector3d& p,   GaussianKernel& k1,
     const Eigen::Vector3d& c1 = k1.center;
     const Eigen::Vector3d& c2 = k2.center;
 
-    // 1. ¼ÆËã ¦Ø_i ºÍ ¦Ø_j, ÕâÀï¸ù¾İsigma½øĞĞ×ª»»
-// ¼ÙÉè ¦Ø = 1/(2 * sigma^2)£¬±£³ÖÓë±ê×¼¸ßË¹º¯ÊıÒ»ÖÂ
+    // 1. è®¡ç®— Ï‰_i å’Œ Ï‰_j, è¿™é‡Œæ ¹æ®sigmaè¿›è¡Œè½¬æ¢
+// å‡è®¾ Ï‰ = 1/(2 * sigma^2)ï¼Œä¿æŒä¸æ ‡å‡†é«˜æ–¯å‡½æ•°ä¸€è‡´
     double omega1 = 1.0 / (2.0 * k1.sigma * k1.sigma);
     double omega2 = 1.0 / (2.0 * k2.sigma * k2.sigma);
     double avg_omega = (omega1 + omega2) / 2.0;
-    double mu = 10* mid_radius_factor * avg_omega;  //mid_radius_factorÔ½Ğ¡£¬Ô²Ô½Ğ¡
+    double mu = 10* mid_radius_factor * avg_omega;  //mid_radius_factorè¶Šå°ï¼Œåœ†è¶Šå°
 
-    // 2. ¼ÆËãµãµ½Ïß¶ÎµÄ¾àÀë£¨ÂÛÎÄÖĞµÄ ||p - s_ij||£©
+    // 2. è®¡ç®—ç‚¹åˆ°çº¿æ®µçš„è·ç¦»ï¼ˆè®ºæ–‡ä¸­çš„ ||p - s_ij||ï¼‰
     Eigen::Vector3d line_dir = c2 - c1;
     double line_length = line_dir.squaredNorm();
 
@@ -634,16 +682,16 @@ double ModelGenerator::generate_tube2( Eigen::Vector3d& p,   GaussianKernel& k1,
       }
      else {
          double t_proj = dis_c / line_length;
-         Eigen::Vector3d p_proj = c1 + t_proj * line_dir; // pÔÚÖáÏßÉÏµÄÍ¶Ó°µã
+         Eigen::Vector3d p_proj = c1 + t_proj * line_dir; // påœ¨è½´çº¿ä¸Šçš„æŠ•å½±ç‚¹
          dis = (p - p_proj).squaredNorm();
 	 }
-     // 3. ¼ÆËã¹ÜµÀº¯ÊıµÄµÚÒ»²¿·Ö£ºÑØÏß¶ÎµÄ¸ßË¹º¯Êı
+     // 3. è®¡ç®—ç®¡é“å‡½æ•°çš„ç¬¬ä¸€éƒ¨åˆ†ï¼šæ²¿çº¿æ®µçš„é«˜æ–¯å‡½æ•°
      double tunnelMain = std::exp(-mu * dis);
 
-    // 4. ¼ÆËãÒª¼õÈ¥µÄÁ½¸ö¿×Ï¶º¯Êı²¿·Ö
+    // 4. è®¡ç®—è¦å‡å»çš„ä¸¤ä¸ªå­”éš™å‡½æ•°éƒ¨åˆ†
      double pore1 = k1.gaussian_fun(p);
      double pore2 = k2.gaussian_fun(p);
-     // 5. ×éºÏ¹ÜµÀº¯Êı
+     // 5. ç»„åˆç®¡é“å‡½æ•°
      double tubeValue = tunnelMain + pore1 + pore2;
      //cout << "tunnelMain:  " << tunnelMain << "   " << pore1 << "   " << pore2 << endl;
      //return  tubeValue;
@@ -652,31 +700,31 @@ double ModelGenerator::generate_tube2( Eigen::Vector3d& p,   GaussianKernel& k1,
 
 double ModelGenerator::calculate_edge_weight(GaussianKernel k1, GaussianKernel k2)
 {
-	vector<double> weights{ 0.7, 1.0, 1.3 };  // ·ÖÀàÏµÊıÈ¨ÖØ£º±ß½ç-ÄÚ²¿£¬ÄÚ²¿-ÄÚ²¿£¬±ß½ç-±ß½ç
-    // 1. È·¶¨·ÖÀàÏµÊı C(i, j)
+	vector<double> weights{ 0.7, 1.0, 1.3 };  // åˆ†ç±»ç³»æ•°æƒé‡ï¼šè¾¹ç•Œ-å†…éƒ¨ï¼Œå†…éƒ¨-å†…éƒ¨ï¼Œè¾¹ç•Œ-è¾¹ç•Œ
+    // 1. ç¡®å®šåˆ†ç±»ç³»æ•° C(i, j)
     double connect_weight;
     if (k1.on_surface != k2.on_surface) {
-        // Ò»¸öÊÇÄÚ²¿£¬Ò»¸öÊÇ±ß½ç
+        // ä¸€ä¸ªæ˜¯å†…éƒ¨ï¼Œä¸€ä¸ªæ˜¯è¾¹ç•Œ
         connect_weight = weights[0];
     }
     else if (!k1.on_surface) {
-        // Á½¸ö¶¼ÊÇÄÚ²¿
+        // ä¸¤ä¸ªéƒ½æ˜¯å†…éƒ¨
         connect_weight = weights[1];
     }
     else { // node1.type == NodeType::Boundary
-        // Á½¸ö¶¼ÊÇ±ß½ç
+        // ä¸¤ä¸ªéƒ½æ˜¯è¾¹ç•Œ
         connect_weight = weights[2];
     }
 
 
     double overlap_weight = 1.0;
-    // 2. ¼ÆËã»ù´¡Å·ÊÏ¾àÀë d(i, j)
+    // 2. è®¡ç®—åŸºç¡€æ¬§æ°è·ç¦» d(i, j)
 
 
-    // 3. ¼ÆËãÖØµş¶Èµ÷½ÚÒò×Ó O(i, j)
+    // 3. è®¡ç®—é‡å åº¦è°ƒèŠ‚å› å­ O(i, j)
     //double O = calculate_overlap_factor(node1, node2, k_o);
 
-    // 4. ¼ÆËã×îÖÕÈ¨ÖØ W(i, j) = d * C * O
+    // 4. è®¡ç®—æœ€ç»ˆæƒé‡ W(i, j) = d * C * O
     return connect_weight * overlap_weight;
 }
 
@@ -688,11 +736,11 @@ double ModelGenerator::calculate_path_translucency(std::vector<int>& path, bool 
     int sam_num = 3;
     if (psize < 2) {
         cout << "Warnning: illegal path!" << endl;
-        return 0.0; // µ¥¸öµã
+        return 0.0; // å•ä¸ªç‚¹
     }
     if (psize == 2) 
     {
-        //ÊÇ·ñºá¹áÄ£ĞÍ£¬Èç¹ûÊÇ·µ»Ø1£¬·ñÔò·µ»Ø¾àÀë
+        //æ˜¯å¦æ¨ªè´¯æ¨¡å‹ï¼Œå¦‚æœæ˜¯è¿”å›1ï¼Œå¦åˆ™è¿”å›è·ç¦»
         int start_ = path[0];
         int end_ = path[1];
         double thres = min(Kernels[start_].center_value, Kernels[end_].center_value);
@@ -713,7 +761,7 @@ double ModelGenerator::calculate_path_translucency(std::vector<int>& path, bool 
             if (!all_nodes[path[i]].on_surface) count_inner++;
 
             double thres = min(all_nodes[path[i - 1]].center_value, all_nodes[path[i]].center_value);
-            //line_cross_surface·µ»Ø1.0£¬¹áÍ¨£» <1.0£¬ÊôÓÚ±íÃæ£¬¼ÆÊı
+            //line_cross_surfaceè¿”å›1.0ï¼Œè´¯é€šï¼› <1.0ï¼Œå±äºè¡¨é¢ï¼Œè®¡æ•°
             if (line_cross_surface(prev, curr, thres, sam_num) < 0.999)
                 count_surface_line++;
             if (i == psize - 2)
@@ -756,7 +804,7 @@ double ModelGenerator::calculate_path_translucency(std::vector<int>& path, bool 
 }
 
 
-double ModelGenerator::cal_kernel_translucency(int p_index, int & max_s1, int & max_s2, std::vector<int>& max_path, AdjacencyList adj, bool debug)  //¼ÆËãµãpËùÔÚµÄËùÓĞÂ·¾¶ÖĞÍ¨Í¸ĞÔ×î´óµÄÒ»ÌõÂ·¾¶×÷ÎªÍ¨Í¸ĞÔÖµ
+double ModelGenerator::cal_kernel_translucency(int p_index, int & max_s1, int & max_s2, std::vector<int>& max_path, std::vector<double>& dist_map, AdjacencyList adj, bool debug)  //è®¡ç®—ç‚¹pæ‰€åœ¨çš„æ‰€æœ‰è·¯å¾„ä¸­é€šé€æ€§æœ€å¤§çš„ä¸€æ¡è·¯å¾„ä½œä¸ºé€šé€æ€§å€¼ï¼Œå•ç‹¬å¤„ç†å†…éƒ¨ç‚¹ä¸”åªæœ‰ä¸€æ¡è¾¹ä»¥åŠ é€Ÿ
 {
     double ave_perm = 0.0;
     int count_ = 0;
@@ -764,28 +812,33 @@ double ModelGenerator::cal_kernel_translucency(int p_index, int & max_s1, int & 
     max_s1 = -1;
     max_s2 = -1;
     max_path.clear();
-    std::vector<double> dist_map = construct_dist_map(p_index, adj);
-    // Ë«ÖØÑ­»·±éÀúËùÓĞ s1, s2 ×éºÏ
-    // ¸´ÔÓ¶È O(K^2)£¬ÆäÖĞ K ÊÇ surface_points µÄÊıÁ¿
+
+	if (adj[p_index].size() < 2 && (!Kernels[p_index].on_surface))    //å†…éƒ¨ç‚¹ä¸”åªæœ‰ä¸€æ¡è¿æ¥è¾¹ï¼Œæ— æ³•å½¢æˆè·¯å¾„ï¼Œç›´æ¥è¿”å›0
+    {
+		return max_perm;
+    }
+    //dist_map = construct_dist_map(p_index, adj);
+    // åŒé‡å¾ªç¯éå†æ‰€æœ‰ s1, s2 ç»„åˆ
+    // å¤æ‚åº¦ O(K^2)ï¼Œå…¶ä¸­ K æ˜¯ surface_points çš„æ•°é‡
     //for (int s1 : surface_kernels)
     for (int i = 0; i < surface_kernels.size(); i++) 
     {
-        // ¼ôÖ¦£ºÈç¹û s1 ÎŞ·¨µ½´ï p_index£¬ÔòÌø¹ı
+        // å‰ªæï¼šå¦‚æœ s1 æ— æ³•åˆ°è¾¾ p_indexï¼Œåˆ™è·³è¿‡
         int s1 = surface_kernels[i];
         if (dist_map[s1] == INF) continue;
         for (int j = i+1; j < surface_kernels.size(); j++) 
         //for (int s2 : surface_kernels) 
         {
             int s2 = surface_kernels[j];
-            // ¼ôÖ¦£ºÈç¹û s2 ÎŞ·¨µ½´ï p_index£¬»òÕß s1==s2 (¾àÀëÎª0)£¬Ìø¹ı
+            // å‰ªæï¼šå¦‚æœ s2 æ— æ³•åˆ°è¾¾ p_indexï¼Œæˆ–è€… s1==s2 (è·ç¦»ä¸º0)ï¼Œè·³è¿‡
             if (dist_map[s2] == INF || s1 == s2) continue;
 
-            // 1. ¼ÆËãÍ¼ÉÏ¾àÀë (Graph Distance) Â·¾¶: s1 -> p_index -> s2
+            // 1. è®¡ç®—å›¾ä¸Šè·ç¦» (Graph Distance) è·¯å¾„: s1 -> p_index -> s2
             double graph_dist = dist_map[s1] + dist_map[s2];
 
             if (graph_dist < 1e-9) continue;
 
-            // 2. ¼ÆËãÅ·ÊÏ¾àÀë (Euclidean Distance)
+            // 2. è®¡ç®—æ¬§æ°è·ç¦» (Euclidean Distance)
             double euclidean_dist = distance(Kernels[s1].center, Kernels[s2].center);
 
             std::vector<int> path_ = find_specified_path(p_index, s1, s2, adj, false);
@@ -793,11 +846,11 @@ double ModelGenerator::cal_kernel_translucency(int p_index, int & max_s1, int & 
             if(debug)
                 cout << "s1: " << s1 << "  s2: " << s2 << endl
                 << "angle trans: " << path_translucency << "   length ratio: " << euclidean_dist / graph_dist << endl;
-            // 3. ¼ÆËãÍ¨Í¸ĞÔ
+            // 3. è®¡ç®—é€šé€æ€§
             double perm = path_translucency * euclidean_dist / graph_dist;
-            ave_perm += perm;
+            //ave_perm += perm;
             count_++;
-            // 4. ¸üĞÂ×î´óÖµ
+            // 4. æ›´æ–°æœ€å¤§å€¼
             if (perm > max_perm)
             {
                 max_perm = perm;
@@ -816,7 +869,7 @@ double ModelGenerator::cal_kernel_translucency(int p_index, int & max_s1, int & 
     return max_perm;
 }
 
-double ModelGenerator::cal_total_translucency(std::vector<GaussianKernel> gau, std::vector<int> surface_ks, AdjacencyList adj)
+double ModelGenerator::cal_total_translucency(std::vector<GaussianKernel> gau,  AdjacencyList adj)
 {
     int kernels_num = Kernels.size();
     double total_score = 0.0;
@@ -828,7 +881,9 @@ double ModelGenerator::cal_total_translucency(std::vector<GaussianKernel> gau, s
     {
         int start = -1, end = -1;
         std::vector<int> max_path;
-        double score_p = cal_kernel_translucency(i, start, end, max_path, adj, false);
+		//std::vector<double> dist_map = construct_dist_map(i, adj);
+        std::vector<double> dist_map = Dist_maps[i];
+        double score_p = cal_kernel_translucency(i, start, end, max_path, dist_map, adj, false);
         total_score += score_p;
         max_paths_kernel.push_back(make_pair(start, end));
 		kernel_translucency.push_back(score_p);
@@ -836,7 +891,9 @@ double ModelGenerator::cal_total_translucency(std::vector<GaussianKernel> gau, s
         if(standard_show)
         {
             cout << "Kernel " << i << " :  max translucency: " << score_p << "   from " << start << " to " << end << endl << "Max path: ";
-            for (auto p : max_path) cout << p << "  ";
+			if (max_path.empty()) cout << " Empty path! ";
+            else
+                for (auto p : max_path) cout << p << "  ";
             cout << endl;
         }
         bool debug_ = false;
@@ -875,9 +932,9 @@ std::vector<int> ModelGenerator::find_specified_path(int p_index, int s1, int s2
     //for (auto pp : path1) cout << "path1 : " << pp << "  ";
     std::vector<int> path2 = find_path_in_tree(p_index, s2, kernel_num, adj);
     
-    // ºÏ²¢Â·¾¶£¬±ÜÃâÖØ¸´°üº¬ p_index
+    // åˆå¹¶è·¯å¾„ï¼Œé¿å…é‡å¤åŒ…å« p_index
     std::vector<int> full_path(path1.rbegin(), path1.rend());
-    full_path.insert(full_path.end(), path2.begin() + 1, path2.end()); // ´Ó path2 µÄµ¹ÊıµÚ¶ş¸öÔªËØ¿ªÊ¼Ìí¼Ó
+    full_path.insert(full_path.end(), path2.begin() + 1, path2.end()); // ä» path2 çš„å€’æ•°ç¬¬äºŒä¸ªå…ƒç´ å¼€å§‹æ·»åŠ 
     if(show_debug)
     {
         cout << "Kernel "<<p_index<<"'s full path steps : " << full_path.size() << endl;
@@ -891,12 +948,12 @@ int ModelGenerator::find_nearest_grid(Eigen::Vector3d point)
 {
     int res = Resolution;
     double dx = 1.0 / (res - 1);
-    // std::round ×Ô¶¯Ñ°ÕÒ×î½üµÄÕûÊı£¬¼´Ñ°ÕÒ×î½üµÄÍø¸ñµã
+    // std::round è‡ªåŠ¨å¯»æ‰¾æœ€è¿‘çš„æ•´æ•°ï¼Œå³å¯»æ‰¾æœ€è¿‘çš„ç½‘æ ¼ç‚¹
     int ix = static_cast<int>(std::round((point.x() + 0.5) / dx));
     int iy = static_cast<int>(std::round((point.y() + 0.5) / dx));
     int iz = static_cast<int>(std::round((point.z() + 0.5) / dx));
     //cout << "point: "<<point <<"  "<<ix<<"   "<<iy<<"  "<<iz<< endl;
-    // ±ß½ç¼ì²é, ·ÀÖ¹²ÉÑùµãÂÔÎ¢³¬³ö (0,0,0)~(1,1,1) µ¼ÖÂË÷ÒıÔ½½ç
+    // è¾¹ç•Œæ£€æŸ¥, é˜²æ­¢é‡‡æ ·ç‚¹ç•¥å¾®è¶…å‡º (0,0,0)~(1,1,1) å¯¼è‡´ç´¢å¼•è¶Šç•Œ
     ix = std::max(0, std::min(ix, res - 1));
     iy = std::max(0, std::min(iy, res - 1));
     iz = std::max(0, std::min(iz, res - 1));
@@ -921,13 +978,13 @@ double ModelGenerator::line_cross_surface(Eigen::Vector3d p1, Eigen::Vector3d p2
     if (center_sdf + 1e-2 < thres)
     {
         //cout << "the line cross the model!" << endl;
-        return 1.0; // ºá¹áÄ£ĞÍ
+        return 1.0; // æ¨ªè´¯æ¨¡å‹
     }
     else
     {
         //cout << "the line on the surafece!" << endl;
         //cout << center_sdf - thres << "  " << abs((center_sdf - thres) / (2 * thres)) << endl;
-        return 1.0 - abs((center_sdf - thres) / thres); //±íÃæÂ·¾¶£¬ÎŞÄÚ²¿½Úµã£¬Í¨Í¸ĞÔÎª1-dis
+        return 1.0 - abs((center_sdf - thres) / thres); //è¡¨é¢è·¯å¾„ï¼Œæ— å†…éƒ¨èŠ‚ç‚¹ï¼Œé€šé€æ€§ä¸º1-dis
     }
 }
 
@@ -958,20 +1015,20 @@ double ModelGenerator::calculate_score(std::vector<std::vector<int>>  Paths)
             //total_path_length_sum += path_length;
         }
     }
-    // --- 1. ¼ÆËãÍ¨Í¸ĞÔ Permeability(G) ---
+    // --- 1. è®¡ç®—é€šé€æ€§ Permeability(G) ---
 
     double permeability_G = 0.0;
     if (total_path_length_sum > 1e-9) {
         permeability_G = total_weighted_permeability / total_path_length_sum;
     }
     else {
-        // Èç¹ûÃ»ÓĞ±ß½ç-±ß½çÂ·¾¶£¨ÀıÈçÉÙÓÚ2¸ö±ß½çµã£©£¬ÔòÍ¨Í¸ĞÔÎª0
+        // å¦‚æœæ²¡æœ‰è¾¹ç•Œ-è¾¹ç•Œè·¯å¾„ï¼ˆä¾‹å¦‚å°‘äº2ä¸ªè¾¹ç•Œç‚¹ï¼‰ï¼Œåˆ™é€šé€æ€§ä¸º0
         permeability_G = 0.0;
     }
 
-    // --- 2. ¼ÆËã³É±¾ Cost(G) ---
-    double cost_L = 0.0; // ³¤¶È³É±¾
-    int cost_E = Tube_edges.size();      // ±ßÊı³É±¾
+    // --- 2. è®¡ç®—æˆæœ¬ Cost(G) ---
+    double cost_L = 0.0; // é•¿åº¦æˆæœ¬
+    int cost_E = Tube_edges.size();      // è¾¹æ•°æˆæœ¬
 
     for (auto& edge : Tube_edges)
     {
@@ -979,12 +1036,12 @@ double ModelGenerator::calculate_score(std::vector<std::vector<int>>  Paths)
         //cost_L += edge.weight;  //length         
     }
      
-	double w_e = 0.01; // ±ßÊıÈ¨ÖØ
+	double w_e = 0.01; // è¾¹æ•°æƒé‡
     double cost_G = cost_L + w_e * cost_E;
 
-    // --- 3. ¼ÆËã×îÖÕµÃ·Ö Score(G) ---
+    // --- 3. è®¡ç®—æœ€ç»ˆå¾—åˆ† Score(G) ---
     if (cost_G < 1e-9) {
-        // ³É±¾¼¸ºõÎª0£¬Èç¹ûÍ¨Í¸ĞÔÒ²Îª0£¬µÃ·ÖÎª0£»·ñÔòµÃ·Ö·Ç³£¸ß
+        // æˆæœ¬å‡ ä¹ä¸º0ï¼Œå¦‚æœé€šé€æ€§ä¹Ÿä¸º0ï¼Œå¾—åˆ†ä¸º0ï¼›å¦åˆ™å¾—åˆ†éå¸¸é«˜
         return (permeability_G > 1e-9) ? std::numeric_limits<double>::max() : 0.0;
     }
 
@@ -1006,7 +1063,7 @@ vector<int> ModelGenerator::cal_edge_usage(std::vector<std::vector<int>> Paths)
         cout << endl;
         if (path.size() < 2)
         {
-			cout << "A path with less than 2 nodes found, skipping." << endl;
+			cout << "This path has less than 2 nodes." << endl;
             continue;
         }
 
@@ -1042,19 +1099,29 @@ pair<double, double> ModelGenerator::add_edges(Edge cand_edge, AdjacencyList adj
 	int p1 = cand_edge.from;
 	int p2 = cand_edge.to;
 	int start = -1, end = -1;
-    double p1_add = cal_kernel_translucency(p1, start, end, max_path1, adj_new, false);
+    double length = length_path(p1, p2);
+    std::vector<double> dist_map = Dist_maps[p1];
+    update_dist_map(dist_map, p1, p2, length, adj_new);
+    //std::vector<double> dist_map = construct_dist_map(p1, adj_new);
+    //cout << "dist_map of " << p1 << "  after adding  [" << cand_edge.from << ", " << cand_edge.to<<"]  ";
+    //for (auto dm : dist_map) cout << dm << "  ";
+    //cout << endl;
+    double p1_add = cal_kernel_translucency(p1, start, end, max_path1, dist_map, adj_new, false);
     p1_add = p1_add - kernel_translucency[p1];
     //show_path(max_path1);
     start = -1;
     end = -1;
-    double p2_add = cal_kernel_translucency(p2, start, end, max_path2, adj_new);
+    std::vector<double> dist_map2 = Dist_maps[p2];
+    update_dist_map(dist_map2, p1, p2, length, adj_new);
+    //std::vector<double> dist_map2 = construct_dist_map(p2, adj_new);
+    double p2_add = cal_kernel_translucency(p2, start, end, max_path2, dist_map2, adj_new);
 	p2_add = p2_add - kernel_translucency[p2];
 
     /*double thres = min(Kernels[start_].center_value, Kernels[end_].center_value);
     translucency_score = line_cross_surface(Kernels[start_].center, Kernels[end_].center, thres, sam_num);*/
 
 	//cout << "cal kernel score: " << p1_add << "  " << p2_add << "   cand_edge.length: "<< cand_edge.length<< "   delta_s: "<< (p1_add + p2_add) / cand_edge.length<<endl;
-    //double score_add = (p1_add + p2_add)/ cand_edge.length;  //µ¥Î»Â·¾¶Ôö¼ÓµÄÍ¨Í¸ĞÔ
+    //double score_add = (p1_add + p2_add)/ cand_edge.length;  //å•ä½è·¯å¾„å¢åŠ çš„é€šé€æ€§
 
     return make_pair(p1_add, p2_add);
 
@@ -1078,7 +1145,7 @@ bool ModelGenerator::replace_edges(int p_index, int replace_e, std::vector<Edge>
     }
     //for (auto d : adj_new[p_index]) cout << "adj_new[p_index] size: " << adj_new[p_index].size() << "   " << d << "   ";
 
-    //ÕâÀïÔİÊ±²»ĞŞ¸Äunused_adj_new£¬²»ĞèÒªÔÙ¼ÆËãÕâÌõ±ß
+    //è¿™é‡Œæš‚æ—¶ä¸ä¿®æ”¹unused_adj_newï¼Œä¸éœ€è¦å†è®¡ç®—è¿™æ¡è¾¹
 
     double max_delta_score = 0;
     int chosen_cand = -1;
@@ -1093,7 +1160,7 @@ bool ModelGenerator::replace_edges(int p_index, int replace_e, std::vector<Edge>
         Edge cand_edge = { p_index, candidate_p, dist, dist_w };
         std::vector<int> path1, path2;
         pair<double, double> delta_score = add_edges(cand_edge, adj_new, path1, path2);
-        double score_add = (delta_score.first + delta_score.second) / cand_edge.length;  //µ¥Î»Â·¾¶Ôö¼ÓµÄÍ¨Í¸ĞÔ
+        double score_add = (delta_score.first + delta_score.second) / cand_edge.length;  //å•ä½è·¯å¾„å¢åŠ çš„é€šé€æ€§
         if (score_add > max_delta_score)
         {
             max_delta_score = score_add;
@@ -1106,7 +1173,7 @@ bool ModelGenerator::replace_edges(int p_index, int replace_e, std::vector<Edge>
     }
     if (chosen_cand != -1)
     {
-        edge_mst_new[replace_e] = chosen_e; //Ìæ»»
+        edge_mst_new[replace_e] = chosen_e; //æ›¿æ¢
         //update adj_list
         if (p_index < Kernels.size() && chosen_cand < Kernels.size()) {
             adj_new[p_index].push_back(chosen_cand);
@@ -1115,7 +1182,7 @@ bool ModelGenerator::replace_edges(int p_index, int replace_e, std::vector<Edge>
 
         unused_adj_new[p_index].erase(std::remove(unused_adj_new[p_index].begin(), unused_adj_new[p_index].end(), chosen_cand), unused_adj_new[p_index].end());
         unused_adj_new[chosen_cand].erase(std::remove(unused_adj_new[chosen_cand].begin(), unused_adj_new[chosen_cand].end(), p_index), unused_adj_new[chosen_cand].end());
-        unused_adj_new[re_edge.from].push_back(re_edge.to);  //É¾µôµÄ±ß
+        unused_adj_new[re_edge.from].push_back(re_edge.to);  //åˆ æ‰çš„è¾¹
         unused_adj_new[re_edge.to].push_back(re_edge.from);
         kernel_translucency[p_index] += delta_score_max_pair.first;
         kernel_translucency[chosen_cand] += delta_score_max_pair.second;
@@ -1158,11 +1225,11 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
     {
         int opt_count = 0;
         while(kernel_translucency[i] < thres_tran && opt_count < opt_times_once && opt_count_total< opt_times_once * kernels_num)
-        //if (kernel_translucency[i] < thres_tran) //´æÔÚÍ¨Í¸ĞÔºÜĞ¡µÄµã
+        //if (kernel_translucency[i] < thres_tran) //å­˜åœ¨é€šé€æ€§å¾ˆå°çš„ç‚¹
         {
             opt_count++;
             cout << "Kernel " << i << " has a low translucency: " << kernel_translucency[i] << "  lower than thres_tran:" << thres_tran << endl;
-            if (curr_edge_num < edge_max_num)  //Ã»ÓĞµ½±ßÊıÉÏÏŞ£¬Ñ¡ÔñÌí¼Ó±ß
+            if (curr_edge_num < edge_max_num)  //æ²¡æœ‰åˆ°è¾¹æ•°ä¸Šé™ï¼Œé€‰æ‹©æ·»åŠ è¾¹
             {
                 double max_delta_score = 0;
                 int chosen_cand = -1;
@@ -1182,7 +1249,7 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
                     Edge cand_edge = { i, candidate_p, dist, dist_w };
                     std::vector<int> path1, path2;
                     pair<double, double> delta_score = add_edges(cand_edge, Adj_list, path1, path2);
-                    double score_add = (delta_score.first + delta_score.second) / cand_edge.length;  //µ¥Î»Â·¾¶Ôö¼ÓµÄÍ¨Í¸ĞÔ
+                    double score_add = (delta_score.first + delta_score.second) / cand_edge.length;  //å•ä½è·¯å¾„å¢åŠ çš„é€šé€æ€§
                     if(debug)
 						cout << "===============Adding edge from " << i << " to " << candidate_p << "  can increase score by : " << score_add <<"============"<< endl;
                     if (score_add > max_delta_score)
@@ -1219,7 +1286,7 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
                 else
 					cout << "No useful candidate edge found to add!" << endl;
             }
-            else //µ½´ï±ßÊıÉÏÏŞ£¬Ñ¡ÔñÌæ»»±ß
+            else //åˆ°è¾¾è¾¹æ•°ä¸Šé™ï¼Œé€‰æ‹©æ›¿æ¢è¾¹
             {
                 vector<int> edge_importance = cal_edge_usage(Paths);
                 std::vector<std::pair<int, int>> sorted_edges;
@@ -1228,11 +1295,11 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
                     sorted_edges.push_back({ ei, edge_importance[ei]});
                 }
                 std::sort(sorted_edges.begin(), sorted_edges.end(), [](const std::pair<int, int>& a, const std::pair<int, int>& b) {
-                    // Èç¹û´ÎÊı²»Í¬£¬°´´ÎÊı´ÓĞ¡µ½´óÅÅĞò (½µĞò)
+                    // å¦‚æœæ¬¡æ•°ä¸åŒï¼ŒæŒ‰æ¬¡æ•°ä»å°åˆ°å¤§æ’åº (é™åº)
                     if (a.second != b.second) {
                         return a.second < b.second;
                     }
-                    return a.first < b.first; // Èç¹û´ÎÊıÏàÍ¬£¬°´Ë÷Òı´ÓĞ¡µ½´óÅÅĞò (±£³ÖÎÈ¶¨ĞÔ£¬¿ÉÑ¡)
+                    return a.first < b.first; // å¦‚æœæ¬¡æ•°ç›¸åŒï¼ŒæŒ‰ç´¢å¼•ä»å°åˆ°å¤§æ’åº (ä¿æŒç¨³å®šæ€§ï¼Œå¯é€‰)
                     });
                 //cout << "sorted_edges.size(): " << sorted_edges.size() << endl;
                 for (int s_index = 0; s_index < sorted_edges.size(); s_index++) 
@@ -1241,32 +1308,32 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
 					int replace_e = sorted_e.first;
 					cout << "Edge index: " << replace_e << "  usage count: " << sorted_e.second << endl;
                     cout << "Tube_edges[replace_e].from: " << Tube_edges[replace_e].from << "  " << Tube_edges[replace_e].to << endl;
-                    if ( i != Tube_edges[replace_e].from && i != Tube_edges[replace_e].to)  //·Çkernel i µÄ±ß
+                    if ( i != Tube_edges[replace_e].from && i != Tube_edges[replace_e].to)  //ékernel i çš„è¾¹
                     {
                         cout << "The edge is not one of Kernel i!  Skip!" << endl;
                         continue;
                     }
-                    else  if (sorted_e.second != 0 && !find_edge_in_path(Tube_edges[replace_e], Paths[i])) //ÓĞÓÃ¹ı£¬µ«²»ÔÚkernel i µÄ×î´óÍ¨Í¸ĞÔÂ·¾¶ÉÏ£¬Ìø¹ı
+                    else  if (sorted_e.second != 0 && !find_edge_in_path(Tube_edges[replace_e], Paths[i])) //æœ‰ç”¨è¿‡ï¼Œä½†ä¸åœ¨kernel i çš„æœ€å¤§é€šé€æ€§è·¯å¾„ä¸Šï¼Œè·³è¿‡
                     {
                         cout << "The edge is used in other paths!  Skip!" << endl;
                         continue;
                     }
 					else  
                     {
-                        //³¢ÊÔÌæ»»ÕâÌõ±ß
+                        //å°è¯•æ›¿æ¢è¿™æ¡è¾¹
                         //Edge removed_edge = Tube_edges[replace_i];
                         cout << "Optimization: "<<i << " replace " << replace_e << endl;
-                        if (Adj_list[i].size() < 2) //ËäÈ»Ìæ»»£¬µ«ÊÇÖ»ÓĞÒ»ÌõÁ¬½Ó±ß£¬ÎŞ·¨Ìæ»»
+                        if (Adj_list[i].size() < 2) //è™½ç„¶æ›¿æ¢ï¼Œä½†æ˜¯åªæœ‰ä¸€æ¡è¿æ¥è¾¹ï¼Œæ— æ³•æ›¿æ¢
                         {
                             edge_max_num++;
-                            break; //ÌáÉıÉÏÏŞ£¬Ìø³öÑ­»·
+                            break; //æå‡ä¸Šé™ï¼Œè·³å‡ºå¾ªç¯
                         }
                         else if (replace_edges(i, replace_e, Tube_edges, Adj_list, Unused_adj_list))
                         {
                             opt_count_total++;
 							num_replace++;
                             cout << "The num of " << num_replace << " edges have beed repalced!" << endl;
-                            break; //³É¹¦Ìæ»»£¬Ìø³öÑ­»·
+                            break; //æˆåŠŸæ›¿æ¢ï¼Œè·³å‡ºå¾ªç¯
 						}
 
                     }
@@ -1280,7 +1347,7 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
 
 int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double gaus_iso, double smooth_t)
 {
-    //µ¥¶À±£´æ¸ßË¹¿×Ï¶³¡SDF
+    //å•ç‹¬ä¿å­˜é«˜æ–¯å­”éš™åœºSDF
     Eigen::VectorXd SDF_gaussian(grid_num);
     Eigen::VectorXd SDF_gaussian_tubes(grid_num);
     SDF_out.resize(grid_num);
@@ -1313,7 +1380,7 @@ int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double
             void_count += 1;
         }
     }
-    //std::cout << "³É¹¦ÔÚ·ÂÉúĞÎ×´ÄÚ·ÅÖÃ " << void_centers.size() << " ¸ö¿Õ¶´µã" << std::endl;
+    //std::cout << "æˆåŠŸåœ¨ä»¿ç”Ÿå½¢çŠ¶å†…æ”¾ç½® " << void_centers.size() << " ä¸ªç©ºæ´ç‚¹" << std::endl;
 
     // Marching Cubes
     MarchingCubes(SDF_out, GV, res, res, res, iso, V_out, F_out);   //final result
@@ -1321,12 +1388,12 @@ int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double
     std::string filename = "result/gaussian_pores80.stl";
     saveMesh(filename, V_out, F_out);
 
-    Eigen::MatrixXd V_g; //Êä³öÍø¸ñ¶¥µã
-    Eigen::MatrixXi F_g; // Êä³öÍø¸ñÃæÆ¬
+    Eigen::MatrixXd V_g; //è¾“å‡ºç½‘æ ¼é¡¶ç‚¹
+    Eigen::MatrixXi F_g; // è¾“å‡ºç½‘æ ¼é¢ç‰‡
     MarchingCubes(SDF_gaussian, GV, res, res, res, iso, V_g, F_g);  //gaussian combined
 
-    Eigen::MatrixXd V_t; //Êä³öÍø¸ñ¶¥µã
-    Eigen::MatrixXi F_t; // Êä³öÍø¸ñÃæÆ¬
+    Eigen::MatrixXd V_t; //è¾“å‡ºç½‘æ ¼é¡¶ç‚¹
+    Eigen::MatrixXi F_t; // è¾“å‡ºç½‘æ ¼é¢ç‰‡
     MarchingCubes(SDF_gaussian_tubes, GV, res, res, res, iso, V_t, F_t);  //gaussian combined with tubes
     view_model(V_t, F_t);
 

@@ -71,8 +71,12 @@ public:
 
     std::vector<Edge>  pores_connection_mst(const std::vector<GaussianKernel>& gau, int Dmax = 7);
     std::vector<std::vector<int>> construct_adj_list(std::vector<Edge> edges_list, int kernel_num);
-    std::vector<double> construct_dist_map(int p_index, AdjacencyList adj);
     std::vector<std::vector<int>> get_unused_edge_adj(AdjacencyList Adj_list, double dis_thres);
+    std::vector<double> construct_dist_map(int p_index, AdjacencyList adj);   //构建双向Dijkstra
+    std::vector<std::vector<double>> construct_all_dmaps(AdjacencyList adj);
+    void update_dist_map(std::vector<double>& dist_map, int u, int v, double w, AdjacencyList adj);
+    void update_all_dmaps();
+
 
     std::vector<int> find_path_in_tree(int p1, int p2, int num_nodes, AdjacencyList adj);
     double length_graph_path(int p1, int p2, AdjacencyList adj);
@@ -90,8 +94,8 @@ public:
 
 
 	double calculate_path_translucency(std::vector<int>& path, bool show_debug = false);  //path里存放的是kernel的索引
-    double cal_kernel_translucency(int p_index, int& max_s1, int& max_s2, std::vector<int>& max_path, AdjacencyList adj, bool debug=false);
-    double cal_total_translucency(std::vector<GaussianKernel> gau, std::vector<int> surface_ks, AdjacencyList adj);
+    double cal_kernel_translucency(int p_index, int& max_s1, int& max_s2, std::vector<int>& max_path, std::vector<double>& dist_map, AdjacencyList adj, bool debug=false);
+    double cal_total_translucency(std::vector<GaussianKernel> gau, AdjacencyList adj);
 
     vector<int> check_inner_leafs(vector<int> leafs_index);
 	
@@ -142,6 +146,7 @@ private:
     std::vector<Edge> Tube_edges;
     std::vector<std::vector<int>> Adj_list;
     std::vector<std::vector<int>> Unused_adj_list;
+    std::vector<std::vector<double>> Dist_maps;
 
 
     double finalPorosity = 0;
