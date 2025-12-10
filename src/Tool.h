@@ -100,3 +100,7 @@ void saveVoxelToRaw(std::string filename, VoxelGrid& grid);
 void saveVoxelToVTK(std::string filename, VoxelGrid& grid);
 
 void saveVoxelGridAsNPY(std::vector<uint8_t>& voxel_grid, int res, std::string& filename);
+
+
+//io
+void silence_libigl_viewer(std::function<void()> func);

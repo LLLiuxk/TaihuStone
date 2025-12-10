@@ -72,6 +72,7 @@ bool saveMesh(std::string filename, Eigen::MatrixXd V, Eigen::MatrixXi F)
         std::filesystem::create_directories(dir);
     }
     igl::write_triangle_mesh(filename, V, F);
+	return true;
 }
 
 //平滑并集  softmin , k越大，平滑效果越小，趋近于普通并集
@@ -129,7 +130,9 @@ void view_model(Eigen::MatrixXd V1, Eigen::MatrixXi F1)
     //viewer.data().set_colors(Eigen::RowVector3d(0.8, 0.7, 0.2)); // 设置一个漂亮的蓝色
 
     viewer.data().point_size = 10; // 让点更显眼
-    viewer.launch();
+    silence_libigl_viewer([&]() {
+        viewer.launch();
+        });
 }
 
 void view_two_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V2, Eigen::MatrixXi F2, Eigen::RowVector3d shift)
@@ -154,7 +157,9 @@ void view_two_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V2,
     // 添加辅助点 (高斯核的中心)，设置为红色
    // viewer.data().add_points(kernel_points, Eigen::RowVector3d(1, 0, 0));
     viewer.data().point_size = 10; // 让点更显眼
-    viewer.launch();
+    silence_libigl_viewer([&]() {
+        viewer.launch();
+        });
 
 }
 
@@ -186,7 +191,9 @@ void view_three_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V
     // 添加辅助点 (高斯核的中心)，设置为红色
    // viewer.data().add_points(kernel_points, Eigen::RowVector3d(1, 0, 0));
     viewer.data().point_size = 10; // 让点更显眼
-    viewer.launch();
+    silence_libigl_viewer([&]() {
+        viewer.launch();
+        });
 }
 
 int single_component(Eigen::MatrixXd V, Eigen::MatrixXi F)
@@ -721,6 +728,17 @@ void saveVoxelGridAsNPY(std::vector<uint8_t>& voxel_grid, int res, std::string& 
 
     file.close();
     std::cout << "NPY文件保存成功: " << filename << " (大小: " << res << "x" << res << "x" << res << ")" << std::endl;
+}
+
+void silence_libigl_viewer(std::function<void()> func)
+{
+    std::streambuf* old_buf = std::cout.rdbuf();
+    std::ofstream null_stream("nul");   // Windows: "nul"  Linux/mac: "/dev/null"
+    std::cout.rdbuf(null_stream.rdbuf());
+
+    func();  // 这里调用 viewer.launch()
+
+    std::cout.rdbuf(old_buf); // 恢复输出
 }
 
 

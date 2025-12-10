@@ -23,7 +23,7 @@ double Safe_distance_ratio = 0.3;
 double Trans_thres = 0.6;
 
 bool debug_show = false;
-bool standard_show = false;
+bool standard_show = true;
 
 
 bool Direct_dis = false;

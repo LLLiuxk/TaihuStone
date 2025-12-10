@@ -75,7 +75,8 @@ public:
     std::vector<double> construct_dist_map(int p_index, AdjacencyList adj);   //¹¹½¨Ë«ÏòDijkstra
     std::vector<std::vector<double>> construct_all_dmaps(AdjacencyList adj);
     void update_dist_map(std::vector<double>& dist_map, int u, int v, double w, AdjacencyList adj);
-    void update_all_dmaps();
+    void update_all_dmaps(std::vector<std::vector<double>>& all_dmaps, int u, int v, double w);
+    void update_all_dmaps_delete(std::vector<std::vector<double>>& all_dmaps, AdjacencyList& adj, int u, int v, double w, double eps = 1e-9);
 
 
     std::vector<int> find_path_in_tree(int p1, int p2, int num_nodes, AdjacencyList adj);
@@ -107,8 +108,8 @@ public:
 
     //---------------optimize------------------
     vector<int> cal_edge_usage(std::vector<std::vector<int>> Paths);
-    pair<double, double> add_edges(Edge cand_edge, AdjacencyList adj, std::vector<int>& max_path1, std::vector<int>& max_path2);
-    bool replace_edges(int p_index, int replace_e, std::vector<Edge>& Tube_edges, AdjacencyList& adj, AdjacencyList& unused_adj);
+    pair<double, double> add_edges(Edge cand_edge, AdjacencyList adj, std::vector<int>& max_path1, std::vector<int>& max_path2, std::vector<std::vector<double>> & all_dis_maps);
+    bool replace_edges(int p_index, int replace_e, std::vector<Edge>& Tube_edges, AdjacencyList& adj, AdjacencyList& unused_adj, std::vector<std::vector<double>>& Dist_maps);
     void optimize_mst(int opt_times_once, int edge_max, bool debug = false);
 
 	//------------generate tubes----------------
