@@ -906,14 +906,12 @@ double ModelGenerator::cal_kernel_translucency(int p_index, int & max_s1, int & 
     //dist_map = construct_dist_map(p_index, adj);
     // 双重循环遍历所有 s1, s2 组合
     // 复杂度 O(K^2)，其中 K 是 surface_points 的数量
-    //for (int s1 : surface_kernels)
     for (int i = 0; i < surface_kernels.size(); i++) 
     {
         // 剪枝：如果 s1 无法到达 p_index，则跳过
         int s1 = surface_kernels[i];
         if (dist_map[s1] == INF) continue;
         for (int j = i+1; j < surface_kernels.size(); j++) 
-        //for (int s2 : surface_kernels) 
         {
             int s2 = surface_kernels[j];
             // 剪枝：如果 s2 无法到达 p_index，或者 s1==s2 (距离为0)，跳过
