@@ -39,17 +39,17 @@ ModelGenerator::ModelGenerator(std::string input_file, int pores)
     //cout << "point index: " << find_nearest_grid(point) << endl;
     generateGaussianSDF();
 
-    std::cout << "开始保存体素化结果..." << std::endl;
-    // 创建二值体素网格 (1=实心, 0=空心)
-    std::vector<uint8_t> voxel_grid(Resolution * Resolution * Resolution, 0);
+    //std::cout << "开始保存体素化结果..." << std::endl;
+    //// 创建二值体素网格 (1=实心, 0=空心)
+    //std::vector<uint8_t> voxel_grid(Resolution * Resolution * Resolution, 0);
 
-    for (int i = 0; i < SDF_out.size(); ++i) {
-        voxel_grid[i] = (SDF_out(i) < 0) ? 1 : 0;
-    }
+    //for (int i = 0; i < SDF_out.size(); ++i) {
+    //    voxel_grid[i] = (SDF_out(i) < 0) ? 1 : 0;
+    //}
 
-    // 保存为NPY格式
-    std::string npy_filename = "D:/VSprojects/TaihuStone/model/npy/voxelized_model_out.npy";
-    saveVoxelGridAsNPY(voxel_grid, Resolution, npy_filename);
+    //// 保存为NPY格式
+    //std::string npy_filename = "D:/VSprojects/TaihuStone/model/npy/voxelized_model_out.npy";
+    //saveVoxelGridAsNPY(voxel_grid, Resolution, npy_filename);
 }
 
 
@@ -85,7 +85,31 @@ void ModelGenerator::generateGaussianSDF()
 	// 构建邻接表
     Adj_list = construct_adj_list(Tube_edges, kernel_num);
     Unused_adj_list = get_unused_edge_adj(Adj_list, 0.8);
-	Dist_maps = construct_all_dmaps(Adj_list);
+    mst_tree.build(Adj_list);
+    //vector<int> path1, path2;
+    //auto start_time_ = std::chrono::high_resolution_clock::now();
+    //for (int i = 0; i < 100000; i++)
+    //{
+    //    int s = i % 13;
+    //    int t = (i + 50) % 3;
+    //    path1 = find_path_in_tree(s,t, kernel_num, Adj_list);
+    //}
+    //auto mid_time_ = std::chrono::high_resolution_clock::now();
+    //for (int i = 0; i < 100000; i++)
+    //{
+    //    int s = i % 13;
+    //    int t = (i + 50) % 3;
+    //    path2 = mst_tree.get_path(s, t);
+    //}
+    //auto fin_time_ = std::chrono::high_resolution_clock::now();
+    //auto duration1 = std::chrono::duration_cast<std::chrono::milliseconds>(mid_time_ - start_time_);
+    //auto duration2 = std::chrono::duration_cast<std::chrono::milliseconds>(fin_time_ - mid_time_);
+    //std::cout << "find path time " << duration1.count() / 1000.0 << " s" << "    vs      "<< duration2.count() / 1000.0 << " s" <<std::endl;
+    //cout << path1.size() << "   " << path2.size();
+    //for (int i = 0; i < path1.size(); i++)
+    //    cout << path1[i] << "  vs  " << path2[i] << endl;
+	//Dist_maps = construct_all_dmaps(Adj_list);
+    //Ddgree_maps = construct_degree_maps(Adj_list, Degree_adj);
     vector<int> leafs_index = all_leafs_mst(Tube_edges);
     vector<int> inner_leafs = check_inner_leafs(leafs_index);
     
@@ -103,6 +127,7 @@ void ModelGenerator::generateGaussianSDF()
  //       cout << "edge_importance: " << ei << endl;
     int opt_times_once = 5;
 	int edge_max = Tube_edges.size()*1.2;
+    use_BFS = true;
     optimize_mst(opt_times_once, edge_max);
 
     std::cout << "--------------------5. Calculating translucency of optimized mst --------------------" << endl;
@@ -306,20 +331,12 @@ std::vector<std::vector<int>> ModelGenerator::construct_adj_list(std::vector<Edg
 {
     std::vector<std::vector<int>> adj_list(kernel_num);
     for (const auto& edge : edges_list) {
-        // 由于最小生成树是无向图，一条边代表双向连接。
-        // 我们需要将 `to` 添加到 `from` 的邻居列表，同时将 `from` 添加到 `to` 的邻居列表。
+        // 由于最小生成树是无向图，一条边代表双向连接, 需要将 `to` 添加到 `from` 的邻居列表，同时将 `from` 添加到 `to` 的邻居列表。
         if (edge.from < kernel_num && edge.to < kernel_num) {
             adj_list[edge.from].push_back(edge.to);
             adj_list[edge.to].push_back(edge.from);
         }
     }
-    //for (auto adj1 : adj_list)
-    //{
-    //    cout << "  adj1: " << adj1.size() << " ";
-    //    for (auto adj2 : adj1)
-    //        cout << "  adj2: " << adj2 << " ";
-    //}  
-
 	return adj_list;
 }
 
@@ -367,171 +384,253 @@ std::vector<std::vector<int>> ModelGenerator::get_unused_edge_adj(AdjacencyList 
     return unused_adj;
 }
 
-std::vector<double> ModelGenerator::construct_dist_map(int p_index, AdjacencyList adj)   //构建双向Dijkstra
+double ModelGenerator::cal_path_graph_length(std::vector<int> path_)
 {
-    int n = Kernels.size();
-    std::priority_queue<NodeDist, std::vector<NodeDist>, std::greater<NodeDist>> pq;
-    std::vector<double> dist_map(n, INF);
-    dist_map[p_index] = 0.0;
-    pq.push({ p_index, 0.0 });
-
-    while (!pq.empty()) {
-        NodeDist current = pq.top();
-        pq.pop();
-
-        int u = current.id;
-        double d = current.dist;
-
-        if (d > dist_map[u]) continue;
-
-        for (const auto& neighbor : adj[u]) {
-            int v = neighbor;
-			double length = length_path(u, v);
-
-            if (dist_map[u] + length < dist_map[v]) {
-                dist_map[v] = dist_map[u] + length;
-                pq.push({ v, dist_map[v] });
-            }
-        }
-    }
-	return dist_map;
-}
-
-std::vector<std::vector<double>> ModelGenerator::construct_all_dmaps(AdjacencyList adj)
-{
-	std::vector<std::vector<double>> all_dmaps;
-    int n = adj.size();
-    for (int i = 0; i < n; ++i) {
-        std::vector<double> dist_map = construct_dist_map(i, adj);
-        all_dmaps.push_back(dist_map);
+    double length = 0;
+    for (size_t i = 0; i < path_.size() - 1; ++i) {
+        int u = path_[i];
+        int v = path_[i + 1];
+        length += length_path(u, v);
 	}
-    return all_dmaps;
+    return length;
 }
 
-void ModelGenerator::update_dist_map(std::vector<double>& dist_map, int u, int v, double w, AdjacencyList adj)
-{
-    std::priority_queue<NodeDist, std::vector<NodeDist>, std::greater<NodeDist>> pq;
+//std::vector<double> ModelGenerator::construct_dist_map(int p_index, AdjacencyList adj)   //构建双向Dijkstra
+//{
+//    int n = Kernels.size();
+//    std::priority_queue<NodeDist, std::vector<NodeDist>, std::greater<NodeDist>> pq;
+//    std::vector<double> dist_map(n, INF);
+//    dist_map[p_index] = 0.0;
+//    pq.push({ p_index, 0.0 });
+//
+//    while (!pq.empty()) {
+//        NodeDist current = pq.top();
+//        pq.pop();
+//
+//        int u = current.id;
+//        double d = current.dist;
+//
+//        if (d > dist_map[u]) continue;
+//
+//        for (const auto& neighbor : adj[u]) {
+//            int v = neighbor;
+//			double length = length_path(u, v);
+//
+//            if (dist_map[u] + length < dist_map[v]) {
+//                dist_map[v] = dist_map[u] + length;
+//                pq.push({ v, dist_map[v] });
+//            }
+//        }
+//    }
+//	return dist_map;
+//}
+//
+//std::vector<std::vector<double>> ModelGenerator::construct_all_dmaps(AdjacencyList adj)
+//{
+//	std::vector<std::vector<double>> all_dmaps;
+//    int n = adj.size();
+//    for (int i = 0; i < n; ++i) {
+//        std::vector<double> dist_map = construct_dist_map(i, adj);
+//        all_dmaps.push_back(dist_map);
+//	}
+//    return all_dmaps;
+//}
+//
+//void ModelGenerator::update_dist_map(std::vector<double>& dist_map, int u, int v, double w, AdjacencyList adj)
+//{
+//    std::priority_queue<NodeDist, std::vector<NodeDist>, std::greater<NodeDist>> pq;
+//
+//    // 先判断新边是否能松弛 u 或 v
+//    if (dist_map[u] + w < dist_map[v]) {
+//        dist_map[v] = dist_map[u] + w;
+//        pq.push({ v, dist_map[v] });
+//    }
+//
+//    if (dist_map[v] + w < dist_map[u]) {
+//        dist_map[u] = dist_map[v] + w;
+//        pq.push({ u, dist_map[u] });
+//    }
+//
+//    // 以被更新的点为起点，继续做 Dijkstra 扩散
+//    while (!pq.empty()) {
+//        NodeDist current = pq.top();
+//        pq.pop();
+//
+//        int x = current.id;
+//        double d = current.dist;
+//
+//        if (d > dist_map[x]) continue;
+//
+//        for (int y : adj[x]) {
+//            double len = length_path(x, y);
+//
+//            if (dist_map[x] + len < dist_map[y]) {
+//                dist_map[y] = dist_map[x] + len;
+//                pq.push({ y, dist_map[y] });
+//            }
+//        }
+//    }
+//}
+//
+//void ModelGenerator::update_all_dmaps(std::vector<std::vector<double>>& all_dmaps, int u, int v, double w)
+//{
+//    int n = all_dmaps.size();
+//    if (n == 0) return;
+//    // 快速返回：如果新边不会比现有 u-v 距离更短，则没有影响
+//    if (w >= all_dmaps[u][v]) {
+//        // 仍需要注意：若 all_dmaps[u][v] == INF（不可达）且 w < INF，则需继续更新
+//        if (all_dmaps[u][v] != INF) return;
+//    }
+//
+//    // 为提高局部缓存效率，先把 u 列和 v 列复制出来：
+//    std::vector<double> dist_to_u(n), dist_to_v(n);
+//    for (int i = 0; i < n; ++i) {
+//        dist_to_u[i] = all_dmaps[i][u]; // d_old[i][u]
+//        dist_to_v[i] = all_dmaps[i][v]; // d_old[i][v]
+//    }
+//
+//    // 遍历所有 (s,t) 对，只更新上三角并回写对称项
+//    for (int s = 0; s < n; ++s) {
+//        // 预取 s->u 和 s->v
+//        double su = dist_to_u[s];
+//        double sv = dist_to_v[s];
+//
+//        for (int t = s; t < n; ++t) {
+//            double oldd = all_dmaps[s][t];
+//
+//            // 计算两种通过新边的候选路径长度（注意可能为 INF）
+//            double cand1 = INF, cand2 = INF;
+//            if (su + w > oldd && sv + w > oldd)
+//                continue;
+//            
+//            // s -> u -> v -> t  （s->u + w + v->t）
+//            if (su < INF && dist_to_v[t] < INF) {
+//                cand1 = su + w + dist_to_v[t];
+//            }
+//            // s -> v -> u -> t  （s->v + w + u->t）
+//            if (sv < INF && dist_to_u[t] < INF) {
+//                cand2 = sv + w + dist_to_u[t];
+//            }
+//
+//            double newd = std::min(oldd, std::min(cand1, cand2));
+//
+//            if (newd < oldd) {
+//                all_dmaps[s][t] = newd;
+//                all_dmaps[t][s] = newd; // 保持对称
+//            }
+//        }
+//    }
+//}
+//
+//void ModelGenerator::update_all_dmaps_delete(std::vector<std::vector<double>>& all_dmaps, AdjacencyList& adj, int u, int v, double w, double eps)
+//{
+//    int n = all_dmaps.size();
+//    if (n == 0) return;
+//    //找到所有受影响的源点 S_bad
+//    std::vector<int> affected_sources;
+//
+//    for (int s = 0; s < n; ++s) {
+//        double dsu = all_dmaps[s][u];
+//        double dsv = all_dmaps[s][v];
+//
+//        bool use_uv =
+//            std::abs(dsv - (dsu + w)) < eps ||
+//            std::abs(dsu - (dsv + w)) < eps;
+//
+//        if (use_uv) {
+//            affected_sources.push_back(s);
+//        }
+//    }
+//
+//    // 3. 仅对这些源点重新跑 Dijkstra
+//    for (int s : affected_sources) {
+//        std::vector<double> new_dist = construct_dist_map(s, adj);
+//        all_dmaps[s] = new_dist;
+//    }
+//
+//    // 4. 维护对称性（无向图）
+//    for (int s : affected_sources) {
+//        for (int t = 0; t < n; ++t) {
+//            all_dmaps[t][s] = all_dmaps[s][t];
+//        }
+//    }
+//
+//    //std::cout << "[Edge Removal] affected sources = "
+//    //    << affected_sources.size() << std::endl;
+//}
+//
+//std::vector<double> ModelGenerator::construct_deg_map(int p_index, AdjacencyList adj, std::vector<int>& deg_adj)   //构建双向Dijkstra
+//{
+//    std::vector<GaussianKernel> all_nodes = Kernels;
+//    int n = all_nodes.size();
+//    std::priority_queue<NodeDeg, std::vector<NodeDeg>, std::less<NodeDeg>> pq;
+//    std::vector<double> deg_map(n, 0.0);
+//    std::vector<int> deg_adj_index(n, -1);
+//    deg_map[p_index] = 1.0;
+//    pq.push({ p_index, p_index, 1.0 });
+//
+//    while (!pq.empty()) {
+//        NodeDeg current = pq.top();
+//        pq.pop();
+//
+//        int u = current.id;
+//        int pre = current.pre_id;
+//        double d = current.dist;
+//
+//        if (d < deg_map[u]) continue;
+//
+//        for (const auto& neighbor : adj[u]) {
+//            int v = neighbor;
+//            double angle_deg = 1.0;
+//            if (u == pre) //说明是源点和邻接点
+//            {
+//                int start_ = u;
+//                int end_ = v;
+//                double thres = min(Kernels[start_].center_value, Kernels[end_].center_value);
+//                angle_deg *= line_cross_surface(Kernels[start_].center, Kernels[end_].center, thres);
+//                deg_adj_index[v] = v;
+//                //sun_deg
+//            }
+//            else //说明是中间点
+//            {
+//                Vector3d prev = all_nodes[pre].center;
+//                Vector3d curr = all_nodes[u].center;
+//                Vector3d next = all_nodes[v].center;
+//                //if (!all_nodes[path[i]].on_surface) count_inner++;
+//                double angle_deg = abs_angle(prev - curr, next - curr) / 180.0;
+//
+//                double thres = min(all_nodes[u].center_value, all_nodes[v].center_value);
+//                //line_cross_surface返回1.0，贯通； <1.0，属于表面，计数
+//                angle_deg *= line_cross_surface(curr, next, thres);
+//			}
+//
+//            if (deg_map[u] * angle_deg > deg_map[v]) {
+//                deg_map[v] = deg_map[u] * angle_deg;
+//                pq.push({ u, v, deg_map[v] });
+//                if (u != pre) {// 选择中间点，邻边仍继承之前
+//                    deg_adj_index[v] = deg_adj_index[u];
+//                }
+//            }
+//        }
+//    }
+//    return deg_map;
+//}
+//
+//std::vector<std::vector<double>> ModelGenerator::construct_degree_maps(AdjacencyList adj, std::vector<std::vector<int>>& degree_adj)
+//{
+//    std::vector<std::vector<double>> all_degree_maps;
+//    int n = adj.size();
+//    for (int i = 0; i < n; ++i) {
+//        std::vector<int> deg_adj_i;
+//        std::vector<double> deg_map = construct_deg_map(i, adj, deg_adj_i);
+//        all_degree_maps.push_back(deg_map);
+//        degree_adj.push_back(deg_adj_i);
+//    }
+//    return all_degree_maps;
+//}
 
-    // 先判断新边是否能松弛 u 或 v
-    if (dist_map[u] + w < dist_map[v]) {
-        dist_map[v] = dist_map[u] + w;
-        pq.push({ v, dist_map[v] });
-    }
 
-    if (dist_map[v] + w < dist_map[u]) {
-        dist_map[u] = dist_map[v] + w;
-        pq.push({ u, dist_map[u] });
-    }
-
-    // 以被更新的点为起点，继续做 Dijkstra 扩散
-    while (!pq.empty()) {
-        NodeDist current = pq.top();
-        pq.pop();
-
-        int x = current.id;
-        double d = current.dist;
-
-        if (d > dist_map[x]) continue;
-
-        for (int y : adj[x]) {
-            double len = length_path(x, y);
-
-            if (dist_map[x] + len < dist_map[y]) {
-                dist_map[y] = dist_map[x] + len;
-                pq.push({ y, dist_map[y] });
-            }
-        }
-    }
-}
-
-void ModelGenerator::update_all_dmaps(std::vector<std::vector<double>>& all_dmaps, int u, int v, double w)
-{
-    int n = all_dmaps.size();
-    if (n == 0) return;
-    // 快速返回：如果新边不会比现有 u-v 距离更短，则没有影响
-    if (w >= all_dmaps[u][v]) {
-        // 仍需要注意：若 all_dmaps[u][v] == INF（不可达）且 w < INF，则需继续更新
-        if (all_dmaps[u][v] != INF) return;
-    }
-
-    // 为提高局部缓存效率，先把 u 列和 v 列复制出来：
-    std::vector<double> dist_to_u(n), dist_to_v(n);
-    for (int i = 0; i < n; ++i) {
-        dist_to_u[i] = all_dmaps[i][u]; // d_old[i][u]
-        dist_to_v[i] = all_dmaps[i][v]; // d_old[i][v]
-    }
-
-    // 遍历所有 (s,t) 对，只更新上三角并回写对称项
-    for (int s = 0; s < n; ++s) {
-        // 预取 s->u 和 s->v
-        double su = dist_to_u[s];
-        double sv = dist_to_v[s];
-
-        for (int t = s; t < n; ++t) {
-            double oldd = all_dmaps[s][t];
-
-            // 计算两种通过新边的候选路径长度（注意可能为 INF）
-            double cand1 = INF, cand2 = INF;
-            if (su + w > oldd && sv + w > oldd)
-                continue;
-            
-            // s -> u -> v -> t  （s->u + w + v->t）
-            if (su < INF && dist_to_v[t] < INF) {
-                cand1 = su + w + dist_to_v[t];
-            }
-            // s -> v -> u -> t  （s->v + w + u->t）
-            if (sv < INF && dist_to_u[t] < INF) {
-                cand2 = sv + w + dist_to_u[t];
-            }
-
-            double newd = std::min(oldd, std::min(cand1, cand2));
-
-            if (newd < oldd) {
-                all_dmaps[s][t] = newd;
-                all_dmaps[t][s] = newd; // 保持对称
-            }
-        }
-    }
-}
-
-void ModelGenerator::update_all_dmaps_delete(std::vector<std::vector<double>>& all_dmaps, AdjacencyList& adj, int u, int v, double w, double eps)
-{
-    int n = all_dmaps.size();
-    if (n == 0) return;
-    //找到所有受影响的源点 S_bad
-    std::vector<int> affected_sources;
-
-    for (int s = 0; s < n; ++s) {
-        double dsu = all_dmaps[s][u];
-        double dsv = all_dmaps[s][v];
-
-        bool use_uv =
-            std::abs(dsv - (dsu + w)) < eps ||
-            std::abs(dsu - (dsv + w)) < eps;
-
-        if (use_uv) {
-            affected_sources.push_back(s);
-        }
-    }
-
-    // 3. 仅对这些源点重新跑 Dijkstra
-    for (int s : affected_sources) {
-        std::vector<double> new_dist = construct_dist_map(s, adj);
-        all_dmaps[s] = new_dist;
-    }
-
-    // 4. 维护对称性（无向图）
-    for (int s : affected_sources) {
-        for (int t = 0; t < n; ++t) {
-            all_dmaps[t][s] = all_dmaps[s][t];
-        }
-    }
-
-    //std::cout << "[Edge Removal] affected sources = "
-    //    << affected_sources.size() << std::endl;
-}
-
-std::vector<int> ModelGenerator::find_path_in_tree(int p1, int p2,  int num_nodes, AdjacencyList adj)
+std::vector<int> ModelGenerator::find_path_in_tree(int p1, int p2,  int num_nodes, AdjacencyList adj)   //BFS
 {
     // --- 步骤 1: 将边列表转换为邻接表 ，其中 adj_list[i] 将存储所有与节点 i 直接相连的节点的ID。
     if (num_nodes <= 0) {
@@ -565,7 +664,6 @@ std::vector<int> ModelGenerator::find_path_in_tree(int p1, int p2,  int num_node
         }
 
         // 遍历当前节点 u 的所有邻居
-        // 这里体现了邻接表的效率优势：直接访问 adj_list[u] 即可。
         for (int v : adj_list[u]) {
             if (!visited[v]) {
                 visited[v] = true; // 标记为已访问
@@ -575,10 +673,7 @@ std::vector<int> ModelGenerator::find_path_in_tree(int p1, int p2,  int num_node
         }
     }
 
-    // --- 步骤 3: 路径重构 ---
-    // 如果找到了路径（即BFS到达了终点），我们从终点开始，
-    // 利用 `parent` 数组反向回溯，直到回到起点。
-
+    // --- 步骤 3: 路径重构:如果找到了路径（即BFS到达了终点）,从终点开始, 利用 `parent` 数组反向回溯，直到回到起点。
     std::vector<int> path;
     if (path_found) {
         int current = p2;
@@ -593,6 +688,76 @@ std::vector<int> ModelGenerator::find_path_in_tree(int p1, int p2,  int num_node
     return path;
 }
 
+std::vector<std::vector<int>> ModelGenerator::find_two_paths_in_tree(int p1, int p2, int p3, int num_nodes, AdjacencyList adj)
+{
+    std::vector<std::vector<int>> paths12;
+    std::vector<int > path1, path2;
+    if (num_nodes <= 0) {
+        return paths12;
+    }
+
+    if (p1 == p2) {
+        // 处理起点和终点是同一个节点的特殊情况
+        path1.push_back(p1);// 如果节点重复，则输出p1
+    }
+    if (p1 == p3) {
+        // 处理起点和终点是同一个节点的特殊情况
+        path2.push_back(p1);// 如果节点重复，则输出p1
+    }
+
+    std::vector<int> parent(num_nodes, -1);
+    std::vector<bool> visited(num_nodes, false);
+
+    std::queue<int> q;
+    q.push(p1);
+    visited[p1] = true;
+
+    bool found_p2 = (p1 == p2);
+    bool found_p3 = (p1 == p3);
+
+    while (!q.empty() && !(found_p2 && found_p3)) {
+        int u = q.front(); 
+        q.pop();
+
+        for (int v : adj[u]) {
+            if (!visited[v]) {
+                visited[v] = true;
+                parent[v] = u;
+                q.push(v);
+
+                if (v == p2) found_p2 = true;
+                if (v == p3) found_p3 = true;
+
+                // 如果两个都找到了，提前结束
+                if (found_p2 && found_p3) break;
+            }
+        }
+    }
+
+    // 回溯路径 p1 -> p2
+    if (found_p2 && path1.empty()) {
+        int cur = p2;
+        while (cur != -1) {
+            path1.push_back(cur);
+            cur = parent[cur];
+        }
+        std::reverse(path1.begin(), path1.end());
+    }
+
+    // 回溯路径 p1 -> p3
+    if (found_p3 && path2.empty()) {
+        int cur = p3;
+        while (cur != -1) {
+            path2.push_back(cur);
+            cur = parent[cur];
+        }
+        std::reverse(path2.begin(), path2.end());
+    }
+	paths12.push_back(path1);
+	paths12.push_back(path2);
+    return paths12;
+}
+
 double ModelGenerator::length_graph_path(int p1, int p2, AdjacencyList adj)
 {
     std::vector<Edge> mst = Tube_edges;
@@ -601,15 +766,7 @@ double ModelGenerator::length_graph_path(int p1, int p2, AdjacencyList adj)
 
     std::vector<int> path_ = find_path_in_tree(p1, p2, Kernels.size(), adj);
 
-    double length_graph = 0.0;
-    for (int i = 0; i < path_.size() - 1; i++) 
-    {
-        {
-            length_graph += distance(Kernels[path_[i]].center, Kernels[path_[i + 1]].center);
-        }
-        //length_graph += mst[p].length;
-        //length_graph += Tube_edges[p].weight;
-    }
+	double length_graph = cal_path_graph_length(path_);
     return length_graph; // 如果图不连通（理论上MST应该是连通的），返回-1
 }
 
@@ -904,28 +1061,27 @@ double ModelGenerator::cal_kernel_translucency(int p_index, int & max_s1, int & 
 		return max_perm;
     }
     //dist_map = construct_dist_map(p_index, adj);
-    // 双重循环遍历所有 s1, s2 组合
-    // 复杂度 O(K^2)，其中 K 是 surface_points 的数量
+    // 双重循环遍历所有 s1, s2 组合, 复杂度 O(K^2)，其中 K 是 surface_points 的数量
     for (int i = 0; i < surface_kernels.size(); i++) 
     {
         // 剪枝：如果 s1 无法到达 p_index，则跳过
         int s1 = surface_kernels[i];
-        if (dist_map[s1] == INF) continue;
+        //if (dist_map[s1] == INF) continue;
         for (int j = i+1; j < surface_kernels.size(); j++) 
         {
             int s2 = surface_kernels[j];
-            // 剪枝：如果 s2 无法到达 p_index，或者 s1==s2 (距离为0)，跳过
-            if (dist_map[s2] == INF || s1 == s2) continue;
+           // if (dist_map[s2] == INF || s1 == s2) continue;
 
-            // 1. 计算图上距离 (Graph Distance) 路径: s1 -> p_index -> s2
-            double graph_dist = dist_map[s1] + dist_map[s2];
-
-            if (graph_dist < 1e-9) continue;
+            //计算图上距离 (Graph Distance) 路径: s1 -> p_index -> s2
+            /*double graph_dist = dist_map[s1] + dist_map[s2];
+            if (graph_dist < 1e-9) continue;*/
 
             // 2. 计算欧氏距离 (Euclidean Distance)
             double euclidean_dist = distance(Kernels[s1].center, Kernels[s2].center);
 
-            std::vector<int> path_ = find_specified_path(p_index, s1, s2, adj, false);
+            //std::vector<int> path_ = mst_tree.get_path(s1, s2);
+            std::vector<int> path_ = find_specified_path(p_index, s1, s2, adj, use_BFS);
+            double graph_dist = cal_path_graph_length(path_);
 			double path_translucency = calculate_path_translucency(path_, debug);
             if(debug)
                 cout << "s1: " << s1 << "  s2: " << s2 << endl
@@ -966,7 +1122,7 @@ double ModelGenerator::cal_total_translucency(std::vector<GaussianKernel> gau,  
         int start = -1, end = -1;
         std::vector<int> max_path;
 		//std::vector<double> dist_map = construct_dist_map(i, adj);
-        std::vector<double> dist_map = Dist_maps[i];
+        std::vector<double> dist_map;// = Dist_maps[i];
         double score_p = cal_kernel_translucency(i, start, end, max_path, dist_map, adj, false);
         total_score += score_p;
         max_paths_kernel.push_back(make_pair(start, end));
@@ -979,12 +1135,6 @@ double ModelGenerator::cal_total_translucency(std::vector<GaussianKernel> gau,  
             else
                 for (auto p : max_path) cout << p << "  ";
             cout << endl;
-        }
-        bool debug_ = false;
-        if(debug_)
-        {
-            std::vector<int> path_ = find_specified_path(i, start, end, adj, debug_);
-            double path_translucency = calculate_path_translucency(path_, debug_);
         }
     }
     return total_score/ kernels_num;
@@ -1004,7 +1154,7 @@ vector<int> ModelGenerator::check_inner_leafs(vector<int> leafs_index)
     return inner_leafs;
 }
 
-std::vector<int> ModelGenerator::find_specified_path(int p_index, int s1, int s2, AdjacencyList adj, bool show_debug)
+std::vector<int> ModelGenerator::find_specified_path(int p_index, int s1, int s2, AdjacencyList adj, bool BFS)
 {
     if(s1 ==s2|| s1<0||s2<0) 
     {
@@ -1012,14 +1162,26 @@ std::vector<int> ModelGenerator::find_specified_path(int p_index, int s1, int s2
         return {};
 	}
 	int kernel_num = Kernels.size();
-    std::vector<int> path1 = find_path_in_tree(p_index, s1, kernel_num, adj);
-    //for (auto pp : path1) cout << "path1 : " << pp << "  ";
-    std::vector<int> path2 = find_path_in_tree(p_index, s2, kernel_num, adj);
-    
+
+    std::vector<int> path1, path2;
+    if (BFS)
+    {
+        std::vector< std::vector<int>> paths =  find_two_paths_in_tree(p_index, s1, s2, kernel_num, adj);
+		path1 = paths[0];
+		path2 = paths[1];
+        /*path1 = find_path_in_tree(s1, p_index, kernel_num, adj);
+        path2 = find_path_in_tree(p_index, s2, kernel_num, adj);*/
+    }
+    else
+    {
+        path1 = mst_tree.get_path(p_index, s1);
+        path2 = mst_tree.get_path(p_index, s2);
+    }
     // 合并路径，避免重复包含 p_index
     std::vector<int> full_path(path1.rbegin(), path1.rend());
     full_path.insert(full_path.end(), path2.begin() + 1, path2.end()); // 从 path2 的倒数第二个元素开始添加
-    if(show_debug)
+    bool debug_show = false;
+    if(debug_show)
     {
         cout << "Kernel "<<p_index<<"'s full path steps : " << full_path.size() << endl;
         for (auto p : full_path) cout << p << " ";
@@ -1133,8 +1295,6 @@ double ModelGenerator::calculate_score(std::vector<std::vector<int>>  Paths)
 }
 
 
-
-
 vector<int> ModelGenerator::cal_edge_usage(std::vector<std::vector<int>> Paths)
 {
     std::map<std::pair<int, int>, int> edge_count;
@@ -1184,8 +1344,8 @@ pair<double, double> ModelGenerator::add_edges(Edge cand_edge, AdjacencyList adj
 	int p2 = cand_edge.to;
 	int start = -1, end = -1;
     double length = length_path(p1, p2);
-    std::vector<double> dist_map = all_dis_maps[p1];
-    update_dist_map(dist_map, p1, p2, length, adj_new);
+    std::vector<double> dist_map;// = all_dis_maps[p1];
+    //update_dist_map(dist_map, p1, p2, length, adj_new);
     //std::vector<double> dist_map = construct_dist_map(p1, adj_new);
    /* cout << "dist_map of " << p1 << "  after adding  [" << cand_edge.from << ", " << cand_edge.to<<"]  ";
     for (auto dm : dist_map) cout << dm << "  ";
@@ -1195,8 +1355,8 @@ pair<double, double> ModelGenerator::add_edges(Edge cand_edge, AdjacencyList adj
     //show_path(max_path1);
     start = -1;
     end = -1;
-    std::vector<double> dist_map2 = all_dis_maps[p2];
-    update_dist_map(dist_map2, p1, p2, length, adj_new);
+    std::vector<double> dist_map2;// = all_dis_maps[p2];
+    //update_dist_map(dist_map2, p1, p2, length, adj_new);
     //std::vector<double> dist_map2 = construct_dist_map(p2, adj_new);
     double p2_add = cal_kernel_translucency(p2, start, end, max_path2, dist_map2, adj_new);
 	p2_add = p2_add - kernel_translucency[p2];
@@ -1229,7 +1389,7 @@ bool ModelGenerator::replace_edges(int p_index, int replace_e, std::vector<Edge>
         adj_b.erase(std::remove(adj_b.begin(), adj_b.end(), re_edge.from), adj_b.end());
     }
     //for (auto d : adj_new[p_index]) cout << "adj_new[p_index] size: " << adj_new[p_index].size() << "   " << d << "   ";
-    update_all_dmaps_delete(all_dis_maps, adj_new, re_edge.from, re_edge.to, re_edge.length);
+    //update_all_dmaps_delete(all_dis_maps, adj_new, re_edge.from, re_edge.to, re_edge.length);
     //这里暂时不修改unused_adj_new，不需要再计算这条边
 
     double max_delta_score = 0;
@@ -1269,7 +1429,7 @@ bool ModelGenerator::replace_edges(int p_index, int replace_e, std::vector<Edge>
         unused_adj_new[chosen_cand].erase(std::remove(unused_adj_new[chosen_cand].begin(), unused_adj_new[chosen_cand].end(), p_index), unused_adj_new[chosen_cand].end());
         unused_adj_new[re_edge.from].push_back(re_edge.to);  //删掉的边
         unused_adj_new[re_edge.to].push_back(re_edge.from);
-        update_all_dmaps(all_dis_maps, p_index, chosen_cand, chosen_e.length);
+       // update_all_dmaps(all_dis_maps, p_index, chosen_cand, chosen_e.length);
         kernel_translucency[p_index] += delta_score_max_pair.first;
         kernel_translucency[chosen_cand] += delta_score_max_pair.second;
         Paths[p_index] = max_path1;
@@ -1344,7 +1504,7 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
                 }
                 Unused_adj_list[i].erase(std::remove(Unused_adj_list[i].begin(), Unused_adj_list[i].end(), chosen_cand), Unused_adj_list[i].end());
                 Unused_adj_list[chosen_cand].erase(std::remove(Unused_adj_list[chosen_cand].begin(), Unused_adj_list[chosen_cand].end(), i), Unused_adj_list[chosen_cand].end());
-                update_all_dmaps(Dist_maps, i, chosen_cand, chosen_e.length);
+               // update_all_dmaps(Dist_maps, i, chosen_cand, chosen_e.length);
                 kernel_translucency[i] += delta_score_max_pair.first;
                 kernel_translucency[chosen_cand] += delta_score_max_pair.second;
                 Paths[i] = max_path1;
@@ -1368,7 +1528,8 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
         {
 			int start = -1, end = -1;
             std::vector<int> max_path;
-            kernel_translucency[i] = cal_kernel_translucency(i, start, end, max_path, Dist_maps[i], Adj_list, false);
+            std::vector<double> dis_map_i;// = Dist_maps[i];
+            kernel_translucency[i] = cal_kernel_translucency(i, start, end, max_path, dis_map_i, Adj_list, false);
             
             if (kernel_translucency[i] > 1e-9)
                 cout << "Kernel: "<<i <<"'s translucency is increased to " << kernel_translucency[i] << " due to the last optimization!" << endl;
@@ -1379,7 +1540,6 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
         }
 		//接下来是循环优化
         while(kernel_translucency[i] < thres_tran && opt_count < opt_times_once && opt_count_total< opt_times_once * kernels_num)
-        //if (kernel_translucency[i] < thres_tran) //存在通透性很小的点
         {
             opt_count++;
             cout << "Kernel " << i << " has a low translucency: " << kernel_translucency[i] << "  lower than thres_tran:" << thres_tran << endl;
@@ -1426,7 +1586,7 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
                     }
 					Unused_adj_list[i].erase(std::remove(Unused_adj_list[i].begin(), Unused_adj_list[i].end(), chosen_cand), Unused_adj_list[i].end());
                     Unused_adj_list[chosen_cand].erase(std::remove(Unused_adj_list[chosen_cand].begin(), Unused_adj_list[chosen_cand].end(), i), Unused_adj_list[chosen_cand].end());
-                    update_all_dmaps(Dist_maps, i, chosen_cand, chosen_e.length);
+                    //update_all_dmaps(Dist_maps, i, chosen_cand, chosen_e.length);
                     kernel_translucency[i] += delta_score_max_pair.first;
                     kernel_translucency[chosen_cand] += delta_score_max_pair.second;
 					Paths[i] = max_path1;
@@ -1541,7 +1701,7 @@ int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double
     MarchingCubes(SDF_out, GV, res, res, res, iso, V_out, F_out);   //final result
 
     std::string filename = "result/gaussian_pores80.stl";
-    saveMesh(filename, V_out, F_out);
+    //saveMesh(filename, V_out, F_out);
 
     Eigen::MatrixXd V_g; //输出网格顶点
     Eigen::MatrixXi F_g; // 输出网格面片
@@ -1550,9 +1710,9 @@ int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double
     Eigen::MatrixXd V_t; //输出网格顶点
     Eigen::MatrixXi F_t; // 输出网格面片
     MarchingCubes(SDF_gaussian_tubes, GV, res, res, res, iso, V_t, F_t);  //gaussian combined with tubes
-    view_model(V_t, F_t);
+    //view_model(V_t, F_t);
 
-    view_three_models(V_out, F_out, V_t, F_t, V_t, F_t, Eigen::RowVector3d(1, 0, 0));
+   // view_three_models(V_out, F_out, V_t, F_t, V_t, F_t, Eigen::RowVector3d(1, 0, 0));
 
 
     

@@ -40,6 +40,28 @@ struct Edge {
     }
 };
 
+class LCA_Tree {
+public:
+
+    LCA_Tree() : n(0), LOG(0) {}
+
+    // 传入无向树 adj，构建 LCA 结构
+    void build(const std::vector<std::vector<int>>& adj);
+
+    // 查询 u, v 的最近公共祖先（LCA）
+    int lca(int u, int v) const;
+
+    // 查询从 u 到 v 的路径（基于 LCA，无需 BFS）
+    std::vector<int> get_path(int u, int v) const;
+
+private:
+    int n;                    // 节点数量
+    int LOG;                  // ceil(log2(n))
+    std::vector<std::vector<int>> tree;       // MST adjacency list
+
+    std::vector<int> depth;               // depth[v]
+    std::vector<std::vector<int>> parent; // parent[k][v]
+};
 
 
 struct NodeDist {
@@ -48,6 +70,17 @@ struct NodeDist {
     // 重载 > 运算符以实现最小堆
     bool operator>(const NodeDist& other) const {
         return dist > other.dist;
+    }
+};
+
+struct NodeDeg {
+    int pre_id;
+    int id;
+    double dist;
+    // 重载 < 运算符以实现最大堆
+
+    bool operator<(const NodeDeg& other) const {
+        return dist < other.dist;
     }
 };
 
@@ -72,19 +105,27 @@ public:
     std::vector<Edge>  pores_connection_mst(const std::vector<GaussianKernel>& gau, int Dmax = 7);
     std::vector<std::vector<int>> construct_adj_list(std::vector<Edge> edges_list, int kernel_num);
     std::vector<std::vector<int>> get_unused_edge_adj(AdjacencyList Adj_list, double dis_thres);
-    std::vector<double> construct_dist_map(int p_index, AdjacencyList adj);   //构建双向Dijkstra
-    std::vector<std::vector<double>> construct_all_dmaps(AdjacencyList adj);
-    void update_dist_map(std::vector<double>& dist_map, int u, int v, double w, AdjacencyList adj);
-    void update_all_dmaps(std::vector<std::vector<double>>& all_dmaps, int u, int v, double w);
-    void update_all_dmaps_delete(std::vector<std::vector<double>>& all_dmaps, AdjacencyList& adj, int u, int v, double w, double eps = 1e-9);
+    double cal_path_graph_length(std::vector<int> path_);
+
+
+    //std::vector<double> construct_dist_map(int p_index, AdjacencyList adj);   //构建双向Dijkstra
+    //std::vector<std::vector<double>> construct_all_dmaps(AdjacencyList adj);
+    //void update_dist_map(std::vector<double>& dist_map, int u, int v, double w, AdjacencyList adj);
+    //void update_all_dmaps(std::vector<std::vector<double>>& all_dmaps, int u, int v, double w);
+    //void update_all_dmaps_delete(std::vector<std::vector<double>>& all_dmaps, AdjacencyList& adj, int u, int v, double w, double eps = 1e-9);
+    //std::vector<double> construct_deg_map(int p_index, AdjacencyList adj, std::vector<int>& deg_adj);   //构建双向degree Dijkstra
+    //std::vector<std::vector<double>> construct_degree_maps(AdjacencyList adj, std::vector<std::vector<int>>& degree_adj);
+    //void update_degree_map(std::vector<double>& dist_map, int u, int v, double w, AdjacencyList adj);
+    
 
 
     std::vector<int> find_path_in_tree(int p1, int p2, int num_nodes, AdjacencyList adj);
+    std::vector<std::vector<int>> find_two_paths_in_tree(int p1, int p2, int p3, int num_nodes, AdjacencyList adj);
     double length_graph_path(int p1, int p2, AdjacencyList adj);
     double length_path(int p1, int p2);
     int find_edge_by_nodes(int from_node, int to_node, const std::vector<Edge> edge_list);
     bool find_edge_in_path(Edge cand_edge, vector<int> path);
-    std::vector<int>  find_specified_path(int p_index, int s1, int s2, AdjacencyList adj, bool show_debug = false); //经过点p_index的，两端点为s1s2的路径
+    std::vector<int>  find_specified_path(int p_index, int s1, int s2, AdjacencyList adj, bool BFS = true); //经过点p_index的，两端点为s1s2的路径
 
     std::vector<int> all_leafs_mst(std::vector<Edge>& mst_tree);
 
@@ -98,10 +139,11 @@ public:
     double cal_kernel_translucency(int p_index, int& max_s1, int& max_s2, std::vector<int>& max_path, std::vector<double>& dist_map, AdjacencyList adj, bool debug=false);
     double cal_total_translucency(std::vector<GaussianKernel> gau, AdjacencyList adj);
 
+
     vector<int> check_inner_leafs(vector<int> leafs_index);
 	
     int find_nearest_grid(Eigen::Vector3d point);
-	double line_cross_surface(Eigen::Vector3d p1, Eigen::Vector3d p2, double thres, int sam_num);
+	double line_cross_surface(Eigen::Vector3d p1, Eigen::Vector3d p2, double thres, int sam_num = 3);
 
 
     double calculate_score(std::vector<std::vector<int>>  Paths);
@@ -147,7 +189,10 @@ private:
     std::vector<Edge> Tube_edges;
     std::vector<std::vector<int>> Adj_list;
     std::vector<std::vector<int>> Unused_adj_list;
+
+    LCA_Tree mst_tree;
     std::vector<std::vector<double>> Dist_maps;
+    bool use_BFS = true;
 
 
     double finalPorosity = 0;

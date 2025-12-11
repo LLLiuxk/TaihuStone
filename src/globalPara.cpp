@@ -6,7 +6,7 @@ int Resolution =100;
 double Isolevel = 0;
 double Gauss_level = 0.5;
 
-int PoresNum = 100;
+int PoresNum = 150;
 
 int Min_degree = 4;
 

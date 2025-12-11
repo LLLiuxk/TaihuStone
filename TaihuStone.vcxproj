@@ -137,6 +137,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\globalPara.cpp" />
+    <ClCompile Include="src\LCA_tree.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\modelGen.cpp" />
     <ClCompile Include="src\Tool.cpp" />
