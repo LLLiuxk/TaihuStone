@@ -137,14 +137,16 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\globalPara.cpp" />
-    <ClCompile Include="src\LCA_tree.cpp" />
+    <ClCompile Include="src\pathQuery.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\modelGen.cpp" />
+    <ClCompile Include="src\selfSupVoxel.cpp" />
     <ClCompile Include="src\Tool.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\globalPara.h" />
     <ClInclude Include="src\modelGen.h" />
+    <ClInclude Include="src\selfSupVoxel.h" />
     <ClInclude Include="src\Tool.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

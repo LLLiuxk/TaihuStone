@@ -23,25 +23,6 @@
 using namespace std;
 using namespace Eigen;
 
-
-struct VoxelGrid
-{
-    int nx, ny, nz;
-    double dx, dy, dz;          // 体素尺寸
-    Eigen::Vector3d origin;     // 左下角原点
-    std::vector<double> rho;   // 密度场 [0,1]
-
-    inline int index(int i, int j, int k) const
-    {
-        return i + nx * (j + ny * k);
-    }
-
-    double& at(int i, int j, int k)
-    {
-        return rho[index(i, j, k)];
-    }
-};
-
 void Mesh2SDF(Eigen::MatrixXd& V, Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Eigen::VectorXd& S);
 bool saveMesh(std::string filename, Eigen::MatrixXd V, Eigen::MatrixXi F);
 

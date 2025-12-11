@@ -40,48 +40,22 @@ struct Edge {
     }
 };
 
-class LCA_Tree {
+class PathQuery {
 public:
+    PathQuery(int num_nodes, const std::vector<std::vector<int>>& adj, int root);
+    // 查询从 root 到任意目标 t 的路径
+    std::vector<int> query_path(int t);
 
-    LCA_Tree() : n(0), LOG(0) {}
-
-    // 传入无向树 adj，构建 LCA 结构
-    void build(const std::vector<std::vector<int>>& adj);
-
-    // 查询 u, v 的最近公共祖先（LCA）
-    int lca(int u, int v) const;
-
-    // 查询从 u 到 v 的路径（基于 LCA，无需 BFS）
-    std::vector<int> get_path(int u, int v) const;
+    // 一次 BFS 建立 parent 数组
+    void build_parent_tree();
 
 private:
-    int n;                    // 节点数量
-    int LOG;                  // ceil(log2(n))
-    std::vector<std::vector<int>> tree;       // MST adjacency list
+    int n;
+    int root;
+    std::vector<std::vector<int>> adj_list;
+    std::vector<int> parent;
 
-    std::vector<int> depth;               // depth[v]
-    std::vector<std::vector<int>> parent; // parent[k][v]
-};
-
-
-struct NodeDist {
-    int id;
-    double dist;
-    // 重载 > 运算符以实现最小堆
-    bool operator>(const NodeDist& other) const {
-        return dist > other.dist;
-    }
-};
-
-struct NodeDeg {
-    int pre_id;
-    int id;
-    double dist;
-    // 重载 < 运算符以实现最大堆
-
-    bool operator<(const NodeDeg& other) const {
-        return dist < other.dist;
-    }
+  
 };
 
 using AdjacencyList = std::vector<std::vector<int>>;
@@ -120,12 +94,11 @@ public:
 
 
     std::vector<int> find_path_in_tree(int p1, int p2, int num_nodes, AdjacencyList adj);
-    std::vector<std::vector<int>> find_two_paths_in_tree(int p1, int p2, int p3, int num_nodes, AdjacencyList adj);
+    std::vector<int>  find_specified_path(int p_index, int s1, int s2, AdjacencyList adj); //经过点p_index的，两端点为s1s2的路径
     double length_graph_path(int p1, int p2, AdjacencyList adj);
     double length_path(int p1, int p2);
     int find_edge_by_nodes(int from_node, int to_node, const std::vector<Edge> edge_list);
     bool find_edge_in_path(Edge cand_edge, vector<int> path);
-    std::vector<int>  find_specified_path(int p_index, int s1, int s2, AdjacencyList adj, bool BFS = true); //经过点p_index的，两端点为s1s2的路径
 
     std::vector<int> all_leafs_mst(std::vector<Edge>& mst_tree);
 
@@ -136,7 +109,7 @@ public:
 
 
 	double calculate_path_translucency(std::vector<int>& path, bool show_debug = false);  //path里存放的是kernel的索引
-    double cal_kernel_translucency(int p_index, int& max_s1, int& max_s2, std::vector<int>& max_path, std::vector<double>& dist_map, AdjacencyList adj, bool debug=false);
+    double cal_kernel_translucency(int p_index, int& max_s1, int& max_s2, std::vector<int>& max_path, AdjacencyList adj, bool debug=false);
     double cal_total_translucency(std::vector<GaussianKernel> gau, AdjacencyList adj);
 
 
@@ -150,8 +123,8 @@ public:
 
     //---------------optimize------------------
     vector<int> cal_edge_usage(std::vector<std::vector<int>> Paths);
-    pair<double, double> add_edges(Edge cand_edge, AdjacencyList adj, std::vector<int>& max_path1, std::vector<int>& max_path2, std::vector<std::vector<double>> & all_dis_maps);
-    bool replace_edges(int p_index, int replace_e, std::vector<Edge>& Tube_edges, AdjacencyList& adj, AdjacencyList& unused_adj, std::vector<std::vector<double>>& Dist_maps);
+    pair<double, double> add_edges(Edge cand_edge, AdjacencyList adj, std::vector<int>& max_path1, std::vector<int>& max_path2);
+    bool replace_edges(int p_index, int replace_e, std::vector<Edge>& Tube_edges, AdjacencyList& adj, AdjacencyList& unused_adj);
     void optimize_mst(int opt_times_once, int edge_max, bool debug = false);
 
 	//------------generate tubes----------------
@@ -189,11 +162,6 @@ private:
     std::vector<Edge> Tube_edges;
     std::vector<std::vector<int>> Adj_list;
     std::vector<std::vector<int>> Unused_adj_list;
-
-    LCA_Tree mst_tree;
-    std::vector<std::vector<double>> Dist_maps;
-    bool use_BFS = true;
-
 
     double finalPorosity = 0;
 	double smooth_t = SmoothT;         //平滑参数，值越大，平滑效果越小，趋近于普通并集

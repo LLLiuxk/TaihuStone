@@ -20,7 +20,7 @@ int main(int argc, char* argv[])
     std::string input_file = "D:/VSprojects/TaihuStone/model/RockSet03-C.obj";
     ModelGenerator mg(input_file);
 
-    //mg.show_model();
+    mg.show_model();
 
 
     //----------test---------------

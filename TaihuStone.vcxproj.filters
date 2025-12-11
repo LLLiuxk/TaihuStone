@@ -27,7 +27,10 @@
     <ClCompile Include="src\Tool.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="src\LCA_tree.cpp">
+    <ClCompile Include="src\pathQuery.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\selfSupVoxel.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
@@ -39,6 +42,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="src\Tool.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\selfSupVoxel.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

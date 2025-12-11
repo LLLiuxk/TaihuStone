@@ -246,46 +246,6 @@ int single_component(Eigen::MatrixXd V, Eigen::MatrixXi F)
         return comp;
     }
      
-    // 找最大组件
-    //int max_comp = 0;
-    //int max_size = comp_sizes[0];
-    //for (int i = 1; i < comp; ++i) {
-    //    if (comp_sizes[i] > max_size)
-    //    {
-    //        max_size = comp_sizes[i];
-    //        max_comp = i;
-    //    }
-    //}
-    //// 收集保留面
-    //std::vector<int> newF_indices;
-    //newF_indices.reserve(max_size);
-    //for (int fi = 0; fi < F.rows(); ++fi)
-    //    if (comp_ids[fi] == max_comp)
-    //        newF_indices.push_back(fi);
-    //// 复制面
-    //Eigen::MatrixXi F_new(newF_indices.size(), 3);
-    //for (int i = 0; i < (int)newF_indices.size(); ++i)
-    //    F_new.row(i) = F.row(newF_indices[i]);
-    //// 压缩顶点：找出现的顶点
-    //std::vector<char> used(V.rows(), 0);
-    //for (int i = 0; i < F_new.rows(); ++i)
-    //    for (int k = 0; k < 3; ++k)
-    //        used[F_new(i, k)] = 1;
-    //std::vector<int> old2new(V.rows(), -1);
-    //int nv = 0;
-    //for (int i = 0; i < (int)used.size(); ++i)
-    //    if (used[i])
-    //        old2new[i] = nv++;
-    //Eigen::MatrixXd V_new(nv, 3);
-    //for (int i = 0; i < V.rows(); ++i)
-    //    if (used[i])
-    //        V_new.row(old2new[i]) = V.row(i);
-    //for (int i = 0; i < F_new.rows(); ++i)
-    //    for (int k = 0; k < 3; ++k)
-    //        F_new(i, k) = old2new[F_new(i, k)];
-    //V = std::move(V_new);
-    //F = std::move(F_new);
-    //std::cout << "keepLargestConnectedComponent: kept component " << max_comp << " with " << max_size << " faces." << std::endl;
 }
 
 double abs_angle(Vector3d v1, Vector3d v2)
