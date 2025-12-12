@@ -34,18 +34,15 @@ ModelGenerator::ModelGenerator(std::string input_file, int pores)
     }
     pore_num = pores;
     //std::cout << "Model A loaded successfully." << std::endl;
-    Mesh2SDF(V_ini, F_ini, GV, SDF_ini);
+    Mesh2SDF(V_ini, F_ini, GV, SDF_ini, bb_min, bb_max);
     //Vector3d point = GV.row(10010);
     //cout << "point index: " << find_nearest_grid(point) << endl;
     generateGaussianSDF();
 
-    //std::cout << "开始保存体素化结果..." << std::endl;
-    //// 创建二值体素网格 (1=实心, 0=空心)
-    //std::vector<uint8_t> voxel_grid(Resolution * Resolution * Resolution, 0);
 
-    //for (int i = 0; i < SDF_out.size(); ++i) {
-    //    voxel_grid[i] = (SDF_out(i) < 0) ? 1 : 0;
-    //}
+    /*VoxelGrid grids = SDFtoVoxel(SDF_out, bb_min, bb_max, resolution, resolution, resolution);
+    SupportCheckResult scr = checkSupportVoxel(grids, 0.5);*/
+
 
     //// 保存为NPY格式
     //std::string npy_filename = "D:/VSprojects/TaihuStone/model/npy/voxelized_model_out.npy";
@@ -132,14 +129,20 @@ void ModelGenerator::sample_interior_points(std::vector<Eigen::Vector3d>& pore_c
     Eigen::VectorXd SDF = this->SDF_ini;
     Eigen::MatrixXd GV = this->GV;
     int grid_num = SDF.size();
+	double margin = 0.02;
+    std::vector<int> surface_indices;
     // search inside points
     for (int idx = 0; idx < grid_num; ++idx) {
         if (SDF(idx) < Isolevel) {
             inside_indices.push_back(idx);
         }
+        if (SDF(idx) < 0.5* margin && SDF(idx) > -margin) {   //找到边界区域
+            surface_indices.push_back(idx);
+        }
     }
     double model_count = inside_indices.size();
-
+	double surface_count = surface_indices.size();
+	cout << "Total grid num: " << grid_num << ", inside grid num: " << model_count << ", surface grid num: " << surface_count <<endl;
     if (inside_indices.empty()) {
         std::cerr << "Warning: no legal points inside!" << std::endl;
         return;
@@ -147,14 +150,23 @@ void ModelGenerator::sample_interior_points(std::vector<Eigen::Vector3d>& pore_c
 
     // 在整个形状内部采样
     std::uniform_int_distribution<int> index_dist(0, inside_indices.size() - 1);
+    std::uniform_int_distribution<int> surface_dist(0, surface_indices.size() - 1);
 
     int attempts = 0;
     const int max_attempts = pores * 50;
-    while (pore_centers.size() < pores && attempts < max_attempts) {
+    double suf_ratio = 0.4;
+	int surface_sam = pores * suf_ratio;
+    int surface_p = 0;
+    int all_sam_num = pore_centers.size();
+    while (all_sam_num < pores && attempts < max_attempts) {
         attempts++;
 
         // 随机选择一个内部点，保存其sdf值
-        int chosen_idx = inside_indices[index_dist(gen)];
+        int chosen_idx = -1;
+        if(surface_p< surface_sam)
+            chosen_idx = surface_indices[surface_dist(gen)];
+        else
+			chosen_idx = inside_indices[index_dist(gen)];
         Eigen::Vector3d candidate_center = GV.row(chosen_idx).transpose();
 
         // 检查与已有空洞中心的最小距离
@@ -174,13 +186,17 @@ void ModelGenerator::sample_interior_points(std::vector<Eigen::Vector3d>& pore_c
 
         if (valid) {
             pore_centers.push_back(candidate_center);
-            pore_sdfs.push_back(SDF_ini(chosen_idx));
+            pore_sdfs.push_back(SDF(chosen_idx));
+            all_sam_num++;
+            if (SDF(chosen_idx) < 0.5 * margin && SDF(chosen_idx) > -margin) {
+                surface_p++;
+            }
             if(debug_show)
-                cout << "pore_sdfs: " << SDF_ini(chosen_idx) << endl;
+                cout << "pore_sdfs: " << SDF(chosen_idx) << endl;
         }
     }
 
-    std::cout << "Generate " << pore_centers.size() << " kernels" << std::endl;
+    std::cout << "Generate " << pore_centers.size() << " kernels   " << all_sam_num<<"  "<< surface_p << std::endl;
 }
 
 void ModelGenerator::generate_gaussians(std::vector<Eigen::Vector3d> pore_centers, std::vector<double> pore_sdfs, std::mt19937& gen)
@@ -1336,7 +1352,10 @@ int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double
 
     view_three_models(V_out, F_out, V_t, F_t, V_t, F_t, Eigen::RowVector3d(1, 0, 0));
 
-
+    VoxelGrid grids = SDFtoVoxel(SDF_out, bb_min, bb_max, res, res, res);
+    SupportCheckResult scr = checkSupportVoxel(grids, 0.5);
+    if (scr.isSupportFree) cout << "Result is SupportFree!" << endl;
+	else cout << "Result is not SupportFree!" <<scr.unsupportedVoxelCount<<"   "<<scr.unsupportedRatio << endl;
     
     std::cout << "Generated mesh: " << V_out.rows() << " vertices, " << F_out.rows() << " faces" << std::endl;
 

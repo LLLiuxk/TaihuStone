@@ -3,7 +3,7 @@
 #include <vector>
 #include <cmath>
 #include <Eigen/Dense>
-#include "Tool.h"
+
 
 struct VoxelGrid
 {
@@ -25,6 +25,7 @@ struct VoxelGrid
         return rho[index(i, j, k)];
     }
 
+	//通过索引获取及修改体素密度
     double& at(int i, int j, int k)
     {
         return rho[index(i, j, k)];
@@ -39,10 +40,10 @@ struct VoxelGrid
 // 检测结果结构体
 struct SupportCheckResult {
     bool isSupportFree;             // 是否免支撑
-    long long unsupportedVoxelCount;// 需要支撑的体素数量
-    double unsupportedVolume;       // 需要支撑的体积
-    double totalVolume;             // 模型总体积
+    int unsupportedVoxelCount;// 需要支撑的体素数量
     double unsupportedRatio;        // 悬垂比例
 };
 
 SupportCheckResult checkSupportVoxel(const VoxelGrid& grid, double densityThreshold = 0.5); 
+
+int findBaseLayer(const VoxelGrid& grid, double densityThreshold);

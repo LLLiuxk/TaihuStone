@@ -1,7 +1,7 @@
 #include "Tool.h"
 
 
-void Mesh2SDF(Eigen::MatrixXd& V,  Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Eigen::VectorXd& SDF)
+void Mesh2SDF(Eigen::MatrixXd& V,  Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Eigen::VectorXd& SDF, Eigen::Vector3d& bb_min, Eigen::Vector3d& bb_max)
 {
     if (V.rows() == 0 || F.rows() == 0 ) {
         std::cerr << " Input failed! Wrong mesh!" << std::endl;
@@ -12,8 +12,9 @@ void Mesh2SDF(Eigen::MatrixXd& V,  Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Eige
     Eigen::MatrixXd C;  // 最近点坐标
     Eigen::MatrixXd N;  // 内外法向符号
 
-    Eigen::Vector3d bb_min = V.colwise().minCoeff();
-    Eigen::Vector3d bb_max = V.colwise().maxCoeff();
+    bb_min = V.colwise().minCoeff();
+    bb_max = V.colwise().maxCoeff();
+    //cout << bb_min << endl << bb_max << endl;
     Eigen::Vector3d bb_size = bb_max - bb_min;
     
     //normalize: scaling and moving
@@ -546,14 +547,13 @@ void getCoord(int idx, int res, int& x, int& y, int& z)
 }
 
 //TO
-double smoothHeaviside(double s, double eps)
+double smoothHeaviside(double s, double eps)   
 {
-    s = -s;
-    if (s > eps) return 1.0;
-    if (s < -eps) return 0.0;
+    if (s < -eps) return 1.0;
+    if (s > eps) return 0.0;
 
-    return 0.5 + s / (2.0 * eps)
-        + 0.5 / M_PI * sin(M_PI * s / eps);
+    double x = s / eps;
+    return 0.5 * (1.0 - sin(M_PI * x / 2.0));
 }
 
 double hardTrans(double s, double iso)
@@ -563,8 +563,9 @@ double hardTrans(double s, double iso)
         return 0.0;
 }
 
-VoxelGrid SDFtoVoxel(Eigen::VectorXd& sdf, Eigen::Vector3d minBox, Eigen::Vector3d maxBox, int nx, int ny, int nz, double eps)
+VoxelGrid SDFtoVoxel(Eigen::VectorXd& sdf, Eigen::Vector3d minBox, Eigen::Vector3d maxBox, int nx, int ny, int nz)
 {
+    //cout << "SDFtoVoxel: " << sdf.size()<< endl;
     VoxelGrid grid;
     grid.nx = nx; grid.ny = ny; grid.nz = nz;
     grid.origin = minBox;
@@ -575,6 +576,8 @@ VoxelGrid SDFtoVoxel(Eigen::VectorXd& sdf, Eigen::Vector3d minBox, Eigen::Vector
 
     grid.rho.resize(nx * ny * nz);
 
+    int neg_num = 0;
+    
     for (int k = 0; k < nz; ++k)
         for (int j = 0; j < ny; ++j)
             for (int i = 0; i < nx; ++i)
@@ -583,10 +586,10 @@ VoxelGrid SDFtoVoxel(Eigen::VectorXd& sdf, Eigen::Vector3d minBox, Eigen::Vector
                 double phi = sdf(index);   // 你的 SDF 查询
                 //double rho = smoothHeaviside(phi, eps);
                 double rho = hardTrans(phi, 0.0);
-
+                if (rho > 0.9) neg_num++;
                 grid.at(i, j, k) = rho;
             }
-
+    //cout << "SDFtoVoxel over!" <<  "   neg_num: " << neg_num << endl; 
     return grid;
 }
 

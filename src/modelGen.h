@@ -131,8 +131,7 @@ public:
     int generate_mst_tubes(int grid_num, int res, double iso, double gaus_iso, double smooth_t);
 
 private:
-    double m_currentPorosity = 0; 
-    // 缓存当前可视化模型对应的SDF与网格点，以便独立后处理
+
 	int pore_num = PoresNum;			   // 空洞数量
     int resolution = Resolution;               // 网格分辨率
 
@@ -145,6 +144,9 @@ private:
     Eigen::MatrixXi F_out; // 输出网格面片
     Eigen::VectorXd SDF_out;           // 输出的SDF网格值
     //Eigen::MatrixXd GV_out;            // 网格点坐标
+
+    Eigen::Vector3d bb_min; 
+    Eigen::Vector3d bb_max;
 
 
 	//高斯核参数范围
@@ -165,9 +167,5 @@ private:
 
     double finalPorosity = 0;
 	double smooth_t = SmoothT;         //平滑参数，值越大，平滑效果越小，趋近于普通并集
-    int m_cachedRes = 0;                   // 分辨率
-    double cut_face = 0.25;             //切割底座
-    bool m_sdfValid = false;               // 缓存有效标志
-    Eigen::VectorXd m_originalCachedSDF;   // 初始（未后处理）SDF备份
-    bool m_hasPostProcessed = false;       // 是否已经做过后处理
+
 };

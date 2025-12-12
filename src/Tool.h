@@ -17,13 +17,14 @@
 #include <queue>
 
 #include "globalPara.h" 
+#include "selfSupVoxel.h"
 
 #define M_PI 3.1415926
 #define INF std::numeric_limits<double>::infinity()
 using namespace std;
 using namespace Eigen;
 
-void Mesh2SDF(Eigen::MatrixXd& V, Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Eigen::VectorXd& S);
+void Mesh2SDF(Eigen::MatrixXd& V, Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Eigen::VectorXd& S, Eigen::Vector3d& bb_min, Eigen::Vector3d& bb_max);
 bool saveMesh(std::string filename, Eigen::MatrixXd V, Eigen::MatrixXi F);
 
 // SDF平滑并集。k越大，平滑效果越小，趋近于普通并集
@@ -71,10 +72,10 @@ void getCoord(int idx, int res, int& x, int& y, int& z);
 
 
 //TO
-double smoothHeaviside(double s, double eps);
+double smoothHeaviside(double s, double eps = 0.1);  // Heaviside 平滑宽度（建议 = 1~2 个体素尺寸）
 double hardTrans(double s, double iso);
 
-VoxelGrid SDFtoVoxel(Eigen::VectorXd& sdf, Eigen::Vector3d minBox, Eigen::Vector3d maxBox, int nx, int ny, int nz, double eps);   // Heaviside 平滑宽度（建议 = 1~2 个体素尺寸）
+VoxelGrid SDFtoVoxel(Eigen::VectorXd& sdf, Eigen::Vector3d minBox, Eigen::Vector3d maxBox, int nx, int ny, int nz); 
 
 void saveVoxelToRaw(std::string filename, VoxelGrid& grid);
 
