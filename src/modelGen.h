@@ -81,18 +81,6 @@ public:
     std::vector<std::vector<int>> get_unused_edge_adj(AdjacencyList Adj_list, double dis_thres);
     double cal_path_graph_length(std::vector<int> path_);
 
-
-    //std::vector<double> construct_dist_map(int p_index, AdjacencyList adj);   //构建双向Dijkstra
-    //std::vector<std::vector<double>> construct_all_dmaps(AdjacencyList adj);
-    //void update_dist_map(std::vector<double>& dist_map, int u, int v, double w, AdjacencyList adj);
-    //void update_all_dmaps(std::vector<std::vector<double>>& all_dmaps, int u, int v, double w);
-    //void update_all_dmaps_delete(std::vector<std::vector<double>>& all_dmaps, AdjacencyList& adj, int u, int v, double w, double eps = 1e-9);
-    //std::vector<double> construct_deg_map(int p_index, AdjacencyList adj, std::vector<int>& deg_adj);   //构建双向degree Dijkstra
-    //std::vector<std::vector<double>> construct_degree_maps(AdjacencyList adj, std::vector<std::vector<int>>& degree_adj);
-    //void update_degree_map(std::vector<double>& dist_map, int u, int v, double w, AdjacencyList adj);
-    
-
-
     std::vector<int> find_path_in_tree(int p1, int p2, int num_nodes, AdjacencyList adj);
     std::vector<int>  find_specified_path(int p_index, int s1, int s2, AdjacencyList adj); //经过点p_index的，两端点为s1s2的路径
     double length_graph_path(int p1, int p2, AdjacencyList adj);
@@ -107,7 +95,7 @@ public:
 
     double calculate_edge_weight(GaussianKernel k1, GaussianKernel k2);
 
-
+    double calculate_path_translucency2(std::vector<int>& path, bool show_debug);
 	double calculate_path_translucency(std::vector<int>& path, bool show_debug = false);  //path里存放的是kernel的索引
     double cal_kernel_translucency(int p_index, int& max_s1, int& max_s2, std::vector<int>& max_path, AdjacencyList adj, bool debug=false);
     double cal_total_translucency(std::vector<GaussianKernel> gau, AdjacencyList adj);
@@ -122,7 +110,7 @@ public:
     double calculate_score(std::vector<std::vector<int>>  Paths);
 
     //---------------optimize------------------
-    vector<int> cal_edge_usage(std::vector<std::vector<int>> Paths);
+    vector<int> cal_edge_usage(std::vector<std::vector<int>> Paths, bool show_debug = true);
     pair<double, double> add_edges(Edge cand_edge, AdjacencyList adj, std::vector<int>& max_path1, std::vector<int>& max_path2);
     bool replace_edges(int p_index, int replace_e, std::vector<Edge>& Tube_edges, AdjacencyList& adj, AdjacencyList& unused_adj);
     void optimize_mst(int opt_times_once, int edge_max, bool debug = false);

@@ -22,8 +22,9 @@ void Mesh2SDF(Eigen::MatrixXd& V,  Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Eige
     double scale_factor = 1.0 / (max_dim + 1e-6);
     Eigen::Vector3d bb_center = (bb_min + bb_max) / 2.0;
     V = (V.rowwise() - bb_center.transpose()) * scale_factor;
-    //bb_min = (bb_min - bb_center) * scale_factor;
-    bb_min = Vector3d(-0.5, -0.5, -0.5);
+    bb_min = (bb_min - bb_center) * scale_factor;
+    bb_max = (bb_max - bb_center) * scale_factor;
+    Vector3d left_corner(-0.5, -0.5, -0.5);
     //cout << "bb_min: " << bb_min << endl;
     //bb_min = V.colwise().minCoeff();
     
@@ -42,7 +43,7 @@ void Mesh2SDF(Eigen::MatrixXd& V,  Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Eige
     for (int z = 0; z < res; ++z) {
         for (int y = 0; y < res; ++y) {
             for (int x = 0; x < res; ++x) {
-                Eigen::Vector3d p = bb_min + Eigen::Vector3d(x, y, z) * dx;
+                Eigen::Vector3d p = left_corner + Eigen::Vector3d(x, y, z) * dx;
                 grid_points.push_back(p);
             }
         }
@@ -544,6 +545,24 @@ void getCoord(int idx, int res, int& x, int& y, int& z)
     int temp = idx / res;
     y = temp % res;
     z = temp / res;
+}
+
+
+// pca point cloud
+Eigen::Vector3d computePrincipalDirection(const std::vector<Eigen::Vector3d>& points)
+{
+    Eigen::Vector3d mean = Eigen::Vector3d::Zero();
+    for (auto& p : points) mean += p;
+    mean /= points.size();
+
+    Eigen::Matrix3d C = Eigen::Matrix3d::Zero();
+    for (auto& p : points) {
+        Eigen::Vector3d q = p - mean;
+        C += q * q.transpose();
+    }
+
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> solver(C);
+    return solver.eigenvectors().col(2).normalized(); // 最大特征值
 }
 
 //TO

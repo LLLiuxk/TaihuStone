@@ -70,6 +70,8 @@ void geometry_analyzer(Eigen::VectorXd SDF, int resolution, double thres_degree,
 Vector3d computeGradient(int x, int y, int z, int res, Eigen::VectorXd SDF);
 void getCoord(int idx, int res, int& x, int& y, int& z);
 
+// pca point cloud
+Eigen::Vector3d computePrincipalDirection(const std::vector<Eigen::Vector3d>& points);
 
 //TO
 double smoothHeaviside(double s, double eps = 0.1);  // Heaviside 平滑宽度（建议 = 1~2 个体素尺寸）

@@ -7,6 +7,7 @@ double Isolevel = 0;
 double Gauss_level = 0.5;
 
 int PoresNum = 150;
+double surface_ratio = 0.3; //表面核占比
 
 int Min_degree = 4;
 
@@ -20,7 +21,7 @@ double SmoothT = 10;    //控制平滑布尔的平滑区域大小, 越大，平滑效果越小，趋近于
 double Tube_radius_factor = 0.4; // 控制管道半径相对于高斯核半径的比例
 double Safe_distance_ratio = 0.3;
 
-double Trans_thres = 0.6;
+double Trans_thres = 0.6;  //kernel translucency threshold
 
 bool debug_show = false;
 bool standard_show = true;

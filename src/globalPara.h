@@ -1,10 +1,12 @@
 #pragma on// 参数结构体
+#define NO_DEBUG false
 
 extern int Resolution;
 
 extern double Isolevel;
 
 extern int PoresNum;
+extern double surface_ratio;
 
 extern int Min_degree;
 extern double Amplitude_min;
