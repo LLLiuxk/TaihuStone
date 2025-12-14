@@ -99,11 +99,11 @@ void ModelGenerator::generateGaussianSDF()
  //       cout << "edge_importance: " << ei << endl;
     int opt_times_once = 5;
 	int edge_max = Tube_edges.size()*1.2;
-    optimize_mst(opt_times_once, edge_max);
+    //optimize_mst(opt_times_once, edge_max);
 
     std::cout << "--------------------5. Calculating translucency of optimized mst --------------------" << endl;
-    double trans_score_opt = cal_total_translucency(Kernels, Adj_list);
-    std::cout << "After optimization, total score increases from: " << trans_score<<"  to "<< trans_score_opt << " with edges from " << ori_edge_num<<"  to "<< Tube_edges.size() << endl;
+    //double trans_score_opt = cal_total_translucency(Kernels, Adj_list);
+    //std::cout << "After optimization, total score increases from: " << trans_score<<"  to "<< trans_score_opt << " with edges from " << ori_edge_num<<"  to "<< Tube_edges.size() << endl;
 
     //-----------------generate tubes------------------------------------------
     double void_count = generate_mst_tubes(grid_num, resolution, Isolevel, Gauss_level, SmoothT);
@@ -692,9 +692,15 @@ double ModelGenerator::calculate_path_translucency(std::vector<int>& path, bool 
     double w_angle = 0.5;
     double w_length = 0.2;
     double w_location = 0.2;
-    double w_direction = 0.1;
+    double w_direction = 1.0 - w_angle - w_length - w_location;
     std::vector<Eigen::Vector3d> path_points;
 
+    if (psize < 2) {
+        cout << "Warnning: illegal path!" << endl;
+        return 0.0; // 单个点
+    }
+   for (auto p : path) cout << p << "   ";
+    cout << endl;
     for (auto p : path) path_points.push_back(all_nodes[p].center);
 	//get basic information
     for (size_t i = 1; i < psize - 1; ++i)
@@ -735,17 +741,18 @@ double ModelGenerator::calculate_path_translucency(std::vector<int>& path, bool 
 
 
     // ---------- 3. Location term ----------
-    double r_inner = double(count_inner) / double(psize - 2);
-    double r_surface = double(count_surface_line) / double(psize - 1);
+    double r_inner = (psize == 2)? 0: (double(count_inner) / double(psize - 2));
+    double r_surface = (psize == 2) ? 0 : (double(count_surface_line) / double(psize - 1));
 
     double T_location = 1.0 / (1.0 + std::exp(-beta * (r_inner - r_surface - mu)));
-
+	//cout << "T_location: "<<T_location << " = " <<"1/(1+e^-" <<beta << "  * (" << r_inner << " - " << r_surface << "  - " << mu <<"))" <<endl;
     // ---------- 4. Direction term ----------
     Eigen::Vector3d z(0, 0, 1);
     Eigen::Vector3d dir = computePrincipalDirection(path_points);
     double S_horiz = 1.0 - std::abs(dir.dot(z));
-
+    cout << "dir: " << dir <<"   S_horiz:  "<< S_horiz<< endl;
     double translucency_score = w_angle * T_angle + w_length * T_length + w_location * T_location + w_direction * S_horiz;
+    //cout << translucency_score << "  " << T_angle << "   " << T_length << "  " << T_location << "   " << S_horiz << endl;
     return translucency_score;
 }
 
@@ -887,7 +894,8 @@ double ModelGenerator::cal_total_translucency(std::vector<GaussianKernel> gau,  
     kernel_translucency.clear();
     Paths.clear();
     //for (int i = 3; i < 4; i++)
-    for (int i = 0; i < kernels_num; i++)
+    for (int i = 0; i < 1; i++)
+    //for (int i = 0; i < kernels_num; i++)
     {
         int start = -1, end = -1;
         std::vector<int> max_path;
@@ -955,16 +963,16 @@ double ModelGenerator::line_cross_surface(Eigen::Vector3d p1, Eigen::Vector3d p2
         sum_sdf += sdf_val;
     }
     double center_sdf = sum_sdf / sam_num;
-    if (center_sdf + 1e-2 < thres)
+    if (center_sdf < -0.05)
+    //if (center_sdf +1e-2 < thres )
     {
         //cout << "the line cross the model!" << endl;
         return 1.0; // 横贯模型
     }
     else
     {
-        //cout << "the line on the surafece!" << endl;
-        //cout << center_sdf - thres << "  " << abs((center_sdf - thres) / (2 * thres)) << endl;
-        return 1.0 - abs((center_sdf - thres) / thres); //表面路径，无内部节点，通透性为1-dis
+        return max(1.0 - abs(center_sdf + 0.05) / 0.1, 0.0); //表面路径，无内部节点，通透性为1-dis
+        //return 1.0 - abs((center_sdf - thres) / thres); //表面路径，无内部节点，通透性为1-dis
     }
 }
 

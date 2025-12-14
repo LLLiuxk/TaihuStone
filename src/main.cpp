@@ -17,9 +17,8 @@ int main(int argc, char* argv[])
 {
     auto start_time = std::chrono::high_resolution_clock::now();
 
-    std::string input_file = "D:/VSprojects/TaihuStone/model/RockSet03.stl";
+    std::string input_file = "D:/VSprojects/TaihuStone/model/RockSet03r.stl";
     //std::string input_file = "D:/VSprojects/TaihuStone/model/test_case.stl";
-
     ModelGenerator mg(input_file);
 
     mg.show_model();
