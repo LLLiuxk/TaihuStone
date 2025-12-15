@@ -81,7 +81,7 @@ void ModelGenerator::generateGaussianSDF()
 
 	// 构建邻接表
     Adj_list = construct_adj_list(Tube_edges, kernel_num);
-    Unused_adj_list = get_unused_edge_adj(Adj_list, 0.8);
+    Unused_adj_list = get_unused_edge_adj(Adj_list, Adj_dis_thres);
     vector<int> leafs_index = all_leafs_mst(Tube_edges);
     vector<int> inner_leafs = check_inner_leafs(leafs_index);
     
@@ -649,7 +649,7 @@ double ModelGenerator::generate_tube2( Eigen::Vector3d& p,   GaussianKernel& k1,
 
 double ModelGenerator::calculate_edge_weight(GaussianKernel k1, GaussianKernel k2)
 {
-	vector<double> weights{ 1.0, 1.0, 1.3 };  // 分类系数权重：边界-内部，内部-内部，边界-边界
+    vector<double> weights = Weights;  // 分类系数权重：边界-内部，内部-内部，边界-边界
     // 1. 确定分类系数 C(i, j)
     double connect_weight;
     if (k1.on_surface != k2.on_surface) {
@@ -677,7 +677,7 @@ double ModelGenerator::calculate_edge_weight(GaussianKernel k1, GaussianKernel k
 }
 
 
-double ModelGenerator::calculate_path_translucency(std::vector<int>& path, bool show_debug)
+double ModelGenerator::calculate_path_translucency2(std::vector<int>& path, bool show_debug)
 {
     std::vector<GaussianKernel> all_nodes = Kernels;
     int psize = path.size();
@@ -699,8 +699,8 @@ double ModelGenerator::calculate_path_translucency(std::vector<int>& path, bool 
         cout << "Warnning: illegal path!" << endl;
         return 0.0; // 单个点
     }
-   for (auto p : path) cout << p << "   ";
-    cout << endl;
+   /*for (auto p : path) cout << p << "   ";
+    cout << endl;*/
     for (auto p : path) path_points.push_back(all_nodes[p].center);
 	//get basic information
     for (size_t i = 1; i < psize - 1; ++i)
@@ -750,13 +750,13 @@ double ModelGenerator::calculate_path_translucency(std::vector<int>& path, bool 
     Eigen::Vector3d z(0, 0, 1);
     Eigen::Vector3d dir = computePrincipalDirection(path_points);
     double S_horiz = 1.0 - std::abs(dir.dot(z));
-    cout << "dir: " << dir <<"   S_horiz:  "<< S_horiz<< endl;
+    //cout << "dir: " << dir <<"   S_horiz:  "<< S_horiz<< endl;
     double translucency_score = w_angle * T_angle + w_length * T_length + w_location * T_location + w_direction * S_horiz;
     //cout << translucency_score << "  " << T_angle << "   " << T_length << "  " << T_location << "   " << S_horiz << endl;
     return translucency_score;
 }
 
-double ModelGenerator::calculate_path_translucency2(std::vector<int>& path, bool show_debug)
+double ModelGenerator::calculate_path_translucency(std::vector<int>& path, bool show_debug)
 {
     double translucency_score = 1.0;
     int psize = path.size();
@@ -894,8 +894,8 @@ double ModelGenerator::cal_total_translucency(std::vector<GaussianKernel> gau,  
     kernel_translucency.clear();
     Paths.clear();
     //for (int i = 3; i < 4; i++)
-    for (int i = 0; i < 1; i++)
-    //for (int i = 0; i < kernels_num; i++)
+    //for (int i = 0; i < 1; i++)
+    for (int i = 0; i < kernels_num; i++)
     {
         int start = -1, end = -1;
         std::vector<int> max_path;

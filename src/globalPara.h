@@ -1,8 +1,10 @@
 #pragma on// 参数结构体
 #define NO_DEBUG false
+#include <vector>
 
 extern int Resolution;
 
+extern std::vector<double> Weights;
 extern double Isolevel;
 
 extern int PoresNum;
@@ -23,6 +25,7 @@ extern double Safe_distance_ratio; // Dart throwing安全距离比例
 
 extern double Trans_thres;
 
+extern double Adj_dis_thres;
 extern bool debug_show;
 extern bool standard_show;
 extern bool Direct_dis;
