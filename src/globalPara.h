@@ -5,6 +5,7 @@
 extern int Resolution;
 
 extern std::vector<double> Weights;
+extern std::vector<double> KT_weights;
 extern double Isolevel;
 
 extern int PoresNum;
