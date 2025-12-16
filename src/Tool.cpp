@@ -705,3 +705,54 @@ void saveVoxelGridAsNPY(std::vector<uint8_t>& voxel_grid, int res, std::string& 
     std::cout << "NPY文件保存成功: " << filename << " (大小: " << res << "x" << res << "x" << res << ")" << std::endl;
 }
 
+
+void writeAdjacencyListToFile(const std::vector<std::vector<int>>& adjList,
+    const std::string& filename) {
+    std::ofstream outFile(filename);
+
+    if (!outFile.is_open()) {
+        std::cerr << "无法打开文件: " << filename << std::endl;
+        return;
+    }
+
+    for (const auto& neighbors : adjList) {
+        // 写入每个顶点的邻接列表
+        for (size_t i = 0; i < neighbors.size(); ++i) {
+            outFile << neighbors[i];
+            if (i != neighbors.size() - 1) {
+                outFile << " ";  // 用空格分隔相邻节点
+            }
+        }
+        outFile << std::endl;  // 每行代表一个顶点的邻接表
+    }
+
+    outFile.close();
+    std::cout << "邻接表已成功写入到文件: " << filename << std::endl;
+}
+
+std::vector<std::vector<int>> readAdjacencyListFromFile(const std::string& filename) {
+    std::vector<std::vector<int>> adjList2;
+    std::ifstream inFile(filename);
+
+    if (!inFile.is_open()) {
+        std::cerr << "无法打开文件: " << filename << std::endl;
+        return adjList2;
+    }
+
+    std::string line;
+    while (std::getline(inFile, line)) {
+        std::vector<int> neighbors;
+        std::stringstream ss(line);
+        int value;
+
+        // 从每一行读取所有整数
+        while (ss >> value) {
+            neighbors.push_back(value);
+        }
+
+        adjList2.push_back(neighbors);
+    }
+
+    inFile.close();
+    return adjList2;
+}

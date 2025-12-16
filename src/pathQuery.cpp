@@ -40,6 +40,7 @@ void PathQuery::build_parent_tree()
 
         for (int v : adj_list[u]) {
             if (!visited[v]) {
+
                 visited[v] = true;
                 parent[v] = u;  // ¼ÇÂ¼Â·¾¶Ê÷
                 q.push(v);

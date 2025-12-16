@@ -111,7 +111,7 @@ public:
 
     //---------------optimize------------------
     vector<int> cal_edge_usage(std::vector<std::vector<int>> Paths, bool show_debug = true);
-    pair<double, double> add_edges(Edge cand_edge, AdjacencyList adj, std::vector<int>& max_path1, std::vector<int>& max_path2);
+    pair<double, double> add_edges(Edge cand_edge, AdjacencyList adj, std::vector<int>& max_path1, std::vector<int>& max_path2, bool debug = false);
     bool replace_edges(int p_index, int replace_e, std::vector<Edge>& Tube_edges, AdjacencyList& adj, AdjacencyList& unused_adj);
     void optimize_mst(int opt_times_once, int edge_max, bool debug = false);
 

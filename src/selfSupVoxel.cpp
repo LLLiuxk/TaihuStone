@@ -66,7 +66,7 @@ SupportCheckResult checkSupportVoxel(const VoxelGrid& grid, double densityThresh
     }
     if (result.isSupportFree) std::cout << "Result is SupportFree!" << std::endl;
     else std::cout << "Result NEED Support!" << std::endl
-        << result.unsupportedVoxelCount << "   " << result.unsupportedRatio << std::endl;
+        << result.unsupportedVoxelCount << "   " << result.unsupportedRatio *100<<"%"<< std::endl;
 
     return result;
 }

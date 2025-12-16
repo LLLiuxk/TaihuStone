@@ -19,12 +19,24 @@ int main(int argc, char* argv[])
 
     std::string input_file = "D:/VSprojects/TaihuStone/model/RockSet03r.stl";
     //std::string input_file = "D:/VSprojects/TaihuStone/model/test_case.stl";
+
     ModelGenerator mg(input_file);
 
     mg.show_model();
 
 
     //----------test---------------
+    //std::string filename = "result/36-14.txt";
+    //std::vector<std::vector<int>> adj = readAdjacencyListFromFile(filename);
+    //PathQuery p_bfs(PoresNum, adj, 36);
+    //int s1 = 14;
+    //int s2 = 6;
+
+    //std::vector<int> path1 = p_bfs.query_path(s1);
+    //std::vector<int> path2 = p_bfs.query_path(s2);
+    //cout << path1.size() << "   " << path2.size() << endl;
+
+
  //   std::string input_file_ = "D:/VSprojects/TaihuStone/model/gaussian_pores150.stl";
  //   Eigen::MatrixXd V_ini; //初始网格顶点
  //   Eigen::MatrixXi F_ini; // 初始网格面片
