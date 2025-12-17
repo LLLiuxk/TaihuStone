@@ -154,6 +154,7 @@ private:
     std::vector<std::vector<int>> Unused_adj_list;
 
     double finalPorosity = 0;
+	double finalTranslucency = 0;
 	double smooth_t = SmoothT;         //平滑参数，值越大，平滑效果越小，趋近于普通并集
 
 };

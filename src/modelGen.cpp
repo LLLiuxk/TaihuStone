@@ -93,17 +93,20 @@ void ModelGenerator::generateGaussianSDF()
 
 	//--------------optimize connection edges------------------------------
 
-    vector<int> edge_improtance = cal_edge_usage(Paths, false);
+    vector<int> edge_improtance = cal_edge_usage(Paths, true);
 	// 输出每条边的重要性分数
 	//for (auto ei : edge_improtance) 
  //       cout << "edge_importance: " << ei << endl;
     int opt_times_once = 5;
 	int edge_max = Tube_edges.size()*1.2;
-    optimize_mst(opt_times_once, edge_max, NO_DEBUG);
+    if(optimize_debug)
+        optimize_mst(opt_times_once, edge_max, NO_DEBUG);
 
     std::cout << "--------------------5. Calculating translucency of optimized mst --------------------" << endl;
-    double trans_score_opt = cal_total_translucency(Kernels, Adj_list);
-    std::cout << "After optimization, total score increases from: " << trans_score<<"  to "<< trans_score_opt << " with edges from " << ori_edge_num<<"  to "<< Tube_edges.size() << endl;
+    finalTranslucency = cal_total_translucency(Kernels, Adj_list);
+    std::cout << "After optimization, total score increases from: " << trans_score<<"  to "<< finalTranslucency << " with edges from " << ori_edge_num<<"  to "<< Tube_edges.size() << endl;
+
+    edge_improtance = cal_edge_usage(Paths, true);
 
     //-----------------generate tubes------------------------------------------
     double void_count = generate_mst_tubes(grid_num, resolution, Isolevel, Gauss_level, SmoothT);
@@ -1142,9 +1145,9 @@ bool ModelGenerator::replace_edges(int p_index, int replace_e, std::vector<Edge>
         std::vector<int> path1, path2;
         pair<double, double> delta_score = add_edges(cand_edge, adj_new, path1, path2, true);
         double score_add = (delta_score.first + delta_score.second) / cand_edge.length;  //单位路径增加的通透性
-        if (score_add > max_delta_score)
+        if (delta_score.first > max_delta_score && score_add > 0)  //记录p_index通透值增大最多的边，且整体通透性要增加
         {
-            max_delta_score = score_add;
+            max_delta_score = delta_score.first;
             chosen_cand = candidate_p;
             chosen_e = cand_edge;
             delta_score_max_pair = delta_score;
@@ -1170,7 +1173,8 @@ bool ModelGenerator::replace_edges(int p_index, int replace_e, std::vector<Edge>
         Paths[chosen_cand] = max_path2;
  
         std::cout <<"Replace Edge ("<< re_edge.from<<", "<< re_edge.to<<") to Edge ("<< p_index << ", " << chosen_cand << "),  increasing Kernel " << p_index << " 's score to " << kernel_translucency[p_index] << "  by: " << delta_score_max_pair.first << endl;
-        
+        double score_add = (delta_score_max_pair.first + delta_score_max_pair.second) / chosen_e.length;  //单位路径增加的通透性
+        cout << "score_add: " << delta_score_max_pair.first << "  " << delta_score_max_pair.second << "    " << score_add << "     lenghth: "<< chosen_e.length<<endl;
         tube_edges = edge_mst_new;
         adj = adj_new;
         unused_adj = unused_adj_new;
@@ -1217,9 +1221,9 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
                 std::vector<int> path1, path2;
                 pair<double, double> delta_score = add_edges(cand_edge, Adj_list, path1, path2);
                 double score_add = (delta_score.first + delta_score.second) / cand_edge.length;  //单位路径增加的通透性
-                if (score_add > max_delta_score)
+                if (delta_score.first > max_delta_score && score_add > 0) 
                 {
-                    max_delta_score = score_add;
+                    max_delta_score = delta_score.first;
                     chosen_cand = candidate_p;
                     chosen_e = cand_edge;
                     delta_score_max_pair = delta_score;
@@ -1251,6 +1255,12 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
     }
 
     cout << num_add << " edges have beed added in this step!" << endl;
+    cal_edge_usage(Paths, true);
+
+    double finalTranslucency = cal_total_translucency(Kernels, Adj_list);
+    std::cout << "After optimization, total score increases to " << finalTranslucency << " with edges to " << Tube_edges.size() << endl;
+    cal_edge_usage(Paths, true);
+
     cout << endl<<"4.2 Iteratively optimizing edges:" << endl;
     num_add = 0;
     for(int i = 0; i < kernels_num; i++)
@@ -1270,11 +1280,18 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
             }
         }
 		//接下来是循环优化
+        bool add_end = false;
+        bool replace_end = false;
         while(kernel_translucency[i] < thres_tran && opt_count < opt_times_once && opt_count_total< opt_times_once * kernels_num)
         {
             opt_count++;
             cout << "Kernel " << i << " has a low translucency: " << kernel_translucency[i] << "  lower than thres_tran:" << thres_tran << endl;
-            if (curr_edge_num < edge_max_num)  //没有到边数上限，选择添加边
+            if (add_end && replace_end)
+            {
+                cout << "Both Adding and Replacing END for Kernel " << i << "! Exit optimization for this kernel!" << endl;
+				break;
+            }
+            if (curr_edge_num < edge_max_num && !add_end)  //没有到边数上限且新增边能增加score，则选择添加边
             {
                 double max_delta_score = 0;
                 int chosen_cand = -1;
@@ -1292,9 +1309,9 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
                     double score_add = (delta_score.first + delta_score.second) / cand_edge.length;  //单位路径增加的通透性
                     if(debug)
 						cout << "===============Adding edge from " << i << " to " << candidate_p << "  can increase score by : " << score_add <<" = ("<< delta_score.first <<" + " <<delta_score.second <<") / "<< cand_edge.length<<"============" << endl;
-                    if (score_add > max_delta_score)
+                    if (delta_score.first > max_delta_score && score_add > 0) 
                     {
-                        max_delta_score = score_add;
+                        max_delta_score = delta_score.first;
                         chosen_cand = candidate_p;
                         chosen_e = cand_edge;
                         delta_score_max_pair = delta_score;
@@ -1323,12 +1340,18 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
                         endl << "========================================" << endl;
                 }
                 else
-					cout << "No useful candidate edge found to add!" << endl;
+                {
+                    cout << "No useful candidate edge found to add!" << endl;
+                    add_end = true;
+                }
                 cout << "In optimization iteration, " << num_add << " edges have beed added!" << endl;
             }
-            else //到达边数上限，选择替换边
+            else if(!replace_end) //到达边数上限，或者增加边无法提升得分，则选择替换边
             {
-                cout << "Reach the edge limitation, replace the edge!" << endl;
+                if(add_end) 
+                    cout<< "Adding END, then REPLACE the edge!" << endl;
+                else
+                    cout << "Reach the edge LIMITATION, REPLACE the edge!" << endl;
                 vector<int> edge_importance = cal_edge_usage(Paths, NO_DEBUG);
                 std::vector<std::pair<int, int>> sorted_edges;
                 sorted_edges.reserve(edge_importance.size());
@@ -1343,20 +1366,19 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
                     return a.first < b.first; // 如果次数相同，按索引从小到大排序 (保持稳定性，可选)
                     });
                 //cout << "sorted_edges.size(): " << sorted_edges.size() << endl;
+				bool rep_get = false;
                 for (int s_index = 0; s_index < sorted_edges.size(); s_index++) 
                 {
                     std::pair<int, int> sorted_e = sorted_edges[s_index];
 					int replace_e = sorted_e.first;
-					//cout << "Edge index: " << replace_e << "  usage count: " << sorted_e.second << endl;
-                    //cout << "Tube_edges[replace_e].from: " << Tube_edges[replace_e].from << "  " << Tube_edges[replace_e].to << endl;
                     if ( i != Tube_edges[replace_e].from && i != Tube_edges[replace_e].to)  //非kernel i 的边
                     {
-                       // cout << "The edge is not one of Kernel i!  Skip!" << endl;
+                        //cout << "The edge ("<< Tube_edges[replace_e].from<<", "<< Tube_edges[replace_e].to<<") is not one of Kernel i!Skip!" << endl;
                         continue;
                     }
                     else  if (sorted_e.second != 0 && !find_edge_in_path(Tube_edges[replace_e], Paths[i])) //有用过，但不在kernel i 的最大通透性路径上，跳过
                     {
-                        //cout << "The edge is used in other paths!  Skip!" << endl;
+                        //cout << "The edge (" << Tube_edges[replace_e].from << ", " << Tube_edges[replace_e].to << ") is used in other paths!  Skip!" << endl;
                         continue;
                     }
 					else  
@@ -1374,15 +1396,27 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
                         {
                             opt_count_total++;
 							num_replace++;
-                            cout << "The num of " << num_replace << " edges have beed repalced!" << endl;
+                            cout << "The num of " << num_replace << " edges have beed repalced!" << endl << endl;
+                                //<< "--------------------------------------------------------------------------------------" << endl;
+                            rep_get = true;
                             break; //成功替换，跳出循环
 						}
-
                     }
                 }
+                if (!rep_get) //说明替换遍历完了
+                    replace_end = true;
             }
-
         }
+        if(opt_count >=  opt_times_once)
+            cout << "===========================================================" << "Reach one edge's limitation!"
+            << "===========================================================" << endl;
+        if (opt_count_total >= opt_times_once * kernels_num)
+        {
+            cout << "===========================================================" << "Reach the total optimization limitation!"
+                << "===========================================================" << endl;
+            break;
+        }
+            
     }
     cout << "During the whole optimization, " << opt_count_total << " edge, "<<"including "<< num_replace<<" repalced and "<< opt_count_total - num_replace<<" added, have beed added and repalced!" << endl;
 }
@@ -1427,7 +1461,8 @@ int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double
     // Marching Cubes
     MarchingCubes(SDF_out, GV, res, res, res, iso, V_out, F_out);   //final result
 
-    std::string filename = "result/gaussian_pores"+ to_string(PoresNum)+"_"+ to_string(Resolution)+"_"+to_string(Trans_thres)+".stl";
+    std::string filename = "result/gaussian_pores"+ to_string(PoresNum)+"_"+ to_string(Resolution)+"_"+
+        to_string_pre(Trans_thres)+"_" + to_string_pre(Weights[0]) + "_"+ to_string_pre(KT_weights[0])+"_"+to_string_pre(finalTranslucency, 3)+".stl";
     saveMesh(filename, V_out, F_out);
 
     Eigen::MatrixXd V_g; //输出网格顶点
@@ -1439,7 +1474,7 @@ int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double
     MarchingCubes(SDF_gaussian_tubes, GV, res, res, res, iso, V_t, F_t);  //gaussian combined with tubes
     //view_model(V_t, F_t);
 
-    view_three_models(V_out, F_out, V_t, F_t, V_t, F_t, Eigen::RowVector3d(1, 0, 0));
+    //view_three_models(V_out, F_out, V_t, F_t, V_t, F_t, Eigen::RowVector3d(1, 0, 0));
 
     VoxelGrid grids = SDFtoVoxel(SDF_out, bb_min, bb_max, res, res, res);
     SupportCheckResult scr = checkSupportVoxel(grids, 0.5);

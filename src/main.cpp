@@ -22,7 +22,7 @@ int main(int argc, char* argv[])
 
     ModelGenerator mg(input_file);
 
-    mg.show_model();
+    //mg.show_model();
 
 
     //----------test---------------

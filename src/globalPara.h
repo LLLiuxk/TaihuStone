@@ -30,6 +30,7 @@ extern double Adj_dis_thres;
 extern bool debug_show;
 extern bool standard_show;
 extern bool Direct_dis;
+extern bool optimize_debug;
 //struct Parameters {
 //    Eigen::Vector3d radii = { 1, 0.5, 0.5 };
 //    int num_voids = 188;

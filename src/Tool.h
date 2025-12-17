@@ -88,3 +88,6 @@ void saveVoxelGridAsNPY(std::vector<uint8_t>& voxel_grid, int res, std::string& 
 void writeAdjacencyListToFile(const std::vector<std::vector<int>>& adjList, const std::string& filename);
 
 std::vector<std::vector<int>> readAdjacencyListFromFile(const std::string& filename);
+
+//string
+std::string to_string_pre(double value, int precision = 1);
