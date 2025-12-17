@@ -47,11 +47,12 @@ public:
     std::vector<int> query_path(int t);
 
     // 一次 BFS 建立 parent 数组
-    void build_parent_tree();
+    bool build_parent_tree();
 
-private:
+public:
     int n;
     int root;
+    bool isConnected;
     std::vector<std::vector<int>> adj_list;
     std::vector<int> parent;
 

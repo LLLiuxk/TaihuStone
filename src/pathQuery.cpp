@@ -3,7 +3,11 @@
 PathQuery::PathQuery(int num_nodes, const std::vector<std::vector<int>>& adj, int root) 
     : n(num_nodes), adj_list(adj), root(root), parent(num_nodes, -1)
 {
-    build_parent_tree();
+    isConnected = build_parent_tree();
+    //if(root == 145) {
+    //    for (int i = 0; i < num_nodes; i++)
+    //        cout << "i: " << i << "  " << parent[i] << endl;
+	//}
 }
 
 std::vector<int> PathQuery::query_path(int t) 
@@ -25,7 +29,7 @@ std::vector<int> PathQuery::query_path(int t)
 }
 
 // 一次 BFS 建立 parent 数组
-void PathQuery::build_parent_tree() 
+bool PathQuery::build_parent_tree() 
 {
     std::vector<bool> visited(n, false);
     std::queue<int> q;
@@ -33,6 +37,7 @@ void PathQuery::build_parent_tree()
     visited[root] = true;
     q.push(root);
     parent[root] = -1;
+    int count = 1;
 
     while (!q.empty()) {
         int u = q.front();
@@ -44,7 +49,9 @@ void PathQuery::build_parent_tree()
                 visited[v] = true;
                 parent[v] = u;  // 记录路径树
                 q.push(v);
+                count++;
             }
         }
     }
+    return count == n;
 }
