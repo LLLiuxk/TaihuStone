@@ -91,3 +91,14 @@ std::vector<std::vector<int>> readAdjacencyListFromFile(const std::string& filen
 
 //string
 std::string to_string_pre(double value, int precision = 1);
+
+//sort
+template <typename T1, typename T2>
+void sort_min2max(std::vector<std::pair<T1, T2>>& vec)
+{
+    std::stable_sort(vec.begin(), vec.end(),
+        [](const std::pair<T1, T2>& a, const std::pair<T1, T2>& b)
+        {
+            return a.second < b.second;
+        });
+}
