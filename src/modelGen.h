@@ -96,8 +96,9 @@ public:
 
     double calculate_edge_weight(GaussianKernel k1, GaussianKernel k2);
 
-	double calculate_path_translucency2(std::vector<int>& path, bool show_debug);  //old version
+	
 	double calculate_path_translucency(std::vector<int>& path, bool show_debug = false);  //path里存放的是kernel的索引
+    double calculate_path_translucency2(std::vector<int>& path, bool show_debug);  //old version
     double cal_kernel_translucency(int p_index, int& max_s1, int& max_s2, std::vector<int>& max_path, AdjacencyList adj, bool debug=false);
     double cal_total_translucency(std::vector<GaussianKernel> gau, AdjacencyList adj);
 
