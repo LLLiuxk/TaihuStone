@@ -97,19 +97,32 @@ void ModelGenerator::generateGaussianSDF()
 	// 输出每条边的重要性分数
 	//for (auto ei : edge_improtance) 
  //       cout << "edge_importance: " << ei << endl;
-    int opt_times_once = 10;
+    std::cout << "--------------------4. Optimizing the connection trees --------------------" << endl;
+    int opt_times_once = 5;
 	int edge_max = Tube_edges.size()* 1.5;
-    if(optimize_debug)
-        //optimize_mst(opt_times_once, edge_max, NO_DEBUG);
-        optimize_mst2(opt_times_once, 0, NO_DEBUG);
+    int iter_times = 10;
+    double delta_score_t = 1000.0;
+    double new_trans_score = finalTranslucency;
     
-    std::cout << "--------------------5. Calculating translucency of optimized mst --------------------" << endl;
-    double trans_score = finalTranslucency;
-    finalTranslucency = cal_total_translucency(Kernels, Adj_list);
-    std::cout << "After optimization, total score increases from: " << trans_score<<"  to "<< finalTranslucency << " with edges from " << ori_edge_num<<"  to "<< Tube_edges.size() << endl;
+    if (optimize_debug)
+    {
+        //optimize_mst2(opt_times_once, edge_max, false,  NO_DEBUG);
+		int iter_count = 0;
+        while (iter_count< iter_times && delta_score_t > 1e-2)
+        {
+            std::cout << "-------------  The " << iter_count++<< " iterations start, the edge limition is:"<< edge_max<<"... ------------ - "<< endl;
+            optimize_mst(opt_times_once, edge_max, NO_DEBUG);
+            double last_trans_score = new_trans_score;
+            new_trans_score = cal_total_translucency(Kernels, Adj_list);
+            std::cout << "======================================After optimization " << iter_count << ", total score increases from " << last_trans_score << " to " << new_trans_score << " with edges to " << Tube_edges.size() << "======================================" << endl;
+            delta_score_t = new_trans_score - last_trans_score;
+            edge_max += edge_max * 0.1;
+        }
+    }
+    finalTranslucency = new_trans_score;
+    
 
-    //edge_improtance = cal_edge_usage(Paths, true);
-
+    std::cout << "--------------------5. Generate tubes between kernels based on optimized mst --------------------" << endl;
     //-----------------generate tubes------------------------------------------
     double void_count = generate_mst_tubes(grid_num, resolution, Isolevel, Gauss_level, SmoothT);
 
@@ -1195,11 +1208,11 @@ bool ModelGenerator::replace_edges(int p_index, int replace_e, std::vector<Edge>
 
 void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
 {
-    std::cout << "--------------------4. Optimizing the connection trees --------------------" << endl;
     double thres_tran = Trans_thres;
     int kernels_num = Kernels.size();
 	int curr_edge_num = Tube_edges.size();
-    int edge_max_num = max(edge_max, curr_edge_num + 5);
+    int edge_add = edge_max * 0.1;
+    int edge_max_num = max(edge_max, curr_edge_num+ edge_add);
     std::cout << "curr_edge: " << curr_edge_num << "   max_edge: " << edge_max_num << endl;
 
     int opt_count_total = 0;
@@ -1269,7 +1282,7 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
     for(int i = 0; i < kernels_num; i++)
     {
         int opt_count = 0;
-        cout << endl;
+        std::cout << "Kernel " << i << " translucency: " << kernel_translucency[i] << std::endl;
         if (kernel_translucency[i] < 1e-9 && (!Kernels[i].on_surface)) //内部点且没有通路，有可能子节点已经连通，所以首先重新计算通透性再判断是否修改
         {
 			int start = -1, end = -1;
@@ -1386,7 +1399,7 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
                         //cout << "The edge (" << Tube_edges[replace_e].from << ", " << Tube_edges[replace_e].to << ") is used in other paths!  Skip!" << endl;
                         continue;
                     }
-                    else if (sorted_e.second > 2) //使用次数较多，跳过
+                    else if (sorted_e.second > 1) //使用次数较多，跳过
                     {
                         //cout << "The edge (" << Tube_edges[replace_e].from << ", " << Tube_edges[replace_e].to << ") is used " << sorted_e.second << " times!  Skip!" << endl;
                         continue;
@@ -1395,7 +1408,7 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
                     {
                         //尝试替换这条边
                         //Edge removed_edge = Tube_edges[replace_i];
-                        cout << "Optimization Kernel "<<i << ": Edge "<< replace_e <<"("<< Tube_edges[replace_e].from<<", "<< Tube_edges[replace_e].to<<") with usage count : " << sorted_e.second <<" will be replaced ... " << endl;
+                        //cout << "Optimization Kernel "<<i << ": Edge "<< replace_e <<"("<< Tube_edges[replace_e].from<<", "<< Tube_edges[replace_e].to<<") with usage count : " << sorted_e.second <<" will be replaced ... " << endl;
                         if (Adj_list[i].size() < 2) //虽然替换，但是只有一条连接边，无法替换
                         {
                             cout << "improve the edge limitation" << endl;
@@ -1426,12 +1439,12 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
         }
             
     }
-    cout << "During the whole optimization, " << opt_count_total << " edge, "<<"including "<< num_replace<<" repalced and "<< opt_count_total - num_replace<<" added, have beed added and repalced!" << endl;
+    cout << "During the whole optimization, " << opt_count_total << " edge, " << "including " << num_replace << " repalced and " << opt_count_total - num_replace << " added, have beed added and repalced!" << endl << endl;
 }
 
 
 
-void ModelGenerator::optimize_mst2(int itea_max_times, int max_edge, bool debug) //max_edge = 0代表最大边数递增，!=0代表固定最大边数
+void ModelGenerator::optimize_mst2(int itea_max_times, int max_edge, bool iter_add, bool debug) //max_edge = 0代表最大边数递增，!=0代表固定最大边数
 {
     std::cout << "--------------------4. Optimizing the connection trees --------------------" << endl;
 	int origin_edge_num = Tube_edges.size();
@@ -1446,10 +1459,10 @@ void ModelGenerator::optimize_mst2(int itea_max_times, int max_edge, bool debug)
 
     while (ratio < itea_max_times && delta_trans_score>0.01)
     {
-        if(max_edge)
-            edge_max_num = max_edge;
+        if(iter_add)
+            edge_max_num = min(max_edge, (int)(origin_edge_num * (1.1 + ratio / 10.0)));
 		else
-            edge_max_num = origin_edge_num * (1.1 + ratio/10.0);
+            edge_max_num = max_edge;
 
         vector<pair<int, double>> kernel_info_order;
         for (int k = 0; k < kernel_translucency.size(); k++)
@@ -1689,7 +1702,7 @@ int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double
     // Marching Cubes
     MarchingCubes(SDF_out, GV, res, res, res, iso, V_out, F_out);   //final result
 
-    std::string filename = "result/gaussian_pores" + to_string(PoresNum) + "_" + to_string(Resolution) + "_" + to_string_pre(Adj_dis_thres) + "_" + 
+    std::string filename = "result/gaussian_pores" + to_string(PoresNum) + "_" + to_string(Resolution) + "_" + to_string_pre(surface_ratio) + "_" +
         to_string_pre(Trans_thres)+"_" + to_string_pre(Weights[0]) + "_"+ to_string_pre(KT_weights[0])+"_"+to_string_pre(finalTranslucency, 3)+".stl";
     saveMesh(filename, V_out, F_out);
 

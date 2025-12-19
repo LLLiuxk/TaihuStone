@@ -115,7 +115,7 @@ public:
     pair<double, double> add_edges(Edge cand_edge, AdjacencyList adj, std::vector<int>& max_path1, std::vector<int>& max_path2, bool debug = false);
     bool replace_edges(int p_index, int replace_e, std::vector<Edge>& Tube_edges, AdjacencyList& adj, AdjacencyList& unused_adj);
     void optimize_mst(int opt_times_once, int edge_max, bool debug = false);
-	void optimize_mst2(int itea_max_times, int max_edge = 0, bool debug = false); //max_edge = 0代表最大边数递增，！=0代表固定最大边数
+	void optimize_mst2(int itea_max_times, int max_edge, bool iter_add = false, bool debug = false); //max_edge = 0代表最大边数递增，！=0代表固定最大边数
 
 	//------------generate tubes----------------
     int generate_mst_tubes(int grid_num, int res, double iso, double gaus_iso, double smooth_t);

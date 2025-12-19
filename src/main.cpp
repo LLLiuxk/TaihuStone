@@ -21,7 +21,7 @@ int main(int argc, char* argv[])
     //std::string input_file = "D:/VSprojects/TaihuStone/model/test_case.stl";
 
     ModelGenerator mg(input_file);
-
+   
     //mg.show_model();
 
 
