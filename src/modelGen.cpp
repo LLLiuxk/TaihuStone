@@ -97,8 +97,8 @@ void ModelGenerator::generateGaussianSDF()
 	// 输出每条边的重要性分数
 	//for (auto ei : edge_improtance) 
  //       cout << "edge_importance: " << ei << endl;
-    int opt_times_once = 5;
-	int edge_max = Tube_edges.size()*2;
+    int opt_times_once = 10;
+	int edge_max = Tube_edges.size()* 1.5;
     if(optimize_debug)
         //optimize_mst(opt_times_once, edge_max, NO_DEBUG);
         optimize_mst2(opt_times_once, 0, NO_DEBUG);
@@ -901,6 +901,7 @@ double ModelGenerator::cal_total_translucency(std::vector<GaussianKernel> gau,  
     Paths.clear();
     //for (int i = 3; i < 4; i++)
     //for (int i = 53; i < 54; i++)
+    int good_count = 0;
     for (int i = 0; i < kernels_num; i++)
     {
         int start = -1, end = -1;
@@ -910,6 +911,8 @@ double ModelGenerator::cal_total_translucency(std::vector<GaussianKernel> gau,  
         max_paths_kernel.push_back(make_pair(start, end));
 		kernel_translucency.push_back(score_p);
         Paths.push_back(max_path);
+        if (score_p >= Trans_thres)
+            good_count++;
         if(standard_show)
         {
             cout << "Kernel " << i << " :  max translucency: " << score_p << "   from " << start << " to " << end << endl << "Max path: ";
@@ -919,6 +922,7 @@ double ModelGenerator::cal_total_translucency(std::vector<GaussianKernel> gau,  
             cout << endl;
         }
     }
+    cout << good_count << " Kernels have met the translucency threshold!" << endl;
     return total_score/ kernels_num;
 }
 
@@ -1382,7 +1386,7 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
                         //cout << "The edge (" << Tube_edges[replace_e].from << ", " << Tube_edges[replace_e].to << ") is used in other paths!  Skip!" << endl;
                         continue;
                     }
-                    else if (sorted_e.second > 1) //使用次数较多，跳过
+                    else if (sorted_e.second > 2) //使用次数较多，跳过
                     {
                         //cout << "The edge (" << Tube_edges[replace_e].from << ", " << Tube_edges[replace_e].to << ") is used " << sorted_e.second << " times!  Skip!" << endl;
                         continue;
@@ -1445,16 +1449,16 @@ void ModelGenerator::optimize_mst2(int itea_max_times, int max_edge, bool debug)
         if(max_edge)
             edge_max_num = max_edge;
 		else
-            edge_max_num = origin_edge_num * (1.1 + ratio/5.0);
+            edge_max_num = origin_edge_num * (1.1 + ratio/10.0);
 
-        //vector<pair<int, double>> kernel_info_order;
-        //for (int k = 0; k < kernel_translucency.size(); k++)
-        //    kernel_info_order.push_back(make_pair(k, kernel_translucency[k])); 
-        //sort_min2max(kernel_info_order);
-        for (int i = 0; i < kernels_num; i++)
-        //for (int index = 0; index < kernels_num; index++)
+        vector<pair<int, double>> kernel_info_order;
+        for (int k = 0; k < kernel_translucency.size(); k++)
+            kernel_info_order.push_back(make_pair(k, kernel_translucency[k])); 
+        sort_min2max(kernel_info_order);
+        //for (int i = 0; i < kernels_num; i++)
+        for (int index = 0; index < kernels_num; index++)
         {
-            //int i = kernel_info_order[index].first;
+            int i = kernel_info_order[index].first;
             double origin_trans = kernel_translucency[i];
             int start = -1, end = -1;
             std::vector<int> max_path;
@@ -1641,7 +1645,7 @@ void ModelGenerator::optimize_mst2(int itea_max_times, int max_edge, bool debug)
         std::cout << "======================================After optimization "<< ratio++<<", total score increases from "<< last_trans_score <<" to " << new_trans_score << " with edges to " << Tube_edges.size() << "======================================"<<endl;
         delta_trans_score = new_trans_score - last_trans_score;
     }
-	cout << "Finally, total iterations: " << ratio<<", last delta: "<< delta_trans_score<<", optimization: "<<opt_count << ", including " << opt_add << " added and " << opt_replace << " replaced!" << endl;
+	cout << "Finally, total iterations: " << ratio - 1<<", last delta: "<< delta_trans_score<<", optimization: "<<opt_count << ", including " << opt_add << " added and " << opt_replace << " replaced!" << endl;
 }
 
 
@@ -1685,7 +1689,7 @@ int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double
     // Marching Cubes
     MarchingCubes(SDF_out, GV, res, res, res, iso, V_out, F_out);   //final result
 
-    std::string filename = "result/gaussian_pores"+ to_string(PoresNum)+"_"+ to_string(Resolution)+"_"+
+    std::string filename = "result/gaussian_pores" + to_string(PoresNum) + "_" + to_string(Resolution) + "_" + to_string_pre(Adj_dis_thres) + "_" + 
         to_string_pre(Trans_thres)+"_" + to_string_pre(Weights[0]) + "_"+ to_string_pre(KT_weights[0])+"_"+to_string_pre(finalTranslucency, 3)+".stl";
     saveMesh(filename, V_out, F_out);
 

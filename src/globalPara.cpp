@@ -8,7 +8,7 @@ std::vector<double> KT_weights = { 0.7, 0.1, 0.1, 0.1 };  //kernel translucency»
 double Isolevel = 0;
 double Gauss_level = 0.5;
 
-int PoresNum = 30;
+int PoresNum = 150;
 double surface_ratio = 0.3; //±Ì√Ê∫À’º±»
 
 int Min_degree = 4;
