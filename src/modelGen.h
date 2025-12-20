@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <igl/read_triangle_mesh.h>
 
+
 // 定义高斯核的数据结构
 class GaussianKernel {
 
@@ -130,6 +131,8 @@ private:
     Eigen::MatrixXi F_ini; // 初始网格面片
     Eigen::VectorXd SDF_ini;           // 原始/已处理的SDF网格值
     Eigen::MatrixXd GV;            // 网格点坐标
+    Eigen::MatrixXd V_t; //输出高斯场对应网格顶点
+    Eigen::MatrixXi F_t; // 输出高斯场对应网格面片
 
     Eigen::MatrixXd V_out; //输出网格顶点
     Eigen::MatrixXi F_out; // 输出网格面片
@@ -139,13 +142,13 @@ private:
     Eigen::Vector3d bb_min; 
     Eigen::Vector3d bb_max;
 
-
 	//高斯核参数范围
     double safe_distance = 0; //dart throwing 
     double amplitude_min = Amplitude_min;
     double amplitude_max = Amplitude_max;
     double sigma_min = Sigma_min;
     double sigma_max = Sigma_max;
+
     std::vector<GaussianKernel> Kernels;
     std::vector<int> surface_kernels;
     std::vector<std::vector<int>> Paths;

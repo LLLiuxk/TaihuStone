@@ -11,10 +11,50 @@ GaussianKernel::GaussianKernel(Eigen::Vector3d center_, double sigma_, double am
 
 double GaussianKernel::gaussian_fun(const Eigen::Vector3d& p)
 {
-	double d2 = (p - center).squaredNorm();
-	double gau_value = amplitude * std::exp(-d2 / (2.0 * sigma * sigma));   //sigma越大，函数越平缓
-    //std::cout << "  gau_value:"<< gau_value <<std::endl;
-	return gau_value;
+    // ---------- 原始高斯值 ----------
+    double d2 = (p - center).squaredNorm();
+    double G = amplitude * std::exp(-d2 / (2.0 * sigma * sigma));
+    if (!Enable_noise)
+        return G;
+    else
+    {
+        init_noise();
+        // ---------- 参数区（你之后可以论文参数化） ----------
+        const double noise_strength = 0.3 * sigma;     // 位移幅度
+        const double band_width = 0.15 * amplitude; // 等值面带宽
+        const double freq_scale = 1.5 / sigma;      // 决定“皱褶密度”，freq_scale越大，褶皱更“碎”、更明显
+
+        // ---------- 等值面权重（关键） ----------
+        double w = std::exp(
+            -(G - Gauss_level) * (G - Gauss_level)
+            / (2.0 * band_width * band_width)
+        );
+        // ---------- FastNoiseLite（3D Simplex fBm） ----------
+        float nx = g_kernel_noise.GetNoise(
+            float(p.x() * freq_scale),
+            float(p.y() * freq_scale),
+            float(p.z() * freq_scale)
+        );
+        Eigen::Vector3d radial_dir = (p - center).normalized();
+        // ---------- 扰动后的采样点 ----------
+        Eigen::Vector3d p_perturbed =
+            p + w * noise_strength * nx * radial_dir;
+        // ---------- 重新采样高斯 ----------
+        double d2p = (p_perturbed - center).squaredNorm();
+        double Gp = amplitude * std::exp(-d2p / (2.0 * sigma * sigma));
+        return Gp;
+    }
+
+
+ //   const double noise_strength = 0.1 * sigma;
+ //   // 低频扰动（空间相关）
+ //   Eigen::Vector3d noise = smooth_noise_vec(p / sigma);
+ //   // 扰动后的采样点
+ //   Eigen::Vector3d p_perturbed = p + noise_strength * noise;
+	//double d2 = (p - center).squaredNorm();
+	//double gau_value = amplitude * std::exp(-d2 / (2.0 * sigma * sigma));   //sigma越大，函数越平缓
+ //   //std::cout << "  gau_value:"<< gau_value <<std::endl;
+	//return gau_value;
 
 }
 
@@ -35,6 +75,8 @@ ModelGenerator::ModelGenerator(std::string input_file, int pores)
     pore_num = pores;
     //std::cout << "Model A loaded successfully." << std::endl;
     Mesh2SDF(V_ini, F_ini, GV, SDF_ini, bb_min, bb_max);
+    if (Enable_noise)
+         add_noise_near_isosurface(SDF_ini, GV, Isolevel, 0.1, 0.08, 1.5);
     //Vector3d point = GV.row(10010);
     //cout << "point index: " << find_nearest_grid(point) << endl;
     generateGaussianSDF();
@@ -263,13 +305,47 @@ double ModelGenerator::combinedSDF(Eigen::Vector3d & p, std::vector<GaussianKern
         //std::cout <<"gaus_num: "<< gaus_num<<"  "<< i << std::endl;
         total_void += G_kernels[i].gaussian_fun(p);
     }
+
+    //double noise_val = myPerlin.noise(p.x() * 0.5, p.y() * 0.5, p.z() * 0.5);
+    //double noise_weight = 0.05; // 权重
+
+    //// 注意：SDF通常定义为 (IsoLevel - FieldValue)，所以加在 FieldValue 上
+    //total_void = total_void *(1+ noise_weight * noise_val) ;
     //std::cout << "total_void: " << total_void << std::endl;
     return  C - total_void;  // 当前使用：负的空洞总和 
 }
 
 void ModelGenerator::show_model()
 {
-    view_two_models(V_ini, F_ini, V_out, F_out, Eigen::RowVector3d(1, 0.0, 0.0));
+    std::cout << "show libigl viewer" << std::endl;
+    igl::opengl::glfw::Viewer viewer;
+    Eigen::RowVector3d shift(1, 0, 0);
+
+    viewer.data().set_mesh(V_out, F_out);
+    viewer.data().show_lines = true;   // 不显示网格线
+    //viewer.data().set_colors(Eigen::RowVector3d(0.8, 0.7, 0.2)); // 设置一个漂亮的蓝色
+
+    int id2 = viewer.append_mesh();
+    Eigen::MatrixXd V_shifted = V_out;
+    V_shifted.rowwise() -= shift;
+    viewer.data(id2).set_mesh(V_shifted, F_out);
+
+    int id3 = viewer.append_mesh();
+    viewer.data(id3).set_mesh(V_t, F_t);
+    viewer.data(id3).set_colors(Eigen::RowVector3d(0.8, 0.1, 0.1));
+
+    Eigen::MatrixXd V_shifted3 = V_t;
+    V_shifted3.rowwise() += shift;  // 向右移动 1 个单位
+
+    int id4 = viewer.append_mesh();
+    viewer.data(id4).set_mesh(V_shifted3, F_t);
+    viewer.data(id4).set_colors(Eigen::RowVector3d(0.8, 0.8, 0.8));
+    // 添加辅助点 (高斯核的中心)，设置为红色
+
+    viewer.data().point_size = 10; // 让点更显眼
+    viewer.launch();
+    //
+    //view_two_models(V_ini, F_ini, V_out, F_out, Eigen::RowVector3d(1, 0.0, 0.0));
 
 }
 
@@ -623,7 +699,6 @@ double ModelGenerator::generate_tube(const Eigen::Vector3d& p, const GaussianKer
 
 double ModelGenerator::generate_tube2( Eigen::Vector3d& p,   GaussianKernel& k1,   GaussianKernel& k2, double iso_level_C, double mid_radius_factor)
 {
-
     const Eigen::Vector3d& c1 = k1.center;
     const Eigen::Vector3d& c2 = k2.center;
 
@@ -639,19 +714,52 @@ double ModelGenerator::generate_tube2( Eigen::Vector3d& p,   GaussianKernel& k1,
     double line_length = line_dir.squaredNorm();
 
     Eigen::Vector3d w = p - c1;
-     double dis_c = w.dot(line_dir);
-     double dis;
-     if (dis_c <= 0) {
-         dis = w.squaredNorm();;
-     }
-     else if (dis_c >= line_dir.dot(line_dir)) {
-             dis = (p - c2).squaredNorm();
-      }
-     else {
-         double t_proj = dis_c / line_length;
-         Eigen::Vector3d p_proj = c1 + t_proj * line_dir; // p在轴线上的投影点
-         dis = (p - p_proj).squaredNorm();
-	 }
+    double dis;
+    if(Enable_noise)
+    {
+        init_noise();
+        double proj = w.dot(line_dir);
+        Eigen::Vector3d p_proj;
+        if (proj <= 0.0)
+            p_proj = c1;
+        else if (proj >= line_length)
+            p_proj = c2;
+        else
+            p_proj = c1 + (proj / line_length) * line_dir;
+        // ---------- 距离向量 ----------
+        Eigen::Vector3d r = p - p_proj;
+        double r_len = r.norm();
+        // ---------- 通道噪声 ----------
+        // 通道特征尺度（近似半径）
+        double tube_radius = std::sqrt(1.0 / mu);
+
+        double freq_scale = 2.5 / tube_radius;
+        double noise_strength = 0.35 * tube_radius;
+
+        double n = g_kernel_noise.GetNoise(
+            float(p_proj.x() * freq_scale),
+            float(p_proj.y() * freq_scale),
+            float(p_proj.z() * freq_scale)
+        );
+        // 沿径向扰动距离
+        double r_perturbed = r_len + noise_strength * n; 
+        dis = r_perturbed * r_perturbed;
+    }
+    else
+    {
+        double dis_c = w.dot(line_dir);
+        if (dis_c <= 0) {
+            dis = w.squaredNorm();;
+        }
+        else if (dis_c >= line_dir.dot(line_dir)) {
+            dis = (p - c2).squaredNorm();
+        }
+        else {
+            double t_proj = dis_c / line_length;
+            Eigen::Vector3d p_proj = c1 + t_proj * line_dir; // p在轴线上的投影点
+            dis = (p - p_proj).squaredNorm();
+        }
+    }
      // 3. 计算管道函数的第一部分：沿线段的高斯函数
      double tunnelMain = std::exp(-mu * dis);
 
@@ -1689,6 +1797,14 @@ int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double
         SDF_gaussian_tubes(idx) = smooth_UnionSDF(SDF_gaussian(idx), sdf_p, smooth_t);
 
         SDF_out(idx) = smooth_IntersecSDF(SDF_ini(idx), -SDF_gaussian_tubes(idx), smooth_t);
+
+        //// 注意：Eigen::Vector3d 的访问方式是 p.x(), p.y(), p.z()
+        //double noise_val = myPerlin.noise(p.x() * 0.5, p.y() * 0.5, p.z() * 0.5);
+        //double noise_weight = 1.0; // 权重
+
+        //// 注意：SDF通常定义为 (IsoLevel - FieldValue)，所以加在 FieldValue 上
+        //SDF_out(idx) += noise_weight * noise_val;
+
         //SDF_out(idx) = differenceSDF(SDF_ini(idx), SDF_gaussian(idx));
         //if (SDF_gaussian(idx) < isolevel)
            // std::cout << "idx:  " << idx << "   SDF_ini(idx):" << SDF_ini(idx) << "   SDF_gaussian(idx):  " << SDF_gaussian(idx) <<"  SDF_out(idx) :" << SDF_out(idx) << std::endl;
@@ -1700,6 +1816,8 @@ int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double
     //std::cout << "成功在仿生形状内放置 " << void_centers.size() << " 个空洞点" << std::endl;
 
     // Marching Cubes
+    //if (Enable_noise);
+    //add_noise_near_isosurface(SDF_out, GV, iso, 0.1, 0.08, 1.5);
     MarchingCubes(SDF_out, GV, res, res, res, iso, V_out, F_out);   //final result
 
     std::string filename = "result/gaussian_pores" + to_string(PoresNum) + "_" + to_string(Resolution) + "_" + to_string_pre(surface_ratio) + "_" +
@@ -1709,9 +1827,8 @@ int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double
     Eigen::MatrixXd V_g; //输出网格顶点
     Eigen::MatrixXi F_g; // 输出网格面片
     MarchingCubes(SDF_gaussian, GV, res, res, res, iso, V_g, F_g);  //gaussian combined
+    view_model(V_g, F_g);
 
-    Eigen::MatrixXd V_t; //输出网格顶点
-    Eigen::MatrixXi F_t; // 输出网格面片
     MarchingCubes(SDF_gaussian_tubes, GV, res, res, res, iso, V_t, F_t);  //gaussian combined with tubes
     //view_model(V_t, F_t);
 

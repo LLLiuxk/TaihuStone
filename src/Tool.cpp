@@ -1,6 +1,8 @@
 #include "Tool.h"
 
 
+
+
 void Mesh2SDF(Eigen::MatrixXd& V,  Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Eigen::VectorXd& SDF, Eigen::Vector3d& bb_min, Eigen::Vector3d& bb_max)
 {
     if (V.rows() == 0 || F.rows() == 0 ) {
@@ -164,10 +166,6 @@ void view_three_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V
 {
     std::cout << "show libigl viewer" << std::endl;
     igl::opengl::glfw::Viewer viewer;
-    viewer.callback_key_pressed = [](igl::opengl::glfw::Viewer&, unsigned int, int)->bool
-        {
-            return true; // 阻止默认 key handler 执行，usage 不会打印
-        };
     viewer.data().set_mesh(V1, F1);
     viewer.data().show_lines = true;   // 不显示网格线
     //viewer.data().set_colors(Eigen::RowVector3d(0.8, 0.7, 0.2)); // 设置一个漂亮的蓝色
@@ -763,4 +761,44 @@ std::string to_string_pre(double value, int precision)
     std::ostringstream oss;
     oss << std::fixed << std::setprecision(precision) << value;
     return oss.str();
+}
+
+void add_noise_near_isosurface(
+    Eigen::VectorXd& S,              // 标量场（in-place 修改）
+    const Eigen::MatrixXd& GV,        // 体素坐标
+    double iso_value,                 // MC 等值面
+    double noise_amplitude,            // 噪声幅值（建议 0.05 ~ 0.3 * 场尺度）
+    double band_width,                 // 等值面带宽
+    double spatial_frequency           // 噪声空间频率
+)
+{
+    //init_noise();
+    init_field_noise();
+
+    const int N = static_cast<int>(S.size());
+    assert(GV.rows() == N);
+
+    for (int i = 0; i < N; ++i)
+    {
+        double F = S(i);
+
+        // ---- 等值面权重（只在 iso 附近生效）----
+        double w = std::exp(
+            -std::pow((F - iso_value) / band_width, 2.0)
+        );
+
+        if (w < 1e-4)
+            continue;
+
+        // ---- 空间噪声 ----
+        const Eigen::Vector3d& p = GV.row(i);
+        double n = g_field_noise.GetNoise(
+            float(p.x() * spatial_frequency),
+            float(p.y() * spatial_frequency),
+            float(p.z() * spatial_frequency)
+        );
+
+        // ---- 标量场扰动（值扰动）----
+        S(i) += noise_amplitude * w * n;
+    }
 }

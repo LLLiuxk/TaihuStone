@@ -19,10 +19,18 @@ int main(int argc, char* argv[])
 
     std::string input_file = "D:/VSprojects/TaihuStone/model/RockSet03r.stl";
     //std::string input_file = "D:/VSprojects/TaihuStone/model/test_case.stl";
+	//Vector3d p(0.4, 0.2, -0.32);
+ //   Vector3d p2(0.4, 0.2, 0.3);
+ //   PerlinNoise myPerlin;
+
+ //   double noise_val = myPerlin.noise(p.x() * 0.5, p.y() * 0.5, p.z() * 0.5);
+ //   double noise_weight = 1.0; // 权重
+ //   double noise_val2 = myPerlin.noise(p2.x() * 0.5, p2.y() * 0.5, p2.z() * 0.5);
+ //   double noise_weight2 = 1.0; // 权重
+ //   cout << noise_val * noise_weight << "   "<< noise_val2 * noise_weight2 <<"   p3: "<<p3<<endl;
 
     ModelGenerator mg(input_file);
-   
-    //mg.show_model();
+    mg.show_model();
 
 
     //----------test---------------

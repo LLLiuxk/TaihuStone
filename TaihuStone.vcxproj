@@ -144,6 +144,7 @@
     <ClCompile Include="src\Tool.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\FastNoiseLite.h" />
     <ClInclude Include="src\globalPara.h" />
     <ClInclude Include="src\modelGen.h" />
     <ClInclude Include="src\selfSupVoxel.h" />

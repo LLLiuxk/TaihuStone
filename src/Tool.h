@@ -15,7 +15,8 @@
 #include <string>
 #include <iomanip>
 #include <queue>
-
+#include <random>
+#include "FastNoiseLite.h"
 #include "globalPara.h" 
 #include "selfSupVoxel.h"
 
@@ -23,6 +24,38 @@
 #define INF std::numeric_limits<double>::infinity()
 using namespace std;
 using namespace Eigen;
+
+
+static FastNoiseLite g_kernel_noise;
+static FastNoiseLite g_field_noise;
+
+static void init_noise()
+{
+    static bool initialized = false;
+    if (initialized) return;
+
+    g_kernel_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+    g_kernel_noise.SetFractalType(FastNoiseLite::FractalType_FBm);
+    g_kernel_noise.SetFractalOctaves(3);        // 低频
+    g_kernel_noise.SetFractalLacunarity(2.0f);
+    g_kernel_noise.SetFractalGain(0.5f);
+    g_kernel_noise.SetFrequency(0.8f);          // 核心参数：空间尺度
+    initialized = true;
+}
+
+static void init_field_noise()
+{
+    static bool initialized = false;
+    if (initialized) return;
+
+    g_field_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+    g_field_noise.SetFractalType(FastNoiseLite::FractalType_FBm);
+    g_field_noise.SetFractalOctaves(4);  //高频
+    g_field_noise.SetFractalGain(0.55f);
+    g_field_noise.SetFrequency(1.0f); // 空间尺度由外部控制
+
+    initialized = true;
+}
 
 void Mesh2SDF(Eigen::MatrixXd& V, Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Eigen::VectorXd& S, Eigen::Vector3d& bb_min, Eigen::Vector3d& bb_max);
 bool saveMesh(std::string filename, Eigen::MatrixXd V, Eigen::MatrixXi F);
@@ -102,3 +135,12 @@ void sort_min2max(std::vector<std::pair<T1, T2>>& vec)
             return a.second < b.second;
         });
 }
+
+void add_noise_near_isosurface(
+    Eigen::VectorXd& S,              // 标量场（in-place 修改）
+    const Eigen::MatrixXd& GV,        // 体素坐标
+    double iso_value,                 // MC 等值面
+    double noise_amplitude,            // 噪声幅值（建议 0.05 ~ 0.3 * 场尺度）
+    double band_width,                 // 等值面带宽
+    double spatial_frequency           // 噪声空间频率
+);
