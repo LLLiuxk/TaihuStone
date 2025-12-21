@@ -92,9 +92,6 @@ public:
 
     std::vector<int> all_leafs_mst(std::vector<Edge>& mst_tree);
 
-    double generate_tube(const Eigen::Vector3d& p, const GaussianKernel& k1, const GaussianKernel& k2, double iso_level_C, double mid_radius_factor);    
-    double generate_tube2( Eigen::Vector3d& p,  GaussianKernel& k1,  GaussianKernel& k2, double iso_level_C, double mid_radius_factor = 0.5);
-
     double calculate_edge_weight(GaussianKernel k1, GaussianKernel k2);
 
 	
@@ -120,6 +117,8 @@ public:
 	void optimize_mst2(int itea_max_times, int max_edge, bool iter_add = false, bool debug = false); //max_edge = 0代表最大边数递增，！=0代表固定最大边数
 
 	//------------generate tubes----------------
+    double generate_tube(const Eigen::Vector3d& p, const GaussianKernel& k1, const GaussianKernel& k2, double iso_level_C, double mid_radius_factor);
+    double generate_tube2(Eigen::Vector3d& p, GaussianKernel& k1, GaussianKernel& k2, double iso_level_C, double mid_radius_factor = 0.5);
     int generate_mst_tubes(int grid_num, int res, double iso, double gaus_iso, double smooth_t);
 
 private:
@@ -161,6 +160,5 @@ private:
 
     double finalPorosity = 0;
 	double finalTranslucency = 0;
-	double smooth_t = SmoothT;         //平滑参数，值越大，平滑效果越小，趋近于普通并集
 
 };

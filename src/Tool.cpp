@@ -763,6 +763,32 @@ std::string to_string_pre(double value, int precision)
     return oss.str();
 }
 
+//double add_iso_surface_noise(
+//    const Eigen::Vector3d& p,
+//    double sdf_value,
+//    double band_width,
+//    double noise_amplitude,
+//    double spatial_frequency)
+//{
+//    init_field_noise();
+//
+//    // 1. 等值面权重
+//    double w = std::exp(-(sdf_value * sdf_value) / (2.0 * band_width * band_width)); 
+//
+//    if (w < 1e-6)
+//        return sdf_value;
+//
+//    // 2. 连续空间噪声
+//    double n = g_field_noise.GetNoise(
+//        float(p.x() * spatial_frequency),
+//        float(p.y() * spatial_frequency),
+//        float(p.z() * spatial_frequency)
+//    );
+//
+//    // 3. SDF 扰动
+//    return sdf_value + noise_amplitude * w * n;
+//}
+
 void add_noise_near_isosurface(
     Eigen::VectorXd& S,              // 标量场（in-place 修改）
     const Eigen::MatrixXd& GV,        // 体素坐标

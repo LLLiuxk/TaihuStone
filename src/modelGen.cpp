@@ -14,48 +14,7 @@ double GaussianKernel::gaussian_fun(const Eigen::Vector3d& p)
     // ---------- 原始高斯值 ----------
     double d2 = (p - center).squaredNorm();
     double G = amplitude * std::exp(-d2 / (2.0 * sigma * sigma));
-    if (!Enable_noise)
-        return G;
-    else
-    {
-        init_noise();
-        // ---------- 参数区（你之后可以论文参数化） ----------
-        const double noise_strength = 0.3 * sigma;     // 位移幅度
-        const double band_width = 0.15 * amplitude; // 等值面带宽
-        const double freq_scale = 1.5 / sigma;      // 决定“皱褶密度”，freq_scale越大，褶皱更“碎”、更明显
-
-        // ---------- 等值面权重（关键） ----------
-        double w = std::exp(
-            -(G - Gauss_level) * (G - Gauss_level)
-            / (2.0 * band_width * band_width)
-        );
-        // ---------- FastNoiseLite（3D Simplex fBm） ----------
-        float nx = g_kernel_noise.GetNoise(
-            float(p.x() * freq_scale),
-            float(p.y() * freq_scale),
-            float(p.z() * freq_scale)
-        );
-        Eigen::Vector3d radial_dir = (p - center).normalized();
-        // ---------- 扰动后的采样点 ----------
-        Eigen::Vector3d p_perturbed =
-            p + w * noise_strength * nx * radial_dir;
-        // ---------- 重新采样高斯 ----------
-        double d2p = (p_perturbed - center).squaredNorm();
-        double Gp = amplitude * std::exp(-d2p / (2.0 * sigma * sigma));
-        return Gp;
-    }
-
-
- //   const double noise_strength = 0.1 * sigma;
- //   // 低频扰动（空间相关）
- //   Eigen::Vector3d noise = smooth_noise_vec(p / sigma);
- //   // 扰动后的采样点
- //   Eigen::Vector3d p_perturbed = p + noise_strength * noise;
-	//double d2 = (p - center).squaredNorm();
-	//double gau_value = amplitude * std::exp(-d2 / (2.0 * sigma * sigma));   //sigma越大，函数越平缓
- //   //std::cout << "  gau_value:"<< gau_value <<std::endl;
-	//return gau_value;
-
+    return G;
 }
 
 bool GaussianKernel::is_on_surface() const
@@ -75,8 +34,6 @@ ModelGenerator::ModelGenerator(std::string input_file, int pores)
     pore_num = pores;
     //std::cout << "Model A loaded successfully." << std::endl;
     Mesh2SDF(V_ini, F_ini, GV, SDF_ini, bb_min, bb_max);
-    if (Enable_noise)
-         add_noise_near_isosurface(SDF_ini, GV, Isolevel, 0.1, 0.08, 1.5);
     //Vector3d point = GV.row(10010);
     //cout << "point index: " << find_nearest_grid(point) << endl;
     generateGaussianSDF();
@@ -641,137 +598,6 @@ bool ModelGenerator::find_edge_in_path(Edge cand_edge, vector<int> path)
     return in;
 }
 
-double ModelGenerator::generate_tube(const Eigen::Vector3d& p, const GaussianKernel& k1, const GaussianKernel& k2, double iso_level_C, double mid_radius_factor) // 中间最小半径相对端点半径的初值
-{
-    // degree n = 4 -> 5 control samples
-    const int n = 4;
-    const int sampleCount = n + 1;
-
-    Eigen::Vector3d c1 = k1.center;
-    Eigen::Vector3d c2 = k2.center;
-
-
-    Eigen::Vector3d line_dir = c2 - c1;
-    double line_length = line_dir.squaredNorm();
-
-    // 2. 计算点在连接线上的投影参数t [0,1]
-    double t_proj = (p - c1).dot(line_dir) / line_length;
-
-    // 如果投影点不在线段上，返回正值（不在管道内）
-    if (t_proj <= 0.0 || t_proj >= 1.0) {
-        //return abs(abs(t_proj - 0.5) - 0.5);
-        return 1;
-    }
-    // 将t限制在[0, 1]区间，这样空间中所有的点都会被映射到线段上最近的点
-    t_proj = std::max(0.0, std::min(1.0, t_proj));
-    Eigen::Vector3d p_proj = c1 + t_proj * line_dir; // p在轴线上的投影点
-
-    double r0 = sqrt(mid_radius_factor) * k1.sigma;
-    double r4 = sqrt(mid_radius_factor) * k2.sigma  ;
-
-    // 设置中间最小半径（按论文：由可制造性/孔大小约束设置）
-    double r2 = std::max(mid_radius_factor * std::min(r0, r4), 1e-4);
-
-    double r1 = (r0 + r2) / 2.0;
-    double r3 = (r2 + r4) / 2.0;
-
-    std::vector<double> control_radii = { r0, r1, r2, r3, r4 };
-
-    // 使用Bernstein多项式计算R(t)
-    double R_t = 0.0;
-    for (int i = 0; i <= 4; ++i) {
-        R_t += bernstein_basis(i, 4, t_proj) * control_radii[i];
-    }
-
-    // 如果目标半径非常小，则认为没有通道贡献
-    //if (R_t < 1e-6) {
-    //    return 0.0;
-    //}
-    // 3. 计算点p的隐式函数值
-// 核心思想是：函数值应该在通道表面上为C，在轴线上最大，向外围衰减。
-    double dist_to_axis = (p - p_proj).norm();
-    double energy = (dist_to_axis * dist_to_axis) / (R_t * R_t);
-    //return iso_level_C - energy;
-    return iso_level_C * (1 - std::exp(1.0 - energy));
-
-}
-
-
-double ModelGenerator::generate_tube2( Eigen::Vector3d& p,   GaussianKernel& k1,   GaussianKernel& k2, double iso_level_C, double mid_radius_factor)
-{
-    const Eigen::Vector3d& c1 = k1.center;
-    const Eigen::Vector3d& c2 = k2.center;
-
-    // 1. 计算 ω_i 和 ω_j, 这里根据sigma进行转换
-// 假设 ω = 1/(2 * sigma^2)，保持与标准高斯函数一致
-    double omega1 = 1.0 / (2.0 * k1.sigma * k1.sigma);
-    double omega2 = 1.0 / (2.0 * k2.sigma * k2.sigma);
-    double avg_omega = (omega1 + omega2) / 2.0;
-    double mu = 10* mid_radius_factor * avg_omega;  //mid_radius_factor越小，圆越小
-
-    // 2. 计算点到线段的距离（论文中的 ||p - s_ij||）
-    Eigen::Vector3d line_dir = c2 - c1;
-    double line_length = line_dir.squaredNorm();
-
-    Eigen::Vector3d w = p - c1;
-    double dis;
-    if(Enable_noise)
-    {
-        init_noise();
-        double proj = w.dot(line_dir);
-        Eigen::Vector3d p_proj;
-        if (proj <= 0.0)
-            p_proj = c1;
-        else if (proj >= line_length)
-            p_proj = c2;
-        else
-            p_proj = c1 + (proj / line_length) * line_dir;
-        // ---------- 距离向量 ----------
-        Eigen::Vector3d r = p - p_proj;
-        double r_len = r.norm();
-        // ---------- 通道噪声 ----------
-        // 通道特征尺度（近似半径）
-        double tube_radius = std::sqrt(1.0 / mu);
-
-        double freq_scale = 2.5 / tube_radius;
-        double noise_strength = 0.35 * tube_radius;
-
-        double n = g_kernel_noise.GetNoise(
-            float(p_proj.x() * freq_scale),
-            float(p_proj.y() * freq_scale),
-            float(p_proj.z() * freq_scale)
-        );
-        // 沿径向扰动距离
-        double r_perturbed = r_len + noise_strength * n; 
-        dis = r_perturbed * r_perturbed;
-    }
-    else
-    {
-        double dis_c = w.dot(line_dir);
-        if (dis_c <= 0) {
-            dis = w.squaredNorm();;
-        }
-        else if (dis_c >= line_dir.dot(line_dir)) {
-            dis = (p - c2).squaredNorm();
-        }
-        else {
-            double t_proj = dis_c / line_length;
-            Eigen::Vector3d p_proj = c1 + t_proj * line_dir; // p在轴线上的投影点
-            dis = (p - p_proj).squaredNorm();
-        }
-    }
-     // 3. 计算管道函数的第一部分：沿线段的高斯函数
-     double tunnelMain = std::exp(-mu * dis);
-
-    // 4. 计算要减去的两个孔隙函数部分
-     double pore1 = k1.gaussian_fun(p);
-     double pore2 = k2.gaussian_fun(p);
-     // 5. 组合管道函数
-     double tubeValue = tunnelMain + pore1 + pore2;
-     //cout << "tunnelMain:  " << tunnelMain << "   " << pore1 << "   " << pore2 << endl;
-     //return  tubeValue;
-     return iso_level_C - tubeValue;
-}
 
 double ModelGenerator::calculate_edge_weight(GaussianKernel k1, GaussianKernel k2)
 {
@@ -1769,6 +1595,105 @@ void ModelGenerator::optimize_mst2(int itea_max_times, int max_edge, bool iter_a
 	cout << "Finally, total iterations: " << ratio - 1<<", last delta: "<< delta_trans_score<<", optimization: "<<opt_count << ", including " << opt_add << " added and " << opt_replace << " replaced!" << endl;
 }
 
+double ModelGenerator::generate_tube(const Eigen::Vector3d& p, const GaussianKernel& k1, const GaussianKernel& k2, double iso_level_C, double mid_radius_factor) // 中间最小半径相对端点半径的初值
+{
+    // degree n = 4 -> 5 control samples
+    const int n = 4;
+    const int sampleCount = n + 1;
+
+    Eigen::Vector3d c1 = k1.center;
+    Eigen::Vector3d c2 = k2.center;
+
+
+    Eigen::Vector3d line_dir = c2 - c1;
+    double line_length = line_dir.squaredNorm();
+
+    // 2. 计算点在连接线上的投影参数t [0,1]
+    double t_proj = (p - c1).dot(line_dir) / line_length;
+
+    // 如果投影点不在线段上，返回正值（不在管道内）
+    if (t_proj <= 0.0 || t_proj >= 1.0) {
+        //return abs(abs(t_proj - 0.5) - 0.5);
+        return 1;
+    }
+    // 将t限制在[0, 1]区间，这样空间中所有的点都会被映射到线段上最近的点
+    t_proj = std::max(0.0, std::min(1.0, t_proj));
+    Eigen::Vector3d p_proj = c1 + t_proj * line_dir; // p在轴线上的投影点
+
+    double r0 = sqrt(mid_radius_factor) * k1.sigma;
+    double r4 = sqrt(mid_radius_factor) * k2.sigma;
+
+    // 设置中间最小半径（按论文：由可制造性/孔大小约束设置）
+    double r2 = std::max(mid_radius_factor * std::min(r0, r4), 1e-4);
+
+    double r1 = (r0 + r2) / 2.0;
+    double r3 = (r2 + r4) / 2.0;
+
+    std::vector<double> control_radii = { r0, r1, r2, r3, r4 };
+
+    // 使用Bernstein多项式计算R(t)
+    double R_t = 0.0;
+    for (int i = 0; i <= 4; ++i) {
+        R_t += bernstein_basis(i, 4, t_proj) * control_radii[i];
+    }
+
+    // 如果目标半径非常小，则认为没有通道贡献
+    //if (R_t < 1e-6) {
+    //    return 0.0;
+    //}
+    // 3. 计算点p的隐式函数值
+// 核心思想是：函数值应该在通道表面上为C，在轴线上最大，向外围衰减。
+    double dist_to_axis = (p - p_proj).norm();
+    double energy = (dist_to_axis * dist_to_axis) / (R_t * R_t);
+    //return iso_level_C - energy;
+    return iso_level_C * (1 - std::exp(1.0 - energy));
+
+}
+
+
+double ModelGenerator::generate_tube2(Eigen::Vector3d& p, GaussianKernel& k1, GaussianKernel& k2, double iso_level_C, double mid_radius_factor)
+{
+    const Eigen::Vector3d& c1 = k1.center;
+    const Eigen::Vector3d& c2 = k2.center;
+
+    // 1. 计算 ω_i 和 ω_j, 这里根据sigma进行转换
+// 假设 ω = 1/(2 * sigma^2)，保持与标准高斯函数一致
+    double omega1 = 1.0 / (2.0 * k1.sigma * k1.sigma);
+    double omega2 = 1.0 / (2.0 * k2.sigma * k2.sigma);
+    double avg_omega = (omega1 + omega2) / 2.0;
+    double mu = 10 * mid_radius_factor * avg_omega;  //mid_radius_factor越大，通道越细
+
+    // 2. 计算点到线段的距离（论文中的 ||p - s_ij||）
+    Eigen::Vector3d line_dir = c2 - c1;
+    double line_length = line_dir.squaredNorm();
+
+    Eigen::Vector3d w = p - c1;
+    double dis;
+    double dis_c = w.dot(line_dir);
+    if (dis_c <= 0) {
+        dis = w.squaredNorm();;
+    }
+    else if (dis_c >= line_length) {
+        dis = (p - c2).squaredNorm();
+    }
+    else {
+        double t_proj = dis_c / line_length;
+        Eigen::Vector3d p_proj = c1 + t_proj * line_dir; // p在轴线上的投影点
+        dis = (p - p_proj).squaredNorm();
+    }
+
+    // 3. 计算管道函数的第一部分：沿线段的高斯函数
+    double tunnelMain = std::exp(-mu * dis);
+
+    // 4. 计算要减去的两个孔隙函数部分
+    double pore1 = k1.gaussian_fun(p);
+    double pore2 = k2.gaussian_fun(p);
+    // 5. 组合管道函数
+    double tubeValue = tunnelMain +pore1 + pore2;
+    //cout << "tunnelMain:  " << tunnelMain << "   " << pore1 << "   " << pore2 << endl;
+    //return  tubeValue;
+    return iso_level_C - tubeValue;
+}
 
 int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double gaus_iso, double smooth_t)
 {
@@ -1778,6 +1703,7 @@ int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double
     SDF_out.resize(grid_num);
     double void_count = 0;
     double tube_radius = Tube_radius_factor;
+
     for (int idx = 0; idx < grid_num; ++idx) {
         Eigen::Vector3d p = GV.row(idx);
         //gaussian kernel
@@ -1788,27 +1714,24 @@ int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double
             sdf_p = min(sdf_p, generate_tube2(p, Kernels[e.from], Kernels[e.to], gaus_iso, tube_radius));
             //sdf_p = min(sdf_p, generate_tube(p, Kernels[e.from], Kernels[e.to], gauss_iso, tube_radius));
         }
-        //for (int kx = 0; kx < Kernels.size() - 1; kx++)
-        //{
-        //    //sdf_p = min(sdf_p, generate_tube(p, Kernels[kx], Kernels[kx + 1], gauss_combined, tube_radius));
-        //    sdf_p = min(sdf_p, generate_tube2(p, Kernels[kx], Kernels[kx + 1], gauss_iso, tube_radius));
-        //}
-      
-        SDF_gaussian_tubes(idx) = smooth_UnionSDF(SDF_gaussian(idx), sdf_p, smooth_t);
+        SDF_gaussian_tubes(idx) = smooth_UnionSDF(SDF_gaussian(idx), sdf_p, 3 * smooth_t);
+    }
 
+    if (Enable_noise)
+    {
+        double noise_amplitude = 0.1;
+        double band_width = 0.08;
+        double spatial_frequency = 1.8;
+        double noise_level_ratio = 4.5;
+        add_noise_near_isosurface(SDF_ini, GV, Isolevel, noise_amplitude, band_width, spatial_frequency);
+        //add_noise_near_isosurface(SDF_gaussian_tubes, GV, Isolevel, 0.66, 0.2, 6.3);  //200分辨率
+        //add_noise_near_isosurface(SDF_gaussian_tubes, GV, Isolevel, 0.8, 0.3, 7);  //估计300分辨率
+        add_noise_near_isosurface(SDF_gaussian_tubes, GV, Isolevel, 0.58, 0.16, 10);  //100分辨率
+    }
+
+    for (int idx = 0; idx < grid_num; ++idx) {
+        Eigen::Vector3d p = GV.row(idx);
         SDF_out(idx) = smooth_IntersecSDF(SDF_ini(idx), -SDF_gaussian_tubes(idx), smooth_t);
-
-        //// 注意：Eigen::Vector3d 的访问方式是 p.x(), p.y(), p.z()
-        //double noise_val = myPerlin.noise(p.x() * 0.5, p.y() * 0.5, p.z() * 0.5);
-        //double noise_weight = 1.0; // 权重
-
-        //// 注意：SDF通常定义为 (IsoLevel - FieldValue)，所以加在 FieldValue 上
-        //SDF_out(idx) += noise_weight * noise_val;
-
-        //SDF_out(idx) = differenceSDF(SDF_ini(idx), SDF_gaussian(idx));
-        //if (SDF_gaussian(idx) < isolevel)
-           // std::cout << "idx:  " << idx << "   SDF_ini(idx):" << SDF_ini(idx) << "   SDF_gaussian(idx):  " << SDF_gaussian(idx) <<"  SDF_out(idx) :" << SDF_out(idx) << std::endl;
-        //std::cout << SDF_out(idx) << std::endl;
         if (SDF_out(idx) < iso) {
             void_count += 1;
         }
@@ -1816,8 +1739,6 @@ int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double
     //std::cout << "成功在仿生形状内放置 " << void_centers.size() << " 个空洞点" << std::endl;
 
     // Marching Cubes
-    //if (Enable_noise);
-    //add_noise_near_isosurface(SDF_out, GV, iso, 0.1, 0.08, 1.5);
     MarchingCubes(SDF_out, GV, res, res, res, iso, V_out, F_out);   //final result
 
     std::string filename = "result/gaussian_pores" + to_string(PoresNum) + "_" + to_string(Resolution) + "_" + to_string_pre(surface_ratio) + "_" +
@@ -1827,7 +1748,7 @@ int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double
     Eigen::MatrixXd V_g; //输出网格顶点
     Eigen::MatrixXi F_g; // 输出网格面片
     MarchingCubes(SDF_gaussian, GV, res, res, res, iso, V_g, F_g);  //gaussian combined
-    view_model(V_g, F_g);
+    //view_model(V_g, F_g);
 
     MarchingCubes(SDF_gaussian_tubes, GV, res, res, res, iso, V_t, F_t);  //gaussian combined with tubes
     //view_model(V_t, F_t);

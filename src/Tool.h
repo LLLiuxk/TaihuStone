@@ -29,19 +29,19 @@ using namespace Eigen;
 static FastNoiseLite g_kernel_noise;
 static FastNoiseLite g_field_noise;
 
-static void init_noise()
-{
-    static bool initialized = false;
-    if (initialized) return;
-
-    g_kernel_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-    g_kernel_noise.SetFractalType(FastNoiseLite::FractalType_FBm);
-    g_kernel_noise.SetFractalOctaves(3);        // 低频
-    g_kernel_noise.SetFractalLacunarity(2.0f);
-    g_kernel_noise.SetFractalGain(0.5f);
-    g_kernel_noise.SetFrequency(0.8f);          // 核心参数：空间尺度
-    initialized = true;
-}
+//static void init_noise()
+//{
+//    static bool initialized = false;
+//    if (initialized) return;
+//
+//    g_kernel_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+//    g_kernel_noise.SetFractalType(FastNoiseLite::FractalType_FBm);
+//    g_kernel_noise.SetFractalOctaves(3);        // 低频
+//    g_kernel_noise.SetFractalLacunarity(2.0f);
+//    g_kernel_noise.SetFractalGain(0.5f);
+//    g_kernel_noise.SetFrequency(0.8f);          // 核心参数：空间尺度
+//    initialized = true;
+//}
 
 static void init_field_noise()
 {
@@ -135,6 +135,13 @@ void sort_min2max(std::vector<std::pair<T1, T2>>& vec)
             return a.second < b.second;
         });
 }
+
+//double add_iso_surface_noise(
+//    const Eigen::Vector3d& p,
+//    double sdf_value,
+//    double band_width,
+//    double noise_amplitude,
+//    double spatial_frequency);
 
 void add_noise_near_isosurface(
     Eigen::VectorXd& S,              // 标量场（in-place 修改）
