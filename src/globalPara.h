@@ -1,6 +1,9 @@
 #pragma on// 参数结构体
 #define NO_DEBUG false
 #include <vector>
+#include <string>
+
+extern std::string input_file;
 
 extern int Resolution;
 

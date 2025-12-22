@@ -73,8 +73,8 @@ void ModelGenerator::generateGaussianSDF()
     generate_gaussians(pore_centers, pore_sdfs, gen);
 
 	int kernel_num = Kernels.size();
+    int degree_limit = (kernel_num - 1) / max(1, (int)(kernel_num - surface_kernels.size()));
 
-    int degree_limit = (kernel_num - 1) / (kernel_num - surface_kernels.size());
     degree_limit = max(degree_limit, Min_degree);
     Tube_edges = pores_connection_mst(Kernels, degree_limit);
 
@@ -145,7 +145,8 @@ void ModelGenerator::sample_interior_points(std::vector<Eigen::Vector3d>& pore_c
     Eigen::VectorXd SDF = this->SDF_ini;
     Eigen::MatrixXd GV = this->GV;
     int grid_num = SDF.size();
-	double margin = 0.02;
+	double margin = 0.03;
+    double out_margin = 0.3 * margin;
     std::vector<int> surface_indices;
 
     // search inside points
@@ -153,7 +154,7 @@ void ModelGenerator::sample_interior_points(std::vector<Eigen::Vector3d>& pore_c
         if (SDF(idx) < Isolevel) {
             inside_indices.push_back(idx);
         }
-        if (SDF(idx) < 0.5* margin && SDF(idx) > -margin) {   //找到边界区域
+        if (SDF(idx) < out_margin && SDF(idx) > -margin) {   //找到边界区域
             surface_indices.push_back(idx);
         }
     }
@@ -190,7 +191,7 @@ void ModelGenerator::sample_interior_points(std::vector<Eigen::Vector3d>& pore_c
             chosen_idx = surface_indices[surface_dist(gen)];
         else{
             chosen_idx = inside_indices[index_dist(gen)];
-            if (SDF(chosen_idx) < 0.5 * margin && SDF(chosen_idx) > -margin)
+            if (SDF(chosen_idx) < out_margin && SDF(chosen_idx) > -margin)
                     continue;
         }
         //cout << chosen_idx << "    " << chosen_idx / (Resolution * Resolution) << "   " << base_layer + 15 << endl;
@@ -213,7 +214,7 @@ void ModelGenerator::sample_interior_points(std::vector<Eigen::Vector3d>& pore_c
             pore_centers.push_back(candidate_center);
             pore_sdfs.push_back(SDF(chosen_idx));
             all_sam_num++;
-            if (SDF(chosen_idx) < 0.5 * margin && SDF(chosen_idx) > -margin)
+            if (SDF(chosen_idx) < out_margin && SDF(chosen_idx) > -margin)
                 surface_p++;
             if(debug_show)
                 cout << "pore_sdfs: " << SDF(chosen_idx) << endl;
@@ -1741,7 +1742,10 @@ int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double
     // Marching Cubes
     MarchingCubes(SDF_out, GV, res, res, res, iso, V_out, F_out);   //final result
 
-    std::string filename = "result/gaussian_pores" + to_string(PoresNum) + "_" + to_string(Resolution) + "_" + to_string_pre(surface_ratio) + "_" +
+    std::string filename = "result/gaussian_pores";
+    if (optimize_debug)
+        filename += "_opt_";
+    filename = filename + to_string(PoresNum) + "_" + to_string(Resolution) + "_" + to_string_pre(surface_ratio) + "_" +
         to_string_pre(Trans_thres)+"_" + to_string_pre(Weights[0]) + "_"+ to_string_pre(KT_weights[0])+"_"+to_string_pre(finalTranslucency, 3)+".stl";
     saveMesh(filename, V_out, F_out);
 

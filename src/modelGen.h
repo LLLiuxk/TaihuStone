@@ -21,7 +21,7 @@ public:
 
 public:
     Eigen::Vector3d center; // 核的中心位置
-    double sigma;         // 核的大小/影响力范围 (高斯函数的标准差)
+    double sigma;         // 核的大小/影响力范围 (高斯函数的标准差), sigma越大值越大，等值面的圆越大
     double amplitude;
     double center_value;
     bool on_surface;
