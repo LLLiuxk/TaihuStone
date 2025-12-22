@@ -1,6 +1,6 @@
 #include "globalPara.h" 
 
-std::string input_file = "D:/VSprojects/TaihuStone/model/RockSetCr.stl";
+std::string input_file = "high_rock";
 int Resolution = 100;
 
 std::vector<double> Weights = { 0.8, 1.0, 1.2 };  //mst ·ÖÀàÏµÊıÈ¨ÖØ£º±ß½ç-ÄÚ²¿£¬ÄÚ²¿-ÄÚ²¿£¬±ß½ç-±ß½ç
@@ -8,24 +8,25 @@ std::vector<double> KT_weights = { 0.7, 0.1, 0.1, 0.1 };  //kernel translucencyÈ
 double Isolevel = 0;
 double Gauss_level = 0.5;
 
-int PoresNum = 200;
+int PoresNum = 150;
 double surface_ratio = 0.5; //±íÃæºËÕ¼±È
 
 int Min_degree = 4;
 
 double Amplitude_min = 1.0;
 double Amplitude_max = 1.0;
-double Sigma_min = 0.025;
-double Sigma_max = 0.045;
+double Sigma_min = 0.02;
+double Sigma_max = 0.035;
 //250: 0.02, 0.04
 //150~200: 0.025, 0.045
 // 100: 0.033, 0.05
-
+//120pores 0.02 0.037 0.58 0.38 A
+// 100 2 4 0.68 0.4 high_rock
 //¾­Ñé¹«Ê½£ºsigma_max = (0.016/n)^(1/3)
 
 double SmoothT = 15;    //¿ØÖÆÆ½»¬²¼¶ûµÄÆ½»¬ÇøÓò´óĞ¡, Ô½´ó£¬Æ½»¬Ğ§¹ûÔ½Ğ¡£¬Ç÷½üÓÚÆÕÍ¨²¢¼¯
 double Tube_radius_factor = 0.6; // ¿ØÖÆ¹ÜµÀ°ë¾¶Ïà¶ÔÓÚ¸ßË¹ºË°ë¾¶µÄ±ÈÀı, mid_radius_factorÔ½´ó£¬Í¨µÀÔ½Ï¸
-double Safe_distance_ratio = 0.4;
+double Safe_distance_ratio = 0.38;
 
 double Trans_thres = 0.8;  //kernel translucency threshold 
 double Adj_dis_thres = 0.25;
@@ -35,5 +36,5 @@ bool standard_show = false;
 
 bool Direct_dis = false;
 
-bool optimize_debug = true;
+bool optimize_debug = false;
 bool Enable_noise = false;

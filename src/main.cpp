@@ -17,7 +17,7 @@ int main(int argc, char* argv[])
 {
     auto start_time = std::chrono::high_resolution_clock::now();
 
-    //std::string input_file = "D:/VSprojects/TaihuStone/model/RockSet03r.stl";
+    std::string input_path = "D:/VSprojects/TaihuStone/model/" + input_file + ".stl";
     //std::string input_file = "D:/VSprojects/TaihuStone/model/test_case.stl";
 	//Vector3d p(0.4, 0.2, -0.32);
  //   Vector3d p2(0.4, 0.2, 0.3);
@@ -29,7 +29,7 @@ int main(int argc, char* argv[])
  //   double noise_weight2 = 1.0; // ШЈжи
  //   cout << noise_val * noise_weight << "   "<< noise_val2 * noise_weight2 <<"   p3: "<<p3<<endl;
 
-    ModelGenerator mg(input_file);
+    ModelGenerator mg(input_path);
     mg.show_model();
 
 

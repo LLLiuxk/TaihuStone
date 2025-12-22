@@ -1742,10 +1742,10 @@ int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double
     // Marching Cubes
     MarchingCubes(SDF_out, GV, res, res, res, iso, V_out, F_out);   //final result
 
-    std::string filename = "result/gaussian_pores";
+    std::string filename = "result/porous_" + input_file;
     if (optimize_debug)
-        filename += "_opt_";
-    filename = filename + to_string(PoresNum) + "_" + to_string(Resolution) + "_" + to_string_pre(surface_ratio) + "_" +
+        filename += "_opt";
+    filename = filename + "_" + to_string(PoresNum) + "_" + to_string(Resolution) + "_" + to_string_pre(surface_ratio) + "_" +
         to_string_pre(Trans_thres)+"_" + to_string_pre(Weights[0]) + "_"+ to_string_pre(KT_weights[0])+"_"+to_string_pre(finalTranslucency, 3)+".stl";
     saveMesh(filename, V_out, F_out);
 
