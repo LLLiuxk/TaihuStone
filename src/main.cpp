@@ -30,7 +30,15 @@ int main(int argc, char* argv[])
  //   cout << noise_val * noise_weight << "   "<< noise_val2 * noise_weight2 <<"   p3: "<<p3<<endl;
 
     ModelGenerator mg(input_path);
-    mg.show_model();
+    //mg.show_model();
+  //  vector<int> Poresnum = { 100,150,200,250 };
+  //  for (int i = 0; i < Poresnum.size(); i++)
+  //  {
+		//PoresNum = Poresnum[i];
+  //      ModelGenerator mg(input_path);
+  //      //mg.show_model();
+  //  }
+    
 
 
     //----------test---------------

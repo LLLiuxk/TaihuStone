@@ -828,3 +828,11 @@ void add_noise_near_isosurface(
         S(i) += noise_amplitude * w * n;
     }
 }
+
+
+//cal sigma
+double sigma_value(double v, double n, double w, double iso)
+{
+    double k = 4.0 / 3 * M_PI * pow(-2 * log(iso), 1.5);
+    return cbrt(v / (k * n * w));
+}

@@ -151,3 +151,6 @@ void add_noise_near_isosurface(
     double band_width,                 // 等值面带宽
     double spatial_frequency           // 噪声空间频率
 );
+
+//cal sigma
+double sigma_value(double v, double n, double w, double iso);

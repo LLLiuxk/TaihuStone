@@ -132,6 +132,14 @@ void ModelGenerator::generateGaussianSDF()
     // 存储最终的孔隙率
     finalPorosity = porosity;
 
+    //out file
+    std::string filename = "result/porous_" + input_file;
+    if (optimize_debug)
+        filename += "_opt";
+    filename = filename + "_" + to_string(PoresNum) + "_" + to_string(Resolution) + "_" + to_string_pre(surface_ratio) + "_" +
+        to_string_pre(Trans_thres) + "_" + to_string_pre(Weights[0]) + "_" + to_string_pre(KT_weights[0]) + "_" +
+        to_string_pre(sigma_min, 3) + "_" + to_string_pre(sigma_max, 3) + "_" + to_string_pre(finalTranslucency, 3) + "_"+ to_string_pre(finalPorosity*100.0)+"%.stl";
+    saveMesh(filename, V_out, F_out);
 	// ------------check single component--------------
     //int comp = single_component(V_g, F_g);
   
@@ -171,7 +179,7 @@ void ModelGenerator::sample_interior_points(std::vector<Eigen::Vector3d>& pore_c
     std::uniform_int_distribution<int> surface_dist(0, surface_indices.size() - 1);
 
     int attempts = 0;
-    const int max_attempts = pores * 50;
+    int max_attempts = pores * 50;
     double suf_ratio = surface_ratio;
 	int surface_sam = pores * suf_ratio;
     int surface_p = 0;
@@ -180,11 +188,18 @@ void ModelGenerator::sample_interior_points(std::vector<Eigen::Vector3d>& pore_c
     Eigen::Vector3d max_pt = GV.colwise().maxCoeff();
     Eigen::Vector3d box_size = max_pt - min_pt;
     double volume = box_size.x() * box_size.y() * box_size.z();
-    safe_distance = Safe_distance_ratio * std::cbrt(volume / pores);
+    double safe_unit = std::cbrt(volume / pores);
+    safe_distance = Safe_distance_ratio * safe_unit;
     int base_layer = find_nearest_grid(bb_min) / 10000;
 
     while (all_sam_num < pores && attempts < max_attempts) {
         attempts++;
+        if (attempts > max_attempts - 2) //逼近界限，安全距离缩减，提升20次上限
+        {
+            Safe_distance_ratio = Safe_distance_ratio - 0.01;
+            safe_distance = Safe_distance_ratio * safe_unit; 
+            max_attempts = max_attempts + 50;
+        }
         // 随机选择一个内部点，保存其sdf值
         int chosen_idx = -1;
         if(surface_p< surface_sam)
@@ -221,13 +236,23 @@ void ModelGenerator::sample_interior_points(std::vector<Eigen::Vector3d>& pore_c
         }
     }
 
-    std::cout << "Generate " << pore_centers.size() << " kernels   " << all_sam_num<<"  "<< surface_p << std::endl;
+    std::cout << "Generate " << pore_centers.size() << " kernels   " << all_sam_num<<" , include "<< surface_p <<" sp with safe_dis: "<< Safe_distance_ratio << std::endl;
 }
 
 void ModelGenerator::generate_gaussians(std::vector<Eigen::Vector3d> pore_centers, std::vector<double> pore_sdfs, std::mt19937& gen)
 {
     Kernels.clear();
     surface_kernels.clear();
+    bool dynamic_change_para = true;
+    if(dynamic_change_para)
+    {
+        double bbx_v = abs((bb_max.x() - bb_min.x()) * (bb_max.y() - bb_min.y()) * (bb_max.z() - bb_min.z()));
+        double w4max = 7.0, w4min = 42.0;
+        sigma_min = sigma_value(bbx_v, pore_num, w4min, Gauss_level);
+        sigma_max = sigma_value(bbx_v, pore_num, w4max, Gauss_level);
+        cout << "sigma_min: " << sigma_min << "   sigma_max: " << sigma_max << endl;
+    }
+    
     std::uniform_real_distribution<double> dist_amp(amplitude_min, amplitude_max);
     std::uniform_real_distribution<double> dist_sigma(sigma_min, sigma_max);
 
@@ -1237,8 +1262,8 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
         while(kernel_translucency[i] < thres_tran && opt_count < opt_times_once && opt_count_total< opt_times_once * kernels_num)
         {
             opt_count++;
-            std::cout << "===========================================================" << endl <<
-                "Kernel " << i << " with translucency: " << kernel_translucency[i] << " < " << thres_tran << endl;
+            //std::cout << "===========================================================" << endl <<
+            //    "Kernel " << i << " with translucency: " << kernel_translucency[i] << " < " << thres_tran << endl;
 
             if (add_end && replace_end)
             {
@@ -1261,8 +1286,7 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
                     std::vector<int> path1, path2;
                     pair<double, double> delta_score = add_edges(cand_edge, Adj_list, path1, path2);
                     double score_add = (delta_score.first + delta_score.second) / cand_edge.length;  //单位路径增加的通透性
-                    if(debug)
-						cout << "===============Adding edge from " << i << " to " << candidate_p << "  can increase score by : " << score_add <<" = ("<< delta_score.first <<" + " <<delta_score.second <<") / "<< cand_edge.length<<"============" << endl;
+                  
                     if (delta_score.first > max_delta_score && delta_score.second > -1e-9)
                     {
                         max_delta_score = delta_score.first;
@@ -1290,11 +1314,11 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
                     curr_edge_num++;
                     opt_count_total++;
                     num_add++;
-                    cout <<"Add edge from " << i << " to " << chosen_cand << "  increasing Kernel "<<i<<" 's score to "<< kernel_translucency[i] <<"  by: "<< delta_score_max_pair.first <<endl<<"Edge length: "<< chosen_e.length<<"   new edge num : " << curr_edge_num << endl << endl;
+                    //cout <<"Add edge from " << i << " to " << chosen_cand << "  increasing Kernel "<<i<<" 's score to "<< kernel_translucency[i] <<"  by: "<< delta_score_max_pair.first <<endl<<"Edge length: "<< chosen_e.length<<"   new edge num : " << curr_edge_num << endl << endl;
                 }
                 else
                 {
-                    cout << "No useful candidate edge to add!" << endl;
+                    //cout << "No useful candidate edge to add!" << endl;
                     add_end = true;
                 }
             }
@@ -1346,7 +1370,7 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
                         //cout << "Optimization Kernel "<<i << ": Edge "<< replace_e <<"("<< Tube_edges[replace_e].from<<", "<< Tube_edges[replace_e].to<<") with usage count : " << sorted_e.second <<" will be replaced ... " << endl;
                         if (Adj_list[i].size() < 2) //虽然替换，但是只有一条连接边，无法替换
                         {
-                            cout << "improve the edge limitation" << endl;
+                            //cout << "improve the edge limitation" << endl;
                             edge_max_num++;
                             break; //提升上限，跳出循环
                         }
@@ -1354,7 +1378,7 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
                         {
                             opt_count_total++;
 							num_replace++;
-                            cout << "The num of " << num_replace << " edges have beed repalced!" << endl << endl;
+                            //cout << "The num of " << num_replace << " edges have beed repalced!" << endl << endl;
                             rep_get = true;
                             break; //成功替换，跳出循环
 						}
@@ -1365,11 +1389,11 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
             }
         }
         if(opt_count >=  opt_times_once)
-            cout << "-------------------------------- Reach one edge's limitation! -------------------------------- " << endl
-            <<"In optimization iteration of kernel " <<i<<": "<< num_add << " edges added and "<<num_replace<<" edges replaced!" << endl;;
+            //cout << "-------------------------------- Reach one edge's limitation! -------------------------------- " << endl
+            //<<"In optimization iteration of kernel " <<i<<": "<< num_add << " edges added and "<<num_replace<<" edges replaced!" << endl;;
         if (opt_count_total >= opt_times_once * kernels_num)
         {
-            cout << "--------------------------------  Reach the total optimization limitation! -------------------------------- " << endl;
+            //cout << "--------------------------------  Reach the total optimization limitation! -------------------------------- " << endl;
             break;
         }
             
@@ -1742,13 +1766,6 @@ int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double
     // Marching Cubes
     MarchingCubes(SDF_out, GV, res, res, res, iso, V_out, F_out);   //final result
 
-    std::string filename = "result/porous_" + input_file;
-    if (optimize_debug)
-        filename += "_opt";
-    filename = filename + "_" + to_string(PoresNum) + "_" + to_string(Resolution) + "_" + to_string_pre(surface_ratio) + "_" +
-        to_string_pre(Trans_thres)+"_" + to_string_pre(Weights[0]) + "_"+ to_string_pre(KT_weights[0])+"_"+to_string_pre(finalTranslucency, 3)+".stl";
-    saveMesh(filename, V_out, F_out);
-
     Eigen::MatrixXd V_g; //输出网格顶点
     Eigen::MatrixXi F_g; // 输出网格面片
     MarchingCubes(SDF_gaussian, GV, res, res, res, iso, V_g, F_g);  //gaussian combined
@@ -1761,7 +1778,15 @@ int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double
 
     VoxelGrid grids = SDFtoVoxel(SDF_out, bb_min, bb_max, res, res, res);
     SupportCheckResult scr = checkSupportVoxel(grids, 0.5);
-    
+
+    std::vector<uint8_t> voxel_grid(res * res * res, 0);
+
+    for (int i = 0; i < (int)SDF_out.size(); ++i) {
+        voxel_grid[i] = (SDF_out(i) < Isolevel) ? 1 : 0;
+    }
+    std::string npy_filename = "D:/VSprojects/TaihuStone/model/npy/voxelized_model_" + std::to_string(res) + "x" + std::to_string(res) + "x" + std::to_string(res) + ".npy";
+    saveVoxelGridAsNPY(voxel_grid, res, npy_filename);
+
     std::cout << "Generated mesh: " << V_out.rows() << " vertices, " << F_out.rows() << " faces" << std::endl;
 
     return void_count;
