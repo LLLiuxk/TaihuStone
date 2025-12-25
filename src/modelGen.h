@@ -9,23 +9,55 @@
 
 
 // 定义高斯核的数据结构
+//class GaussianKernel {
+//
+//public:
+//    GaussianKernel() : center(Eigen::Vector3d::Zero()), sigma(0.1), amplitude(1.0) , center_value(0.0), on_surface(false){}
+//    /*GaussianKernel() {};*/
+//    GaussianKernel(Eigen::Vector3d cente_, double sigma_, double amplitude_, double center_value_ = 0.0);
+//	
+//    double gaussian_fun(const Eigen::Vector3d& p);
+//    bool is_on_surface() const;
+//
+//public:
+//    Eigen::Vector3d center; // 核的中心位置
+//    double sigma;         // 核的大小/影响力范围 (高斯函数的标准差), sigma越大值越大，等值面的圆越大
+//    double amplitude;
+//    double center_value;
+//    bool on_surface;
+//
+//};
+
+
 class GaussianKernel {
 
 public:
-    GaussianKernel() : center(Eigen::Vector3d::Zero()), sigma(0.1), amplitude(1.0) , center_value(0.0), on_surface(false){}
-    /*GaussianKernel() {};*/
-    GaussianKernel(Eigen::Vector3d cente_, double sigma_, double amplitude_, double center_value_ = 0.0);
-	
-    double gaussian_fun(const Eigen::Vector3d& p);
+    GaussianKernel();
+
+    GaussianKernel(
+        const Eigen::Vector3d& center_,
+        double sigma_parallel_,              // 沿主轴（建造方向）
+        double sigma_perp_,                  // 垂直主轴
+        const Eigen::Matrix3d& rotation_,    // 主轴方向
+        double amplitude_,
+        double center_value_ = 0.0
+    );
+
+    double gaussian_fun(const Eigen::Vector3d& p) const;
     bool is_on_surface() const;
 
 public:
-    Eigen::Vector3d center; // 核的中心位置
-    double sigma;         // 核的大小/影响力范围 (高斯函数的标准差), sigma越大值越大，等值面的圆越大
+    Eigen::Vector3d center;
+
+    double sigma_parallel;   // σ∥
+    double sigma_perp;       // σ⊥
+
+    Eigen::Matrix3d R;       // 局部 → 世界 旋转矩阵
+    Eigen::Matrix3d invSigma; // Σ^{-1}
+
     double amplitude;
     double center_value;
     bool on_surface;
-
 };
 
 struct Edge {

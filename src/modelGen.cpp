@@ -1,28 +1,73 @@
 ﻿#include "modelGen.h"
 
-GaussianKernel::GaussianKernel(Eigen::Vector3d center_, double sigma_, double amplitude_, double center_value_)
+//GaussianKernel::GaussianKernel(Eigen::Vector3d center_, double sigma_, double amplitude_, double center_value_)
+//{
+//    center = center_;
+//    sigma = sigma_;         // 核的大小/影响力范围 (高斯函数的标准差)
+//    amplitude = amplitude_;
+//    center_value = center_value_;
+//    on_surface = is_on_surface();  //true: on surface
+//}
+//
+//double GaussianKernel::gaussian_fun(const Eigen::Vector3d& p)
+//{
+//    // ---------- 原始高斯值 ----------
+//    double d2 = (p - center).squaredNorm();
+//    double G = amplitude * std::exp(-d2 / (2.0 * sigma * sigma));
+//    return G;
+//}
+//
+//bool GaussianKernel::is_on_surface() const
+//{
+//    double ratio = Gauss_level / amplitude;
+//    double d_value = sqrt(-2.0 * sigma * sigma * std::log(ratio));
+//    //cout << d_value + 1e-3 << "   " << abs(center_value) << endl;
+//    return d_value + 1e-3 > abs(center_value);
+//}
+
+GaussianKernel::GaussianKernel(
+    const Eigen::Vector3d& center_,
+    double sigma_parallel_,
+    double sigma_perp_,
+    const Eigen::Matrix3d& rotation_,
+    double amplitude_,
+    double center_value_
+)
 {
     center = center_;
-    sigma = sigma_;         // 核的大小/影响力范围 (高斯函数的标准差)
+    sigma_parallel = sigma_parallel_;
+    sigma_perp = sigma_perp_;
+    R = rotation_;
     amplitude = amplitude_;
     center_value = center_value_;
-    on_surface = is_on_surface();  //true: on surface
+    on_surface = is_on_surface();
+
+    // 局部坐标下的 Σ^{-1}
+    Eigen::Matrix3d Dinv = Eigen::Matrix3d::Zero();
+    Dinv(0, 0) = 1.0 / (sigma_perp * sigma_perp);
+    Dinv(1, 1) = 1.0 / (sigma_perp * sigma_perp);
+    Dinv(2, 2) = 1.0 / (sigma_parallel * sigma_parallel);
+    //R = Eigen::Matrix3d::Identity(); //暂时只沿建造方向拉长
+
+    // 世界坐标下的 Σ^{-1} = R * D^{-1} * R^T
+    invSigma = R * Dinv * R.transpose();
 }
 
-double GaussianKernel::gaussian_fun(const Eigen::Vector3d& p)
+double GaussianKernel::gaussian_fun(const Eigen::Vector3d& p) const
 {
-    // ---------- 原始高斯值 ----------
-    double d2 = (p - center).squaredNorm();
-    double G = amplitude * std::exp(-d2 / (2.0 * sigma * sigma));
-    return G;
+    Eigen::Vector3d d = p - center;
+    double quad = d.transpose() * invSigma * d;
+    return amplitude * std::exp(-0.5 * quad);
 }
 
 bool GaussianKernel::is_on_surface() const
 {
     double ratio = Gauss_level / amplitude;
-    double d_value = sqrt(-2.0 * sigma * sigma * std::log(ratio));
-    //cout << d_value + 1e-3 << "   " << abs(center_value) << endl;
-    return d_value + 1e-3 > abs(center_value);
+    double d_factor = std::sqrt(-2.0 * std::log(ratio));
+    // 对各向异性椭球，取最大轴作为判断
+    double d_max = d_factor * std::max(sigma_parallel, sigma_perp);
+
+    return d_max + 1e-3 > abs(center_value);
 }
 
 ModelGenerator::ModelGenerator(std::string input_file, int pores)
@@ -71,7 +116,7 @@ void ModelGenerator::generateGaussianSDF()
     //for (int i = 0; i < pore_centers.size(); i++)   std::cout << "i: " << i << "  " << pore_centers[i] << std::endl;
 
     generate_gaussians(pore_centers, pore_sdfs, gen);
-
+    /*
 	int kernel_num = Kernels.size();
     int degree_limit = (kernel_num - 1) / max(1, (int)(kernel_num - surface_kernels.size()));
 
@@ -119,6 +164,7 @@ void ModelGenerator::generateGaussianSDF()
         }
     }
     finalTranslucency = new_trans_score;
+    */
     
 
     std::cout << "--------------------5. Generate tubes between kernels based on optimized mst --------------------" << endl;
@@ -241,10 +287,46 @@ void ModelGenerator::sample_interior_points(std::vector<Eigen::Vector3d>& pore_c
 
 void ModelGenerator::generate_gaussians(std::vector<Eigen::Vector3d> pore_centers, std::vector<double> pore_sdfs, std::mt19937& gen)
 {
+    //Kernels.clear();
+    //surface_kernels.clear();
+    //bool dynamic_change_para = true;
+    //if(dynamic_change_para)
+    //{
+    //    double bbx_v = abs((bb_max.x() - bb_min.x()) * (bb_max.y() - bb_min.y()) * (bb_max.z() - bb_min.z()));
+    //    double w4max = 7.0, w4min = 42.0;
+    //    sigma_min = sigma_value(bbx_v, pore_num, w4min, Gauss_level);
+    //    sigma_max = sigma_value(bbx_v, pore_num, w4max, Gauss_level);
+    //    cout << "sigma_min: " << sigma_min << "   sigma_max: " << sigma_max << endl;
+    //}
+    //
+    //std::uniform_real_distribution<double> dist_amp(amplitude_min, amplitude_max);
+    //std::uniform_real_distribution<double> dist_sigma(sigma_min, sigma_max);
+
+    //// 为每个空洞中心生成随机参数
+    //int pore_size = pore_centers.size();
+    //for (size_t i = 0; i < pore_size; ++i) {
+    //    double sigma_val = dist_sigma(gen);
+    //    double amplitude_val = dist_amp(gen);
+    //    //std::cout << "i: " << i << "  " << sigma_val<<"  "<<amplitude_val << std::endl;
+    //    GaussianKernel kernel(pore_centers[i], sigma_val, amplitude_val, pore_sdfs[i]);
+    //    Kernels.push_back(kernel);
+    //    if (kernel.on_surface) surface_kernels.push_back(i);
+    //    /*pore_amplitudes.push_back(dist_amp(gen));
+    //    pore_sigmas.push_back(dist_sigma(gen));*/
+    //}
+
+    //std::cout << "--------------------1. Sample and generate gaussian kernels--------------------" << endl<<
+    //    "Combine " << Kernels.size() << " Gaussian fileds with " << surface_kernels.size() << " kernels on the surface" << std::endl;
+    //if(standard_show)
+    //{
+    //    std::cout << "surface index:  ";
+    //    for (auto i : surface_kernels) std::cout << i << "  ";
+    //    std::cout << endl;
+    //}
     Kernels.clear();
     surface_kernels.clear();
     bool dynamic_change_para = true;
-    if(dynamic_change_para)
+    if (dynamic_change_para)
     {
         double bbx_v = abs((bb_max.x() - bb_min.x()) * (bb_max.y() - bb_min.y()) * (bb_max.z() - bb_min.z()));
         double w4max = 7.0, w4min = 42.0;
@@ -252,7 +334,7 @@ void ModelGenerator::generate_gaussians(std::vector<Eigen::Vector3d> pore_center
         sigma_max = sigma_value(bbx_v, pore_num, w4max, Gauss_level);
         cout << "sigma_min: " << sigma_min << "   sigma_max: " << sigma_max << endl;
     }
-    
+
     std::uniform_real_distribution<double> dist_amp(amplitude_min, amplitude_max);
     std::uniform_real_distribution<double> dist_sigma(sigma_min, sigma_max);
 
@@ -262,16 +344,16 @@ void ModelGenerator::generate_gaussians(std::vector<Eigen::Vector3d> pore_center
         double sigma_val = dist_sigma(gen);
         double amplitude_val = dist_amp(gen);
         //std::cout << "i: " << i << "  " << sigma_val<<"  "<<amplitude_val << std::endl;
-        GaussianKernel kernel(pore_centers[i], sigma_val, amplitude_val, pore_sdfs[i]);
+        GaussianKernel kernel(pore_centers[i], sigma_val * 1.5, sigma_val, Eigen::Matrix3d::Identity(), amplitude_val, pore_sdfs[i]);
         Kernels.push_back(kernel);
         if (kernel.on_surface) surface_kernels.push_back(i);
         /*pore_amplitudes.push_back(dist_amp(gen));
         pore_sigmas.push_back(dist_sigma(gen));*/
     }
 
-    std::cout << "--------------------1. Sample and generate gaussian kernels--------------------" << endl<<
+    std::cout << "--------------------1. Sample and generate gaussian kernels--------------------" << endl <<
         "Combine " << Kernels.size() << " Gaussian fileds with " << surface_kernels.size() << " kernels on the surface" << std::endl;
-    if(standard_show)
+    if (standard_show)
     {
         std::cout << "surface index:  ";
         for (auto i : surface_kernels) std::cout << i << "  ";
@@ -1645,8 +1727,10 @@ double ModelGenerator::generate_tube(const Eigen::Vector3d& p, const GaussianKer
     t_proj = std::max(0.0, std::min(1.0, t_proj));
     Eigen::Vector3d p_proj = c1 + t_proj * line_dir; // p在轴线上的投影点
 
-    double r0 = sqrt(mid_radius_factor) * k1.sigma;
-    double r4 = sqrt(mid_radius_factor) * k2.sigma;
+    //double r0 = sqrt(mid_radius_factor) * k1.sigma;
+    //double r4 = sqrt(mid_radius_factor) * k2.sigma;
+    double r0 = sqrt(mid_radius_factor) * k1.sigma_perp;
+    double r4 = sqrt(mid_radius_factor) * k2.sigma_perp;
 
     // 设置中间最小半径（按论文：由可制造性/孔大小约束设置）
     double r2 = std::max(mid_radius_factor * std::min(r0, r4), 1e-4);
@@ -1683,8 +1767,10 @@ double ModelGenerator::generate_tube2(Eigen::Vector3d& p, GaussianKernel& k1, Ga
 
     // 1. 计算 ω_i 和 ω_j, 这里根据sigma进行转换
 // 假设 ω = 1/(2 * sigma^2)，保持与标准高斯函数一致
-    double omega1 = 1.0 / (2.0 * k1.sigma * k1.sigma);
-    double omega2 = 1.0 / (2.0 * k2.sigma * k2.sigma);
+    //double omega1 = 1.0 / (2.0 * k1.sigma * k1.sigma);
+    //double omega2 = 1.0 / (2.0 * k2.sigma * k2.sigma);
+    double omega1 = 1.0 / (2.0 * k1.sigma_parallel * k1.sigma_perp);
+    double omega2 = 1.0 / (2.0 * k2.sigma_parallel * k2.sigma_perp);
     double avg_omega = (omega1 + omega2) / 2.0;
     double mu = 10 * mid_radius_factor * avg_omega;  //mid_radius_factor越大，通道越细
 
@@ -1769,7 +1855,7 @@ int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double
     Eigen::MatrixXd V_g; //输出网格顶点
     Eigen::MatrixXi F_g; // 输出网格面片
     MarchingCubes(SDF_gaussian, GV, res, res, res, iso, V_g, F_g);  //gaussian combined
-    //view_model(V_g, F_g);
+    view_model(V_g, F_g);
 
     MarchingCubes(SDF_gaussian_tubes, GV, res, res, res, iso, V_t, F_t);  //gaussian combined with tubes
     //view_model(V_t, F_t);
