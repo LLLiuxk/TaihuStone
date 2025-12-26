@@ -1,6 +1,6 @@
 #include "selfSupVoxel.h"
 
-SupportCheckResult checkSupportVoxel(const VoxelGrid& grid, double densityThreshold)
+SupportCheckResult checkSupportVoxel(VoxelGrid& grid, double densityThreshold)
 {
     SupportCheckResult result = { true, 0, 0.0};
 
@@ -9,12 +9,19 @@ SupportCheckResult checkSupportVoxel(const VoxelGrid& grid, double densityThresh
 
     // 2. 遍历网格
     // 注意：k 从 0 开始遍历。k=0 的层我们也视为实体，但它贴在底板上，默认是被支撑的。
-    
+    std::vector<bool> supported(grid.nx * grid.ny * grid.nz, false);
 	int base_layer = findBaseLayer(grid, densityThreshold);
+   // for (int j = 0; j < grid.ny; ++j) {
+   //     for (int i = 0; i < grid.nx; ++i) {
+			//int idx = grid.index(i, j, base_layer);
+   //         supported[idx] = true;
+   //     }
+   // }
+
     for (int k = base_layer; k < grid.nz; ++k) {
         for (int j = 0; j < grid.ny; ++j) {
             for (int i = 0; i < grid.nx; ++i) {
-
+                int idx = grid.index(i, j, k);
                 double val = grid.rho[grid.index(i, j, k)];
 
                 // 如果当前格子是空的，跳过
@@ -23,30 +30,39 @@ SupportCheckResult checkSupportVoxel(const VoxelGrid& grid, double densityThresh
                 totalSolidVoxels++;
 
                 // 如果是底层 (k=0)，默认由打印平台支撑，不需要额外支撑
-                if (k == base_layer) continue;
+                if (k == base_layer) 
+                {
+                    supported[idx] = true;
+                    continue;
+                }
 
                 // 3. 检查下方支撑 (k-1 层)， 检查 3x3 邻域 (模拟 45 度悬垂角)
-                bool isSupported = false;
 
                 // 遍历下方 3x3 区域
                 for (int dy = -1; dy <= 1; ++dy) {
                     for (int dx = -1; dx <= 1; ++dx) {
                         // 获取下方体素的密度
                         double belowVal = grid.getSafe(i + dx, j + dy, k - 1);
-                        if (belowVal >= densityThreshold) {
-                            isSupported = true;
+                        if (belowVal >= densityThreshold) { // && supported[grid.index(i + dx, j + dy, k - 1)]
+                            supported[idx] = true;
                             goto check_done; // 只要找到一个支撑点，就跳出内层循环
                         }
                     }
                 }
             check_done:;
-                if (!isSupported) {
+                if (!supported[idx]) {
                     result.unsupportedVoxelCount++;
+                    //grid.at(i, j, k) = 0.0;
                 }
             }
         }
     }
+    int usnum = 0;
+    for(auto p: supported)
+        if(p)
+            usnum++;
 
+	std::cout << "unsupport num: " << totalSolidVoxels - usnum << "   " << result.unsupportedVoxelCount << std::endl;
     // 5. 计算统计数据
     //double vVol = grid.voxelVolume();
     //result.totalVolume = totalSolidVoxels * vVol;

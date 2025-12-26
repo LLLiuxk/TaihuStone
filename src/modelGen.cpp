@@ -77,8 +77,12 @@ ModelGenerator::ModelGenerator(std::string input_file, int pores)
         return;
     }
     pore_num = pores;
+}
+
+void ModelGenerator::model_porous_structure()
+{
     //std::cout << "Model A loaded successfully." << std::endl;
-    Mesh2SDF(V_ini, F_ini, GV, SDF_ini, bb_min, bb_max);
+    scale_factor = Mesh2SDF(V_ini, F_ini, GV, SDF_ini, bb_min, bb_max);
     //Vector3d point = GV.row(10010);
     //cout << "point index: " << find_nearest_grid(point) << endl;
     generateGaussianSDF();
@@ -92,7 +96,6 @@ ModelGenerator::ModelGenerator(std::string input_file, int pores)
     //std::string npy_filename = "D:/VSprojects/TaihuStone/model/npy/voxelized_model_out.npy";
     //saveVoxelGridAsNPY(voxel_grid, Resolution, npy_filename);
 }
-
 
 void ModelGenerator::generateGaussianSDF()
 {
@@ -1870,12 +1873,57 @@ int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double
     for (int i = 0; i < (int)SDF_out.size(); ++i) {
         voxel_grid[i] = (SDF_out(i) < Isolevel) ? 1 : 0;
     }
-    std::string npy_filename = "D:/VSprojects/TaihuStone/model/npy/voxelized_model_" + std::to_string(res) + "x" + std::to_string(res) + "x" + std::to_string(res) + ".npy";
-    saveVoxelGridAsNPY(voxel_grid, res, npy_filename);
+    std::string npy_filename = "D:/VSprojects/TaihuStone/model/npy/" + input_file + "_voxelized_model_" + std::to_string(res) + "x" + std::to_string(res) + "x" + std::to_string(res) + ".npy";
+    saveVoxelGridAsNPY(grids.rho, res, npy_filename);
+
+    Eigen::MatrixXd V2;
+    Eigen::MatrixXi F2;
+
+    Eigen::VectorXd scalar(res * res * res);
+
+    for (int i = 0; i < res * res * res; ++i) {
+        scalar(i) = static_cast<double>(voxel_grid[i]);
+    }
+
+    igl::marching_cubes(scalar, GV, res, res, res, iso, V2, F2);
+
+    // 导出 STL
+    igl::write_triangle_mesh("result.stl", V2, F2);
 
     std::cout << "Generated mesh: " << V_out.rows() << " vertices, " << F_out.rows() << " faces" << std::endl;
 
     return void_count;
+}
+
+void ModelGenerator::test_item()
+{
+    //std::cout << "Model A loaded successfully." << std::endl;
+    Eigen::MatrixXd V2;
+    Eigen::MatrixXi F2;
+    scale_factor = Mesh2SDF(V_ini, F_ini, GV, SDF_ini, bb_min, bb_max);
+    int res = Resolution;
+
+
+    VoxelGrid grids = SDFtoVoxel(SDF_ini, bb_min, bb_max, res, res, res);
+    SupportCheckResult scr = checkSupportVoxel(grids, 0.5);
+    
+    /*std::string npy_filename = "D:/VSprojects/TaihuStone/model/npy/"+ input_file+ "_voxelized_model_" + std::to_string(res) + "x" + std::to_string(res) + "x" + std::to_string(res) + ".npy";
+    saveVoxelGridAsNPY(grids.rho, res, npy_filename);*/
+    
+    Eigen::VectorXd scalar(res * res * res);
+
+    for (int i = 0; i < res * res * res; ++i) {
+        //scalar(i) = -static_cast<double>(voxel_grid[i]);
+        scalar(i) = -grids.rho[i];
+    }
+
+    igl::marching_cubes(scalar, GV, res, res, res, -0.5, V2, F2);
+    V2 = V2 / scale_factor;
+    view_model(V2, F2);
+
+    igl::write_triangle_mesh("result_change.stl", V2, F2);
+
+
 }
 
 

@@ -44,6 +44,6 @@ struct SupportCheckResult {
     double unsupportedRatio;        // Ðü´¹±ÈÀý
 };
 
-SupportCheckResult checkSupportVoxel(const VoxelGrid& grid, double densityThreshold = 0.5); 
+SupportCheckResult checkSupportVoxel(VoxelGrid& grid, double densityThreshold = 0.5); 
 
 int findBaseLayer(const VoxelGrid& grid, double densityThreshold);

@@ -57,7 +57,7 @@ static void init_field_noise()
     initialized = true;
 }
 
-void Mesh2SDF(Eigen::MatrixXd& V, Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Eigen::VectorXd& S, Eigen::Vector3d& bb_min, Eigen::Vector3d& bb_max);
+double Mesh2SDF(Eigen::MatrixXd& V, Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Eigen::VectorXd& S, Eigen::Vector3d& bb_min, Eigen::Vector3d& bb_max);
 bool saveMesh(std::string filename, Eigen::MatrixXd V, Eigen::MatrixXi F);
 
 // SDF平滑并集。k越大，平滑效果越小，趋近于普通并集
@@ -116,7 +116,7 @@ void saveVoxelToRaw(std::string filename, VoxelGrid& grid);
 
 void saveVoxelToVTK(std::string filename, VoxelGrid& grid);
 
-void saveVoxelGridAsNPY(std::vector<uint8_t>& voxel_grid, int res, std::string& filename);
+void saveVoxelGridAsNPY(std::vector<double>& voxel_grid, int res, std::string& filename);
 
 void writeAdjacencyListToFile(const std::vector<std::vector<int>>& adjList, const std::string& filename);
 

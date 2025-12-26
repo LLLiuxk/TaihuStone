@@ -99,6 +99,7 @@ public:
     ModelGenerator() {};
     ModelGenerator(std::string input_file, int pores = PoresNum);
 
+    void model_porous_structure();
 	void generateGaussianSDF();
 
     void sample_interior_points(std::vector<Eigen::Vector3d>& pore_centers, std::vector<double>& pore_sdfs, 
@@ -153,6 +154,7 @@ public:
     double generate_tube2(Eigen::Vector3d& p, GaussianKernel& k1, GaussianKernel& k2, double iso_level_C, double mid_radius_factor = 0.5);
     int generate_mst_tubes(int grid_num, int res, double iso, double gaus_iso, double smooth_t);
 
+    void test_item();
 private:
 
 	int pore_num = PoresNum;			   // ¿Õ¶´ÊýÁ¿
@@ -179,6 +181,7 @@ private:
     double amplitude_max = Amplitude_max;
     double sigma_min = Sigma_min;
     double sigma_max = Sigma_max;
+    double scale_factor = 0;
 
     std::vector<GaussianKernel> Kernels;
     std::vector<int> surface_kernels;

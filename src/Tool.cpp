@@ -3,11 +3,11 @@
 
 
 
-void Mesh2SDF(Eigen::MatrixXd& V,  Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Eigen::VectorXd& SDF, Eigen::Vector3d& bb_min, Eigen::Vector3d& bb_max)
+double Mesh2SDF(Eigen::MatrixXd& V,  Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Eigen::VectorXd& SDF, Eigen::Vector3d& bb_min, Eigen::Vector3d& bb_max)
 {
     if (V.rows() == 0 || F.rows() == 0 ) {
         std::cerr << " Input failed! Wrong mesh!" << std::endl;
-        return;
+        return 0.0;
     }
 
     Eigen::VectorXi I;  // 最近面索引
@@ -59,7 +59,7 @@ void Mesh2SDF(Eigen::MatrixXd& V,  Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Eige
     // 调用 libigl 的 signed_distance()
 
     igl::signed_distance( GV, V, F, igl::SIGNED_DISTANCE_TYPE_FAST_WINDING_NUMBER, SDF, I, C, N );
-
+    return scale_factor;
     //Eigen::MatrixXd V_t; //输出网格顶点
     //Eigen::MatrixXi F_t; // 输出网格面片
     //MarchingCubes(SDF, GV, res, res, res, 0, V_t, F_t);  //gaussian combined with tubes
@@ -651,14 +651,13 @@ void saveVoxelToVTK(std::string filename, VoxelGrid& grid)
 }
 
 // 保存体素网格为NPY格式
-void saveVoxelGridAsNPY(std::vector<uint8_t>& voxel_grid, int res, std::string& filename) 
+void saveVoxelGridAsNPY(std::vector<double>& voxel_grid, int res, std::string& filename) 
 {
     std::ofstream file(filename, std::ios::binary);
     if (!file.is_open()) {
         std::cerr << "无法创建NPY文件: " << filename << std::endl;
         return;
     }
-
     // NPY文件头格式
     // Magic number (6 bytes): \x93NUMPY
     file.write("\x93NUMPY", 6);
@@ -666,7 +665,7 @@ void saveVoxelGridAsNPY(std::vector<uint8_t>& voxel_grid, int res, std::string& 
     file.write("\x01\x00", 2);
 
     // Header dictionary
-    std::string dtype = "'|u1'";  // uint8
+    std::string dtype = "'<f8'";     // 修改为：小端双精度浮点数
     std::string fortran_order = "False";
     std::string shape = "(" + std::to_string(res) + ", " + std::to_string(res) + ", " + std::to_string(res) + ")";
 
@@ -678,14 +677,15 @@ void saveVoxelGridAsNPY(std::vector<uint8_t>& voxel_grid, int res, std::string& 
     }
     header_dict += "\n";
 
+
     // Header length (2 bytes, little endian)
-    uint16_t header_len = static_cast<uint16_t>(header_dict.length());
+    int16_t header_len = static_cast<uint16_t>(header_dict.length());
     file.write(reinterpret_cast<const char*>(&header_len), 2);
 
     // Header dictionary
     file.write(header_dict.c_str(), header_dict.length());
 
-    std::vector<uint8_t> voxel_grid_reordered;
+    std::vector<double> voxel_grid_reordered;
     for (int z = 0; z < res; ++z) {
         for (int y = 0; y < res; ++y) {
             for (int x = 0; x < res; ++x) {
@@ -697,7 +697,7 @@ void saveVoxelGridAsNPY(std::vector<uint8_t>& voxel_grid, int res, std::string& 
     }
 
     // Data (按照x,y,z顺序存储)
-    file.write(reinterpret_cast<const char*>(voxel_grid_reordered.data()), voxel_grid_reordered.size());
+    file.write(reinterpret_cast<const char*>(voxel_grid_reordered.data()), voxel_grid_reordered.size() * sizeof(double)); 
 
     file.close();
     std::cout << "NPY文件保存成功: " << filename << " (大小: " << res << "x" << res << "x" << res << ")" << std::endl;
