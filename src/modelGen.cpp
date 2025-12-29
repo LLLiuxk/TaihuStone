@@ -119,13 +119,16 @@ void ModelGenerator::generateGaussianSDF()
     //for (int i = 0; i < pore_centers.size(); i++)   std::cout << "i: " << i << "  " << pore_centers[i] << std::endl;
 
     generate_gaussians(pore_centers, pore_sdfs, gen);
-    /*
+    
 	int kernel_num = Kernels.size();
     int degree_limit = (kernel_num - 1) / max(1, (int)(kernel_num - surface_kernels.size()));
 
     degree_limit = max(degree_limit, Min_degree);
     Tube_edges = pores_connection_mst(Kernels, degree_limit);
 
+	std::vector<pair<int, int>> edge_connections;
+	for (auto e : Tube_edges) edge_connections.push_back(make_pair(e.from, e.to));
+    vis_Kernels_Tubes(pore_centers, edge_connections);
 	// 构建邻接表
     Adj_list = construct_adj_list(Tube_edges, kernel_num);
     Unused_adj_list = get_unused_edge_adj(Adj_list, Adj_dis_thres);
@@ -133,7 +136,7 @@ void ModelGenerator::generateGaussianSDF()
     vector<int> inner_leafs = check_inner_leafs(leafs_index);
     
 	//---------calculate total translucency score------------------------------
-    std::cout << "--------------------3. Calculating total translucency of mst --------------------" << endl;
+   /* std::cout << "--------------------3. Calculating total translucency of mst --------------------" << endl;
     finalTranslucency = cal_total_translucency(Kernels, Adj_list);
 	int ori_edge_num = Tube_edges.size();
     std::cout << "Before optimization, total score: " << finalTranslucency << " with "<< ori_edge_num <<" edges."<<endl;
@@ -166,13 +169,19 @@ void ModelGenerator::generateGaussianSDF()
             edge_max += edge_max * 0.1;
         }
     }
-    finalTranslucency = new_trans_score;
-    */
+    finalTranslucency = new_trans_score; */
+    
     
 
     std::cout << "--------------------5. Generate tubes between kernels based on optimized mst --------------------" << endl;
     //-----------------generate tubes------------------------------------------
     double void_count = generate_mst_tubes(grid_num, resolution, Isolevel, Gauss_level, SmoothT);
+
+    VoxelGrid grids = SDFtoVoxel(SDF_out, bb_min, bb_max, resolution, resolution, resolution);
+    //SupportCheckResult scr = checkSupportVoxel(grids, 0.5);
+
+    std::string npy_filename = "D:/VSprojects/TaihuStone/model/npy/"+ input_file+ "_voxelized_model_" + std::to_string(resolution) + "x" + std::to_string(resolution) + "x" + std::to_string(resolution) + ".npy";
+    saveVoxelGridAsNPY(grids.rho, resolution, npy_filename);
 
     // 计算孔隙率
     double porosity = 1.0 - void_count / model_count;
@@ -347,7 +356,8 @@ void ModelGenerator::generate_gaussians(std::vector<Eigen::Vector3d> pore_center
         double sigma_val = dist_sigma(gen);
         double amplitude_val = dist_amp(gen);
         //std::cout << "i: " << i << "  " << sigma_val<<"  "<<amplitude_val << std::endl;
-        GaussianKernel kernel(pore_centers[i], sigma_val * 1.5, sigma_val, Eigen::Matrix3d::Identity(), amplitude_val, pore_sdfs[i]);
+        //GaussianKernel kernel(pore_centers[i], sigma_val * 1.5, sigma_val, Eigen::Matrix3d::Identity(), amplitude_val, pore_sdfs[i]);
+        GaussianKernel kernel(pore_centers[i], sigma_val, sigma_val, Eigen::Matrix3d::Identity(), amplitude_val, pore_sdfs[i]);
         Kernels.push_back(kernel);
         if (kernel.on_surface) surface_kernels.push_back(i);
         /*pore_amplitudes.push_back(dist_amp(gen));
@@ -1864,31 +1874,6 @@ int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double
     //view_model(V_t, F_t);
 
     //view_three_models(V_out, F_out, V_t, F_t, V_t, F_t, Eigen::RowVector3d(1, 0, 0));
-
-    VoxelGrid grids = SDFtoVoxel(SDF_out, bb_min, bb_max, res, res, res);
-    SupportCheckResult scr = checkSupportVoxel(grids, 0.5);
-
-    std::vector<uint8_t> voxel_grid(res * res * res, 0);
-
-    for (int i = 0; i < (int)SDF_out.size(); ++i) {
-        voxel_grid[i] = (SDF_out(i) < Isolevel) ? 1 : 0;
-    }
-    std::string npy_filename = "D:/VSprojects/TaihuStone/model/npy/" + input_file + "_voxelized_model_" + std::to_string(res) + "x" + std::to_string(res) + "x" + std::to_string(res) + ".npy";
-    saveVoxelGridAsNPY(grids.rho, res, npy_filename);
-
-    Eigen::MatrixXd V2;
-    Eigen::MatrixXi F2;
-
-    Eigen::VectorXd scalar(res * res * res);
-
-    for (int i = 0; i < res * res * res; ++i) {
-        scalar(i) = static_cast<double>(voxel_grid[i]);
-    }
-
-    igl::marching_cubes(scalar, GV, res, res, res, iso, V2, F2);
-
-    // 导出 STL
-    igl::write_triangle_mesh("result.stl", V2, F2);
 
     std::cout << "Generated mesh: " << V_out.rows() << " vertices, " << F_out.rows() << " faces" << std::endl;
 

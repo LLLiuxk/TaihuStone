@@ -19,10 +19,16 @@ int main(int argc, char* argv[])
 
     std::string input_path = "D:/VSprojects/TaihuStone/model/" + input_file + ".stl";
     
+ //   std::vector<Eigen::Vector3d> pore_centers = { Eigen::Vector3d(2,2,2), Eigen::Vector3d(4,3,2), Eigen::Vector3d(5,5,5) };
+	//std::vector<pair<int, int>> edge_connections = { {0,1}, {1,2}, {0,2} };
+ //   vis_Kernels_Tubes(pore_centers, edge_connections);
+
+
     ModelGenerator mg(input_path);
-    mg.test_item();
-    // mg.model_porous_structure();
-    //mg.show_model();
+    //mg.test_item();
+    mg.model_porous_structure();
+    mg.show_model();
+    
   //  vector<int> Poresnum = { 100,150,200,250 };
   //  for (int i = 0; i < Poresnum.size(); i++)
   //  {

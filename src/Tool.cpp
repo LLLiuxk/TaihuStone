@@ -425,6 +425,49 @@ void show_path(std::vector<int> path)
     cout << endl;
 }
 
+void vis_Kernels_Tubes(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections)
+{
+
+    igl::opengl::glfw::Viewer viewer;
+	viewer.core().background_color.setConstant(1.0f); // White background
+    double pointRadius = 1.0;
+    RowVector3d red(1.0, 0.0, 0.0);
+    RowVector3d lineColor(0.0, 1.0, 0.0);
+    bool showMesh = false;
+    //Eigen::Vector3d lineColor, double lineWidth
+    //viewer.core().background_color.setZero();
+    // ---------- 网格显示 ----------
+    //viewer.core().is_animating = false;
+    //viewer.data().show_lines = true;
+    //viewer.data().show_faces = false;
+    // Set background color (white or transparent)
+   
+    Eigen::MatrixXd P(points.size(), 3);
+    for (int i = 0; i < points.size(); ++i)
+        P.row(i) = points[i].transpose();
+
+    viewer.data().add_points(P, red);
+
+    viewer.data().point_size = 12.0;
+
+    // Draw lines based on the connections
+    Eigen::MatrixXd P1(connections.size(), 3);
+    Eigen::MatrixXd P2(connections.size(), 3);
+    for (int i = 0; i < connections.size(); ++i) {
+        P1.row(i) = points[connections[i].first].transpose();
+        P2.row(i) = points[connections[i].second].transpose();
+    }
+    viewer.data().add_edges(P1, P2, lineColor);
+    viewer.data().line_width = 3.0;
+    // Set the radius of the spheres
+    //viewer.data().point_size = pointRadius * 10;  // Scale the size for better visibility
+
+    //// Set line width
+    //viewer.data().line_width = lineWidth;
+
+    // Launch the viewer
+    viewer.launch();
+}
 
 
 void geometry_analyzer(Eigen::VectorXd SDF, int resolution, double thres_degree, int &overhang_count, int& floating_count, std::vector<uint8_t> &overhang_mask, std::vector<uint8_t> &floating_mask)
@@ -594,15 +637,15 @@ VoxelGrid SDFtoVoxel(Eigen::VectorXd& sdf, Eigen::Vector3d minBox, Eigen::Vector
     grid.rho.resize(nx * ny * nz);
 
     int neg_num = 0;
-    
+    double eps = 0.2;
     for (int k = 0; k < nz; ++k)
         for (int j = 0; j < ny; ++j)
             for (int i = 0; i < nx; ++i)
             {
 				int index = i + j * nx + k * nx * ny;
                 double phi = sdf(index);   // 你的 SDF 查询
-                //double rho = smoothHeaviside(phi, eps);
-                double rho = hardTrans(phi, 0.0);
+                double rho = smoothHeaviside(phi, eps);
+                //double rho = hardTrans(phi, 0.0);
                 if (rho > 0.9) neg_num++;
                 grid.at(i, j, k) = rho;
             }

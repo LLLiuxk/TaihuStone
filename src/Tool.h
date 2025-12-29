@@ -20,6 +20,7 @@
 #include "globalPara.h" 
 #include "selfSupVoxel.h"
 
+
 #define M_PI 3.1415926
 #define INF std::numeric_limits<double>::infinity()
 using namespace std;
@@ -97,6 +98,10 @@ bool align_models_with_pca(const std::string& model1_path, const std::string& mo
 
 //show_result 
 void show_path(std::vector<int> path);
+
+
+void vis_Kernels_Tubes(std::vector<Eigen::Vector3d>& points, 
+    std::vector<pair<int, int>>& connections);
 
 //kinds of check
 void geometry_analyzer(Eigen::VectorXd SDF, int resolution, double thres_degree, int& overhang_count, int& floating_count, std::vector<uint8_t>& overhang_mask, std::vector<uint8_t>& floating_mask);
