@@ -136,7 +136,7 @@ void ModelGenerator::generateGaussianSDF()
     vector<int> inner_leafs = check_inner_leafs(leafs_index);
     
 	//---------calculate total translucency score------------------------------
-   /* std::cout << "--------------------3. Calculating total translucency of mst --------------------" << endl;
+    std::cout << "--------------------3. Calculating total translucency of mst --------------------" << endl;
     finalTranslucency = cal_total_translucency(Kernels, Adj_list);
 	int ori_edge_num = Tube_edges.size();
     std::cout << "Before optimization, total score: " << finalTranslucency << " with "<< ori_edge_num <<" edges."<<endl;
@@ -169,8 +169,10 @@ void ModelGenerator::generateGaussianSDF()
             edge_max += edge_max * 0.1;
         }
     }
-    finalTranslucency = new_trans_score; */
-    
+    finalTranslucency = new_trans_score; 
+    std::vector<pair<int, int>> edge_conn_new;
+    for (auto e : Tube_edges) edge_conn_new.push_back(make_pair(e.from, e.to));
+    vis_Kernels_Tubes(pore_centers, edge_conn_new);
     
 
     std::cout << "--------------------5. Generate tubes between kernels based on optimized mst --------------------" << endl;
@@ -397,27 +399,37 @@ void ModelGenerator::show_model()
 {
     std::cout << "show libigl viewer" << std::endl;
     igl::opengl::glfw::Viewer viewer;
+    viewer.core().background_color.setConstant(1.0f); // White background
     Eigen::RowVector3d shift(1, 0, 0);
 
     viewer.data().set_mesh(V_out, F_out);
+    //viewer.data().show_lines = false;   // 不显示网格线
     viewer.data().show_lines = true;   // 不显示网格线
+    viewer.data().show_faces = false;   // 不显示三角面
+    viewer.data().set_colors(Eigen::RowVector3d(0.8, 0.8, 0.8));
+    viewer.data().shininess = 500.0;
     //viewer.data().set_colors(Eigen::RowVector3d(0.8, 0.7, 0.2)); // 设置一个漂亮的蓝色
 
     int id2 = viewer.append_mesh();
     Eigen::MatrixXd V_shifted = V_out;
     V_shifted.rowwise() -= shift;
+    viewer.data(id2).show_faces = false;   // 不显示三角面
     viewer.data(id2).set_mesh(V_shifted, F_out);
+    viewer.data(id2).shininess = 500.0;
+    viewer.data(id2).set_colors(Eigen::RowVector3d(0.8, 0.8, 0.8));
 
     int id3 = viewer.append_mesh();
     viewer.data(id3).set_mesh(V_t, F_t);
-    viewer.data(id3).set_colors(Eigen::RowVector3d(0.8, 0.1, 0.1));
-
+    //viewer.data(id3).set_colors(Eigen::RowVector3d(0.4, 0.4, 0.2));
+    viewer.data(id3).show_lines = false;   // 不显示网格线
+    viewer.data(id3).shininess = 500.0;
     Eigen::MatrixXd V_shifted3 = V_t;
     V_shifted3.rowwise() += shift;  // 向右移动 1 个单位
 
     int id4 = viewer.append_mesh();
     viewer.data(id4).set_mesh(V_shifted3, F_t);
-    viewer.data(id4).set_colors(Eigen::RowVector3d(0.8, 0.8, 0.8));
+    viewer.data(id4).show_lines = false;   // 不显示网格线
+    viewer.data(id4).shininess = 500.0;
     // 添加辅助点 (高斯核的中心)，设置为红色
 
     viewer.data().point_size = 10; // 让点更显眼

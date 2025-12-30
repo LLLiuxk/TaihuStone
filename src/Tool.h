@@ -7,6 +7,8 @@
 #include <igl/write_triangle_mesh.h>
 #include <igl/voxel_grid.h>
 #include <igl/opengl/glfw/Viewer.h>
+#include <igl/icosahedron.h>
+#include <igl/loop.h>
 
 #include <filesystem>
 #include <Eigen/Core>

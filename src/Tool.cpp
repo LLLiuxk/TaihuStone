@@ -123,14 +123,14 @@ void view_model(Eigen::MatrixXd V1, Eigen::MatrixXi F1)
     std::cout << "show libigl viewer" << std::endl;
     igl::opengl::glfw::Viewer viewer;
     //viewer.core().set_uicontrol(false);
-
+    viewer.core().background_color.setConstant(1.0f); // White background
     viewer.callback_key_pressed = [](igl::opengl::glfw::Viewer&, unsigned int, int)->bool
         {
             return true; // 阻止默认 key handler 执行，usage 不会打印
         };
 
     viewer.data().set_mesh(V1, F1);
-    viewer.data().show_lines = true;   // 不显示网格线
+    viewer.data().show_lines = false;   // 不显示网格线
     //viewer.data().set_colors(Eigen::RowVector3d(0.8, 0.7, 0.2)); // 设置一个漂亮的蓝色
 
     viewer.data().point_size = 10; // 让点更显眼
@@ -141,12 +141,10 @@ void view_two_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V2,
 {
     std::cout << "show libigl viewer" << std::endl;
     igl::opengl::glfw::Viewer viewer;
-    viewer.callback_key_pressed = [](igl::opengl::glfw::Viewer&, unsigned int, int)->bool
-        {
-            return true; // 阻止默认 key handler 执行，usage 不会打印
-        };
+    viewer.core().background_color.setConstant(1.0f); // White background
+
     viewer.data().set_mesh(V1, F1);
-    viewer.data().show_lines = true;   // 不显示网格线
+    viewer.data().show_lines = false;   // 不显示网格线
     //viewer.data().set_colors(Eigen::RowVector3d(0.8, 0.7, 0.2)); // 设置一个漂亮的蓝色
 
     int id2 = viewer.append_mesh();
@@ -166,8 +164,10 @@ void view_three_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V
 {
     std::cout << "show libigl viewer" << std::endl;
     igl::opengl::glfw::Viewer viewer;
+    viewer.core().background_color.setConstant(1.0f); // White background
+
     viewer.data().set_mesh(V1, F1);
-    viewer.data().show_lines = true;   // 不显示网格线
+    viewer.data().show_lines = false;   // 不显示网格线
     //viewer.data().set_colors(Eigen::RowVector3d(0.8, 0.7, 0.2)); // 设置一个漂亮的蓝色
 
     int id2 = viewer.append_mesh();
@@ -427,28 +427,59 @@ void show_path(std::vector<int> path)
 
 void vis_Kernels_Tubes(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections)
 {
-
+    const double sphereRadius = 0.01;
+    const double lineWidth = 5;
+    const int  sphereSubdiv = 3;
+    vector<RowVector3d> colors = { RowVector3d(0.90, 0.62, 0.0), //orange
+        RowVector3d(0.95, 0.7, 0.30), //light orange
+        RowVector3d(0.0, 0.44, 0.70),  //blue
+        RowVector3d(0.14, 0.24, 0.52),  //drak blue
+        RowVector3d(0.8, 0.33, 0.20),  //muted red
+        RowVector3d(0.8, 0.1, 0.1),  //red
+        RowVector3d(0.0, 0.44, 0.70),  // dark gray
+        RowVector3d(0.0, 0.62, 0.45),  //drak green
+        RowVector3d(0.8, 0.47, 0.65), //pink red
+        RowVector3d(0.84, 0.37, 0.0), //brick red
+        RowVector3d(0.94, 0.89, 0.26)  //yellow
+    };
+    // ---- Color palette ----
+    const RowVector3d sphereColor = colors[5]; // muted red
+    const RowVector3d lineColor= colors[1]; // dark gray
+    //const RowVector3d sphereColor(0.75, 0.33, 0.20); // muted red
+    //const RowVector3d lineColor(0.20, 0.20, 0.20); // dark gray
     igl::opengl::glfw::Viewer viewer;
 	viewer.core().background_color.setConstant(1.0f); // White background
-    double pointRadius = 1.0;
-    RowVector3d red(1.0, 0.0, 0.0);
-    RowVector3d lineColor(0.0, 1.0, 0.0);
-    bool showMesh = false;
-    //Eigen::Vector3d lineColor, double lineWidth
-    //viewer.core().background_color.setZero();
-    // ---------- 网格显示 ----------
-    //viewer.core().is_animating = false;
-    //viewer.data().show_lines = true;
-    //viewer.data().show_faces = false;
-    // Set background color (white or transparent)
-   
-    Eigen::MatrixXd P(points.size(), 3);
-    for (int i = 0; i < points.size(); ++i)
-        P.row(i) = points[i].transpose();
 
-    viewer.data().add_points(P, red);
+    MatrixXd V_unit;
+    MatrixXi F_unit;
+    igl::icosahedron(V_unit, F_unit);
+    for (int i = 0; i < sphereSubdiv; ++i)
+        igl::loop(V_unit, F_unit, V_unit, F_unit);
 
-    viewer.data().point_size = 12.0;
+    for (int i = 0; i < V_unit.rows(); ++i)
+        V_unit.row(i).normalize(); // project to unit sphere
+    V_unit *= sphereRadius;
+
+    int Nv = V_unit.rows();
+    int Nf = F_unit.rows();
+    int Np = points.size();
+    MatrixXd V_all(Np * Nv, 3);
+    MatrixXi F_all(Np * Nf, 3);
+
+    for (int i = 0; i < Np; ++i)
+    {
+        V_all.block(i * Nv, 0, Nv, 3) =
+            V_unit.rowwise() + points[i].transpose();
+
+        F_all.block(i * Nf, 0, 
+            Nf, 3) =
+            F_unit.array() + i * Nv;
+    }
+
+    viewer.data().set_mesh(V_all, F_all);
+    viewer.data().set_colors(sphereColor);
+    viewer.data().show_lines = false;
+    viewer.data().shininess = 200.0;
 
     // Draw lines based on the connections
     Eigen::MatrixXd P1(connections.size(), 3);
@@ -458,12 +489,9 @@ void vis_Kernels_Tubes(std::vector<Eigen::Vector3d>& points, std::vector<pair<in
         P2.row(i) = points[connections[i].second].transpose();
     }
     viewer.data().add_edges(P1, P2, lineColor);
-    viewer.data().line_width = 3.0;
-    // Set the radius of the spheres
-    //viewer.data().point_size = pointRadius * 10;  // Scale the size for better visibility
 
-    //// Set line width
-    //viewer.data().line_width = lineWidth;
+    // Set line width
+    viewer.data().line_width = lineWidth;
 
     // Launch the viewer
     viewer.launch();
