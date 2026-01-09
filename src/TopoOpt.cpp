@@ -1,191 +1,494 @@
-ï»¿#include "GeometryCorrector.h"
+#include "TopoOpt.h"
 
-double Match_weight = 200.0;
+void initTShape() {
 
-double R_min = 8.0;
+    int nx_logical = 40;
+    int ny_logical = 20;
+    int padding = 1;
+    int nx = nx_logical + 2 * padding;
+    int ny = ny_logical + 2 * padding;
 
-double Vol_weight = 0.1;
+    std::vector<double> rho;
+    int size = nx * ny;
+    rho.resize(size, 0.0);
+    //for (int y = ny - padding; y < ny; ++y) {
+    //    for (int x = 0; x < nx; ++x) {
+    //        if (x >= 0 && x < nx && y >= 0 && y < ny) {
+    //            rho[y * nx + x] = 1.0;
+    //        }
+    //    }
+    //}
 
-double Overhang_weight = 20.0;
+    int mid_x = nx_logical / 2;
+    int beam_width = nx_logical / 5;
+    int top_height = ny_logical / 5;
 
-double Vol_frac = 0.45;
+    for (int j = 0; j < ny_logical + padding; ++j) {
+        for (int i = 0; i < nx_logical; ++i) {
+            // Âß¼­×ø±ê×ªÎïÀí×ø±ê
+            int phys_x = i + padding;
+            int phys_y = j + padding;
 
-double Max_beta = 24.0;
+            bool is_vertical_post = (i >= mid_x - beam_width / 2 && i < mid_x + beam_width / 2) && (j >= top_height);
+            bool is_horizontal_bar = (j < top_height);
 
-int main() {
-    // 1. åˆå§‹åŒ–å‚æ•°
-    double init_learning_rate = 0.05;
-    int logical_w = 40; // ç½‘æ ¼å®½åº¦
-    int logical_h = 20; // ç½‘æ ¼é«˜åº¦
-    double r_min = R_min; // æ»¤æ³¢åŠå¾„
-    int padding = 1;    // è®¾ç½®å¡«å……
-    //double vol_frac = 0.5; // ç›®æ ‡ä½“ç§¯æ¯” 40%
-
-    GeometryCorrector solver(logical_w, logical_h, padding, r_min);
-    //GeometryCorrector solver(nx, ny, r_min);
-    std::vector<double>& x = solver.getDesignVariables();
-    //std::vector<double> target_mask = solver.initTShape(nx, ny, x);
-    //solver.initializeTestShape();
-    solver.initTShape();
-    solver.printTopology(); // æ‰“å°å½“å‰æ‹“æ‰‘
-    std::cout << "Starting Topology Optimization with Overhang Constraints..." << std::endl;
-
-    // 2. ä¼˜åŒ–ä¸»å¾ªç¯
-    int max_iter = 20000;
-    double learning_rate = 0.05; // å­¦ä¹ ç‡
-
-    std::vector<double> x_old = solver.getDesignVariables();
-    double change_tolerance = 0.002; // æ”¶æ•›å®¹å·® (0.5% çš„å˜åŒ–)
-
-    for (int iter = 0; iter < max_iter; ++iter) {
-        // A. ç‰©ç†åœºè®¡ç®—
-        solver.applyFilter();
-        solver.applyProjection();
-
-        // B. ç›®æ ‡å‡½æ•° (éå¯¹ç§°ä¿çœŸ)
-        double obj = solver.computeObjectiveAndGradient();
-
-        // C. æ‚¬å‚çº¦æŸ (å¼ºåŠ›é©±åŠ¨)
-        // ä½¿ç”¨è¾ƒå¤§çš„æƒé‡æ¥é©±åŠ¨ç”Ÿé•¿
-        double base_overhang = Overhang_weight;
-        double overhang_weight = base_overhang + (iter / 50.0) * 5.0;
-        if (overhang_weight > 100.0) overhang_weight = 100.0;
-
-        //double overhang_weight = Overhang_weight;
-        solver.applyOverhangConstraint(overhang_weight);
-
-        // D. é“¾å¼æ³•åˆ™
-        solver.applyChainRule();
-
-        // E. --- å…³é”®ï¼šé‡ç½® Padding çš„æ¢¯åº¦ ---
-        // ä¿è¯è¾¹ç•Œæ¡ä»¶ä¸è¢«ç ´å
-        solver.resetBoundarySensitivities();
-
-        std::vector<double>& x = solver.getDesignVariables();
-        const std::vector<double>& final_sens = solver.getSensitivities();
-        x_old = x;
-        // F. æ›´æ–°è®¾è®¡å˜é‡ (æ¢¯åº¦ä¸‹é™)
-        //gradientDescentUpdate(x, final_sens, learning_rate);
-        
-        // F. æ›´æ–°è®¾è®¡å˜é‡ (ä½¿ç”¨å½“å‰çš„ current_lr)
-                // --- åŠ¨æ€è°ƒæ•´å­¦ä¹ ç‡ ---
-        // ç­–ç•¥ï¼šéšç€è¿­ä»£è¿›è¡Œï¼ŒæŒ‡æ•°çº§é™ä½å­¦ä¹ ç‡
-        // æ•ˆæœï¼šå‰æœŸ (iter < 500) æ­¥å­å¤§ï¼Œå¿«é€Ÿå˜å½¢ï¼›åæœŸ (iter > 1000) æ­¥å­æå…¶ç»†ç¢ï¼Œç”¨äºå¾®è°ƒ
-        double current_lr = init_learning_rate * std::exp(-0.002 * iter);
-
-        // è®¾ç½®ä¸€ä¸ªä¸‹é™ï¼Œé˜²æ­¢å®Œå…¨ä¸åŠ¨
-        if (current_lr < 0.002) current_lr = 0.002;
-
-        gradientDescentUpdate(x, final_sens, current_lr); // <--- æ³¨æ„è¿™é‡Œä¼ å…¥ current_lr
-        solver.imposeSymmetry();
-        
-        // G. Beta å»¶æ‹“
-        if (iter > 0 && iter % 20 == 0) {
-            solver.increaseBeta();
-            std::cout << "Iter " << iter << ": Obj=" << obj << " (Beta updated)" << std::endl;
-            solver.printTopology();
+            if (is_vertical_post || is_horizontal_bar) {
+                rho[phys_y * nx + phys_x] = 1.0;
+            }
         }
-        else if (iter % 10 == 0) {
-            std::cout << "Iter " << iter << ": Obj=" << obj << std::endl;
-            //solver.printTopology();
-        }
-
-        double max_change = 0.0;
-        for (size_t i = 0; i < x.size(); ++i) {
-            double diff = std::abs(x[i] - x_old[i]);
-            if (diff > max_change) max_change = diff;
-        }
-        if (iter % 10 == 0) {
-            std::cout << "Iter " << iter << ": Max Change = " << max_change << std::endl;
-        }
-
-        // å¦‚æœå˜åŒ–æå…¶å¾®å°ï¼Œä¸”å·²ç»è¿­ä»£äº†ä¸€å®šæ¬¡æ•°ï¼ˆé˜²æ­¢åˆæœŸå‡æ”¶æ•›ï¼‰ï¼Œåˆ™åœæ­¢
-        if (max_change < change_tolerance && iter > 100) {
-            std::cout << ">>> CONVERGED at iter " << iter << "! Max change < " << change_tolerance << std::endl;
-            break; // é€€å‡ºå¾ªç¯
-        }
-        // --- æ–°å¢ï¼šStep G - å¼ºåˆ¶ä½“ç§¯ä¿®æ­£ (Hard Limit) ---
-        //double current_vol = 0.0;
-        //for (double val : x) current_vol += val;
-        //double current_frac = current_vol / (solver.nx * solver.ny);
-
-        //// å¦‚æœä½“ç§¯è¶…æ ‡ï¼Œå¼ºåˆ¶å…¨å±€æ‰£é™¤ä¸€ä¸ªå€¼ (Global Shift)
-        //if (current_frac > Vol_frac) {
-        //    // ç®€å•çš„æ¯”ä¾‹æ§åˆ¶ç®—æ³•ï¼šè¶…å¾—è¶Šå¤šï¼Œæ‰£å¾—è¶Šç‹ 
-        //    // è¿™é‡Œçš„ 0.5 æ˜¯ä¸€ä¸ªä¿®æ­£é€Ÿç‡ç³»æ•°
-        //    double shift = (current_frac - Vol_frac) * 0.5;
-
-        //    std::cout << "Vol violation: " << current_frac << " -> shifting by " << shift << std::endl;
-
-        //    for (double& val : x) {
-        //        val -= shift;
-        //        if (val < 0.0) val = 0.0; // å†æ¬¡æˆªæ–­
-        //        // æ³¨æ„ï¼šè¿™é‡Œä¸éœ€è¦æ£€æŸ¥ >1.0ï¼Œå› ä¸ºæˆ‘ä»¬æ˜¯å¾€ä¸‹å‡
-        //    }
-        //}
     }
 
-    std::cout << "Optimization Finished." << std::endl;
-    solver.printTopology();
+    std::cout << "Initialized test shape (T)." << std::endl;
 
-    return 0;
+    cv::Mat topology_img(ny, nx, CV_8UC1);
 
+    for (int i = 0; i < ny; ++i) {
+        for (int j = 0; j < nx; ++j) {
+            double val = rho[i * nx + j];
+            // ¶şÖµ»¯£º´óÓÚ0.5Îª°×É«(255)£¬Ğ¡ÓÚµÈÓÚ0.5ÎªºÚÉ«(0)
+            topology_img.at<uchar>(i, j) = (val > 0.5) ? 255 : 0;
+        }
+    }
 
-  //  int max_iter = 200;
-  //  for (int iter = 0; iter < max_iter; ++iter) {
+    // ±£´æÎªJPG
+    std::string filename = "topology.jpg";
+    cv::imwrite(filename, topology_img);
+    std::cout << "Topology image saved as: " << filename << std::endl;
 
-  //      // --- Step A: æ­£å‘å‡ ä½•å¤„ç† (x -> rho) ---
-  //      solver.applyFilter();      // å¯†åº¦æ»¤æ³¢
-  //      solver.applyProjection();  // Heaviside æŠ•å½±
-
-  //      // --- Step B: ç‰©ç†åˆ†æ (FEM) ä¸ çµæ•åº¦è®¡ç®— ---
-  //      // åœ¨çœŸå®è½¯ä»¶ä¸­ï¼Œè¿™é‡Œä¼šè°ƒç”¨ FEM è§£ç®—å™¨è®¡ç®— Ku=f
-  //      // è¿™é‡Œæˆ‘ä»¬æ¨¡æ‹Ÿä¸€ä¸ªâ€œä¼ªç‰©ç†åœºâ€ï¼š
-  //      // ç›®æ ‡ï¼šè¿æ¥å·¦ä¾§å¢™å£(x=0)å’Œå³ä¸‹è§’(x=nx, y=ny)
-  //      double J_diff = solver.computeObjectiveAndGradient();
-		//std::cout << "J_diff: " << J_diff << std::endl;
-  //      // æˆ‘ä»¬æ‰‹åŠ¨ä¿®æ”¹ sensitivity æ¥æ¨¡æ‹Ÿç‰©ç†éœ€æ±‚ï¼š
-  //      // å‡è®¾å³ä¸‹è§’å—åŠ›ï¼Œå·¦ä¾§å›ºå®šï¼Œææ–™åº”è¯¥åˆ†å¸ƒåœ¨è¿™ä¸¤ç‚¹ä¹‹é—´
-  //      // çµæ•åº¦è¶Šé«˜ï¼Œè¡¨ç¤ºè¯¥ä½ç½®è¶Šéœ€è¦ææ–™
-  //      //std::vector<double>& sens = const_cast<std::vector<double>&>(solver.getSensitivities());
-  //      //for (int i = 0; i < ny; ++i) {
-  //      //    for (int j = 0; j < nx; ++j) {
-  //      //        // ç®€å•çš„å¯å‘å¼å¼•å¯¼ï¼šè·ç¦»å¯¹è§’çº¿è¶Šè¿‘ï¼Œçµæ•åº¦è¶Šé«˜
-  //      //        double dist_diag = std::abs((double)i / ny - (double)j / nx);
-  //      //        sens[i * nx + j] = 1.0 / (dist_diag + 0.1);
-
-  //      //        // å¼ºåˆ¶å·¦ä¾§å¢™å£é«˜çµæ•åº¦ (æ¨¡æ‹Ÿå›ºå®šç«¯)
-  //      //        if (j < 2) sens[i * nx + j] = 10.0;
-  //      //    }
-  //      //}
-
-  //      // --- Step C: åº”ç”¨æ‚¬å‚çº¦æŸ ---
-  //      // éšç€è¿­ä»£è¿›è¡Œï¼Œé€æ¸å¢åŠ æ‚¬å‚çº¦æŸçš„æƒé‡
-  //      double overhang_weight = 50;// (iter > 10) ? 0.5 : 0.0;
-  //      solver.applyOverhangConstraint(overhang_weight);
-
-  //      // --- Step D: åå‘é“¾å¼æ³•åˆ™ (dJ/drho -> dJ/dx) ---
-  //      solver.applyChainRule();
-
-  //      // --- Step E: ä¼˜åŒ–å™¨æ›´æ–° x ---
-  //      // è·å–å¤„ç†å®Œé“¾å¼æ³•åˆ™åçš„æœ€ç»ˆçµæ•åº¦ dJ/dx
-  //      std::vector<double>& x = solver.getDesignVariables();
-  //      const std::vector<double>& final_sens = solver.getSensitivities();
-
-  //      // æ‰§è¡Œ OC æ›´æ–°
-  //      optimalityCriteriaUpdate(x, final_sens, vol_frac);
-  //      // --- Step F: å»¶æ‹“æ³• (Continuation Scheme) ---
-  //      // æ¯ 10 æ­¥å¢åŠ ä¸€æ¬¡ betaï¼Œä½¿è¾¹ç•Œå˜æ¸…æ™°
-  //      if (iter % 5 == 0) {
-  //          solver.increaseBeta();
-  //          std::cout << "Iter " << iter << ": Updating Beta." << std::endl;
-  //          solver.printTopology(); // æ‰“å°å½“å‰æ‹“æ‰‘
-  //      }
-  //  }
-
-  //  std::cout << "Optimization Finished." << std::endl;
-  //  solver.printTopology();
-
-  //  return 0;
 }
 
+
+
+// ==========================================
+// 2. ÍØÆËÓÅ»¯ºËĞÄÀà
+// ==========================================
+
+
+TopologyOptimizer::TopologyOptimizer(const std::string& image_path, Config config) : cfg(config) {
+    // ¶ÁÈ¡Í¼Ïñ²¢¹éÒ»»¯
+    cv::Mat img = cv::imread(image_path, cv::IMREAD_GRAYSCALE);
+    if (img.empty()) throw std::runtime_error("Cannot load image");
+
+    rows = img.rows;
+    cols = img.cols;
+    rho.resize(rows, cols);
+    target_shape.resize(rows, cols);
+
+    for (int i = 0; i < rows; ++i) {
+        for (int j = 0; j < cols; ++j) {
+            double val = img.at<uint8_t>(i, j) / 255.0;
+            rho(i, j) = val; // ³õÊ¼Éè¼Æ±äÁ¿
+            target_shape(i, j) = val; // Ä¿±êĞÎ×´
+        }
+    }
+    rho_tilde = rho; // ³õÊ¼Õ¼Î»
+
+    // ³õÊ¼»¯ËÄÔªËØÄ£Ê½¾ØÕó (Ref: Eq. 25 & 28)
+    // B_l ÓÃÓÚ×óÏÂÁÚÓò
+    B_l << 0.5, -0.5, -0.5, 0.5,
+        -0.5, -0.5, 0.5, 0.5,
+        0.75, 0.25, -0.25, 0.25;
+
+    // B_r ÓÃÓÚÓÒÏÂÁÚÓò
+    B_r << -0.5, -0.5, 0.5, 0.5,
+        -0.5, 0.5, 0.5, -0.5,
+        0.5, 0.25, -0.25, 0.25;
+}
+
+void TopologyOptimizer::solve() {
+    beta = cfg.beta_start;
+    double current_penalty = cfg.penalty_weight; // ¶¯Ì¬·£È¨ÖØ
+    printTopology();
+    Eigen::MatrixXd rho_prev = rho;
+    for (int iter = 0; iter < cfg.max_iter; ++iter) {
+        // 1. ¹ıÂËÓëÍ¶Ó° (Filter Chain)
+        Eigen::MatrixXd rho_bar = apply_linear_filter(rho, cfg.r_min);
+        apply_projection(rho_bar, beta); // ¸üĞÂ rho_tilde
+
+        // 2. ¼ÆËãÄ¿±êº¯ÊıÁéÃô¶È (¼¸ºÎ±Æ½üÎó²î) [cite: 556]
+        // J = 0.5 * || rho_tilde - target ||^2
+        // dJ/d_rho_tilde = rho_tilde - target
+        Eigen::MatrixXd sens_J = 2.0 * (rho_tilde - target_shape);
+
+        // 3. ¼ÆËãĞü´¹½ÇÔ¼Êø¼°ÁéÃô¶È (Eq. 34, 45, 52)
+        Eigen::MatrixXd sens_P = Eigen::MatrixXd::Zero(rows, cols);
+        double P_val = compute_overhang_constraint(sens_P);
+
+        // ¼ÆËãĞü´¹ÌØÕ÷Ô¼Êø¼°ÁéÃô¶È (Eq. 35, 46, 54)
+        Eigen::MatrixXd sens_Q = Eigen::MatrixXd::Zero(rows, cols);
+        double Q_val = compute_hanging_constraint(sens_Q);
+
+        // 4. ×ÔÊÊÓ¦¸üĞÂ·£È¨ÖØ
+    // Èç¹ûÔ¼ÊøÑÏÖØÎ¥±³ (±ÈÈç > 0.01)£¬ÔòÔö´ó³Í·£Á¦¶È
+        if (P_val > 0.001 || Q_val > 0.001) {
+            current_penalty = std::min(cfg.max_penalty, current_penalty * cfg.penalty_increase);
+        }
+
+        // 5. Á´Ê½·¨Ôò»Ø´«ÁéÃô¶È (Backprop through Filter)
+        // dObj/drho = dObj/d_rho_tilde * d_rho_tilde/d_rho_bar * d_rho_bar/drho
+        Eigen::MatrixXd total_grad = backprop_filter(sens_J, rho_bar, beta)
+            + current_penalty * backprop_filter(sens_P, rho_bar, beta)
+            + current_penalty * backprop_filter(sens_Q, rho_bar, beta);
+        //Eigen::MatrixXd total_grad = backprop_filter(sens_J, rho_bar, beta)
+        //    + 100 * backprop_filter(sens_P, rho_bar, beta)
+        //    + 10 * backprop_filter(sens_Q, rho_bar, beta);
+
+        double learning_rate = 0.2;
+        double current_lr = learning_rate * std::exp(-0.002 * iter);
+
+        // ÉèÖÃÒ»¸öÏÂÏŞ£¬·ÀÖ¹ÍêÈ«²»¶¯
+        if (current_lr < 0.002) current_lr = 0.002;
+
+        // 6. ¸üĞÂÉè¼Æ±äÁ¿ (¼òµ¥µÄÌİ¶ÈÏÂ½µ)
+        update_design_variables(total_grad, current_lr);
+        imposeSymmetry();
+
+        double max_change = (rho - rho_prev).cwiseAbs().maxCoeff();
+        rho_prev = rho; // ¸üĞÂ¾ÉÖµ
+
+        // ÖÕÖ¹Ìõ¼ş: ±ä»¯ºÜĞ¡ ÇÒ Ô¼Êø»ù±¾Âú×ã
+        // P_val ºÍ Q_val ÊÇÖ®Ç°¼ÆËã³öµÄÔ¼ÊøÖµ
+        if (max_change < 0.01 && P_val < 0.0005 && Q_val < 0.0005) {
+            std::cout << "Converged at iteration " << iter << std::endl;
+            break;
+        }
+
+        // 7. ¸üĞÂ Beta (Continuation scheme)
+        if (iter % 20 == 0) {
+            if (beta < cfg.beta_max)
+                beta = std::min(cfg.beta_max, beta * cfg.beta_increase);
+            //std::cout << "Updating Beta to: " << beta << std::endl;
+            printTopology();
+            // Êä³ö×´Ì¬
+            double diff = (rho_tilde - target_shape).norm();
+            std::cout << "Iter: " << iter << " | Diff: " << diff
+                << " | P: " << P_val << " | Q: " << Q_val
+                << " | Penalty: " << current_penalty  // ´òÓ¡µ±Ç°·£È¨ÖØ£¬¹Û²ìÊÇ·ñÔÚ±ä´ó
+                << " | Beta: " << beta << std::endl;
+        }
+
+
+    }
+
+    save_result("output_optimized.png");
+}
+
+void TopologyOptimizer::printTopology() {
+    std::cout << "\n--- Current Topology (Beta=" << beta << ") ---\n";
+    for (int i = 0; i < rows; ++i) {
+        for (int j = 0; j < cols; ++j) {
+            double val = rho_tilde(i, j);
+            //double val = rho_tilde(i, j);
+            if (val > 0.75) std::cout << "#";      // ÊµÌå
+            else if (val > 0.5) std::cout << "x"; // »ÒÉ«¹ı¶É´ø
+            else if (val > 0.25) std::cout << "+"; // »ÒÉ«¹ı¶É´ø
+            else std::cout << ".";                 // ¿Õ¶´
+        }
+        std::cout << "\n";
+    }
+    std::cout << "-----------------------------------\n";
+}
+
+
+    // ==========================================
+    // 3. ¹ıÂËÆ÷ÊµÏÖ
+    // ==========================================
+
+Eigen::MatrixXd TopologyOptimizer::apply_linear_filter(const Eigen::MatrixXd& x, double r) {
+    Eigen::MatrixXd x_new = Eigen::MatrixXd::Zero(rows, cols);
+    Eigen::MatrixXd weight_sum = Eigen::MatrixXd::Zero(rows, cols);
+    int r_int = std::ceil(r);
+
+    for (int i = 0; i < rows; ++i) {
+        for (int j = 0; j < cols; ++j) {
+            for (int dy = -r_int; dy <= r_int; ++dy) {
+                for (int dx = -r_int; dx <= r_int; ++dx) {
+                    int ni = i + dy;
+                    int nj = j + dx;
+                    if (ni >= 0 && ni < rows && nj >= 0 && nj < cols) {
+                        double dist = std::sqrt(dx * dx + dy * dy);
+                        if (dist <= r) {
+                            double w = r - dist;
+                            x_new(i, j) += w * x(ni, nj);
+                            weight_sum(i, j) += w;
+                        }
+                    }
+                }
+            }
+            x_new(i, j) /= (weight_sum(i, j) + 1e-10);
+        }
+    }
+    return x_new;
+}
+void TopologyOptimizer::imposeSymmetry() {
+    // ¼ÙÉèÉè¼ÆÓò¹ØÓÚ´¹Ö±ÖĞĞÄÏß¶Ô³Æ (×óÓÒ¶Ô³Æ)
+    for (int i = 0; i < rows; ++i) {
+        for (int j = 0; j < cols / 2; ++j) { // Ö»±éÀú×ó°ë±ß
+
+            // »ñÈ¡×ó²àºÍ¶Ô³ÆµÄÓÒ²àµÄÖµ
+            // Eigen Ê¹ÓÃ (row, col) ·ÃÎÊ
+            double val_left = rho(i, j);
+            double val_right = rho(i, cols - 1 - j);
+
+            // È¡Æ½¾ùÖµ
+            double avg_val = (val_left + val_right) / 2.0;
+
+            // Ç¿ĞĞ¸³Öµ¸øÁ½±ß
+            rho(i, j) = avg_val;
+            rho(i, cols - 1 - j) = avg_val;
+        }
+    }
+}
+
+void TopologyOptimizer::apply_projection(const Eigen::MatrixXd& x_bar, double beta) {
+    for (int i = 0; i < rows; ++i) {
+        for (int j = 0; j < cols; ++j) {
+            rho_tilde(i, j) = proj_heaviside(x_bar(i, j), beta, cfg.eta);
+        }
+    }
+}
+
+Eigen::MatrixXd TopologyOptimizer::backprop_filter(const Eigen::MatrixXd& sens_phys, const Eigen::MatrixXd& rho_bar, double beta) {
+    // µÚÒ»²½£ºÍ¨¹ı Heaviside Í¶Ó°µÄ·´Ïò´«²¥
+    Eigen::MatrixXd sens_bar = Eigen::MatrixXd::Zero(rows, cols);
+    for (int i = 0; i < rows; ++i) {
+        for (int j = 0; j < cols; ++j) {
+            sens_bar(i, j) = sens_phys(i, j) * d_proj_heaviside(rho_bar(i, j), beta, cfg.eta);
+        }
+    }
+    // µÚ¶ş²½£ºÍ¨¹ıÏßĞÔÂË²¨µÄ·´Ïò´«²¥ (ÏßĞÔÂË²¨ÊÇ¶Ô³ÆËã×Ó£¬×ªÖÃµÈÓÚ×ÔÉí)
+    return apply_linear_filter(sens_bar, cfg.r_min);
+}
+
+// ==========================================
+// 4. Ğü´¹½ÇÔ¼ÊøÂß¼­ (The "Four Elements Pattern")
+// ==========================================
+
+// »ñÈ¡"ËÄÔªËØÄ£Ê½"µÄÈ«¾ÖË÷Òı [cite: 281]
+// Ä£Ê½ËµÃ÷£ºÒÔ (i,j) Îª»ù×¼£¬Left-downward Ä£Ê½Éæ¼°:
+// 1(Self), 2(Left), 3(Left-Down), 4(Down)
+// ×¢Òâ£ºÕâÀïµÄ·½ÏòÒÀÀµÓÚÄãµÄÍø¸ñ¶¨Òå¡£¼ÙÉè Row Ôö¼ÓÊÇÏòÏÂ¡£
+// ×ó±ßÊÇ Col-1£¬ ÏÂ±ßÊÇ Row+1¡£
+void TopologyOptimizer::get_local_indices(int r, int c, std::vector<std::pair<int, int>>& idx_l, std::vector<std::pair<int, int>>& idx_r) {
+    idx_l.clear(); idx_r.clear();
+
+    // Left-Downward Pattern (Eq. 21 context)
+    // 1: (0,0), 2: (-1,0) xÖáÏò×ó, 3: (-1,-1), 4: (0,-1) yÖáÏòÏÂ
+    // ¶ÔÓ¦Í¼Ïñ×ø±ê£º
+    // 1: (r, c)
+    // 2: (r, c-1)
+    // 3: (r+1, c-1)
+    // 4: (r+1, c)
+    idx_l = { {r, c}, {r, c - 1}, {r + 1, c - 1}, {r + 1, c} };
+
+    // Right-Downward Pattern
+    // 1: (r, c)
+    // 4: (r+1, c)
+    // 5: (r+1, c+1)
+    // 6: (r, c+1)
+    // ¶ÔÓ¦ÂÛÎÄÍ¼ 7a ÓÒ²à
+    idx_r = { {r, c}, {r + 1, c}, {r + 1, c + 1}, {r, c + 1} };
+}
+
+double TopologyOptimizer::compute_overhang_constraint(Eigen::MatrixXd& sensitivity) {
+    double total_P = 0.0;
+    double total_vol = rows * cols; // ¼ò»¯Ìå»ı¼ÆËã
+    double cos_crit = std::cos(cfg.alpha_crit_deg * M_PI / 180.0);
+    double eps1 = 0.05; // [cite: 642]
+
+    // ±éÀúÃ¿¸öÔªËØ¼ÆËãÔ¼Êø P (Eq. 45)
+    for (int i = 0; i < rows - 1; ++i) {
+        for (int j = 1; j < cols - 1; ++j) {
+
+            std::vector<std::pair<int, int>> idx_l, idx_r;
+            get_local_indices(i, j, idx_l, idx_r);
+
+            // ÌáÈ¡¾Ö²¿ÃÜ¶È
+            Eigen::Vector4d rho_l, rho_r;
+            for (int k = 0; k < 4; ++k) rho_l(k) = rho_tilde(idx_l[k].first, idx_l[k].second);
+            for (int k = 0; k < 4; ++k) rho_r(k) = rho_tilde(idx_r[k].first, idx_r[k].second);
+
+            // ¼ÆËãÌİ¶È [cite: 263, 286]
+            // B_l µÄÇ°Á½ĞĞ¶ÔÓ¦ dx, dy (Ìİ¶È)
+            Eigen::Vector2d grad_l = (B_l * rho_l).head<2>();
+            Eigen::Vector2d grad_r = (B_r * rho_r).head<2>();
+
+            double norm_l = grad_l.norm() + 1e-8; // ±ÜÃâ³ıÁã
+            double norm_r = grad_r.norm() + 1e-8;
+
+            // ¼ÆËã t Öµ (Eq. 34)
+            // t = grad^T * n - cos(alpha) * ||grad||
+            double t_l = grad_l.dot(cfg.build_dir) - cos_crit * norm_l;
+            double t_r = grad_r.dot(cfg.build_dir) - cos_crit * norm_r;
+
+            // Sigmoid ¼¤»î [cite: 504]
+            double h_l = sigmoid(t_l - eps1);
+            double h_r = sigmoid(t_r - eps1);
+            double lambda = h_l * h_r; // Ö»ÓĞ×óÓÒ¶¼Î¥·´Ê±²Å³Í·£
+
+            // ÀÛ¼ÓÔ¼ÊøÖµ P_i = rho * lambda * v
+            double rho_i = rho_tilde(i, j);
+            total_P += rho_i * lambda;
+
+            // --- ¼ÆËãÁéÃô¶È (Eq. 52) ---
+            // dP/drho_k = (Term1 + Term2)
+            // ÎÒÃÇÔÚÕâÀïÊ¹ÓÃ"ÀÛ¼Ó·¨"£º¼ÆËãµ±Ç°ÔªËØ i ¶ÔÆäËùÓĞÁÚ¾Ó k µÄÌİ¶È¹±Ï×
+
+            // 1. ¶Ô×ÔÉíµÄÖ±½Óµ¼Êı: d(rho_i * lambda)/drho_i = lambda + rho_i * dlambda/drho_i
+            // µ« lambda »¹ÒÀÀµÓÚ neighbors¡£
+
+            double dlambda_dtl = d_sigmoid(t_l - eps1) * h_r;
+            double dlambda_dtr = h_l * d_sigmoid(t_r - eps1);
+
+            // ¼ÆËã dt/dgrad
+            // dt/dgrad = n - cos * (grad / norm)
+            Eigen::Vector2d dt_dgrad_l = cfg.build_dir - cos_crit * (grad_l / norm_l);
+            Eigen::Vector2d dt_dgrad_r = cfg.build_dir - cos_crit * (grad_r / norm_r);
+
+            // ¹±Ï×»Ø´«¸ø Left pattern µÄ 4 ¸öÁÚ¾Ó
+            for (int k = 0; k < 4; ++k) {
+                int ni = idx_l[k].first;
+                int nj = idx_l[k].second;
+
+                // dgrad_l / drho_k ÊÇ B_l µÄµÚ k ÁĞ (Ç°Á½ĞĞ)
+                Eigen::Vector2d dgrad_drho = B_l.col(k).head<2>();
+                double dt_drho = dt_dgrad_l.dot(dgrad_drho);
+
+                // Á´Ê½·¨Ôò¹±Ï×
+                // P_i = rho_i * lambda
+                // dP_i / drho_k (via lambda) = rho_i * (dlambda/dtl * dtl/drho_k)
+                sensitivity(ni, nj) += rho_i * dlambda_dtl * dt_drho / total_vol;
+            }
+
+            // ¹±Ï×»Ø´«¸ø Right pattern µÄ 4 ¸öÁÚ¾Ó
+            for (int k = 0; k < 4; ++k) {
+                int ni = idx_r[k].first;
+                int nj = idx_r[k].second;
+                Eigen::Vector2d dgrad_drho = B_r.col(k).head<2>();
+                double dt_drho = dt_dgrad_r.dot(dgrad_drho);
+                sensitivity(ni, nj) += rho_i * dlambda_dtr * dt_drho / total_vol;
+            }
+
+            // ±ğÍüÁË P ¶Ô rho_i ×ÔÉíµÄÖ±½ÓÏî (Product rule)
+            sensitivity(i, j) += lambda / total_vol;
+        }
+    }
+    return total_P / total_vol;
+}
+
+// ==========================================
+// 5. Ğü´¹ÌØÕ÷Ô¼ÊøÂß¼­ (Hanging Feature)
+// ==========================================
+
+double TopologyOptimizer::compute_hanging_constraint(Eigen::MatrixXd& sensitivity) {
+    double total_Q = 0.0;
+    double total_vol = rows * cols;
+    int m = cfg.hang_m;
+    double eps2 = 0.02; // [cite: 642]
+
+    for (int i = 0; i < rows; ++i) {
+        for (int j = 0; j < cols; ++j) {
+            // Ë®Æ½ÁÚÓòÆ½¾ùÃÜ¶È [cite: 421]
+            // Left side check
+            double sum_left = 0;
+            int count_left = 0;
+            // ×¢Òâ£ºÂÛÎÄ¶¨ÒåµÄÄ£Ê½ÊÇ 2,4,6... Å¼ÊıÎ»£¬»òÕß¼ò»¯ÎªÁ¬Ğø m ¸ö
+            // ÕâÀïÎÒÃÇ¼ò»¯ÎªÁ¬Ğø m ¸öÁÚ¾Ó
+            for (int k = 1; k <= m; ++k) {
+                if (j - k >= 0) {
+                    sum_left += rho_tilde(i, j - k);
+                    count_left++;
+                }
+            }
+            double avg_left = (count_left > 0) ? sum_left / m : 0; // ÂÛÎÄ¹«Ê½·ÖÄ¸¹Ì¶¨Îª m
+
+            // Right side check
+            double sum_right = 0;
+            int count_right = 0;
+            for (int k = 1; k <= m; ++k) {
+                if (j + k < cols) {
+                    sum_right += rho_tilde(i, j + k);
+                    count_right++;
+                }
+            }
+            double avg_right = (count_right > 0) ? sum_right / m : 0;
+
+            // Tau calculation [cite: 35, 36]
+            double tau_l = rho_tilde(i, j) - avg_left - eps2;
+            double tau_r = rho_tilde(i, j) - avg_right - eps2;
+
+            // Sigmoid aggregation [cite: 505]
+            // Ö»ÓĞµ±×óÓÒÁ½²à¶¼¿Õ£¨tau > 0£©Ê±£¬gamma ²ÅÎª 1£¬¼´¹ÂÁ¢µã
+            double h_l = sigmoid(tau_l);
+            double h_r = sigmoid(tau_r);
+            double gamma = h_l * h_r;
+
+            double rho_i = rho_tilde(i, j);
+            total_Q += rho_i * gamma;
+
+            // --- ÁéÃô¶È¼ÆËã (Eq. 54) ---
+            // Q_i = rho_i * gamma
+            // 1. Ö±½ÓÏî£ºdQi/drho_i = gamma + rho_i * (dgamma/drho_i)
+            // dgamma/drho_i = dh_l * (1) * h_r + h_l * dh_r * (1)  (ÒòÎª dtau/drho_i = 1)
+
+            double dgamma_dtaul = d_sigmoid(tau_l) * h_r;
+            double dgamma_dtaur = h_l * d_sigmoid(tau_r);
+
+            sensitivity(i, j) += (gamma + rho_i * (dgamma_dtaul + dgamma_dtaur)) / total_vol;
+
+            // 2. ÁÚ¾ÓÏî£ºdQi/drho_neighbor
+            // Left neighbors (k from 1 to m)
+            // dtau_l / drho_neigh = -1/m
+            for (int k = 1; k <= m; ++k) {
+                if (j - k >= 0) {
+                    // Ó°Ïì×ó²àÁÚ¾Ó
+                    sensitivity(i, j - k) += rho_i * dgamma_dtaul * (-1.0 / m) / total_vol;
+                }
+            }
+            // Right neighbors
+            for (int k = 1; k <= m; ++k) {
+                if (j + k < cols) {
+                    sensitivity(i, j + k) += rho_i * dgamma_dtaur * (-1.0 / m) / total_vol;
+                }
+            }
+        }
+    }
+    return total_Q / total_vol;
+}
+
+// ==========================================
+// 6. ¸üĞÂÓëIO
+// ==========================================
+
+void TopologyOptimizer::update_design_variables(const Eigen::MatrixXd& grad, double learning_rate) {
+    // ¼òµ¥µÄÍ¶Ó°Ìİ¶ÈÏÂ½µ
+    double damping = 0.5;
+
+    Eigen::MatrixXd rho_pro = rho - learning_rate * grad;
+    //rho = rho - learning_rate * grad;
+        
+    // Í¶Ó°µ½ [0, 1]
+    for (int i = 0; i < rows; ++i) {
+        for (int j = 0; j < cols; ++j) {
+            // ¼òµ¥µÄ Move limit
+            //double old_val = rho_tilde(i, j); // ½üËÆ
+            // Clamp
+            if (rho_pro(i, j) > 1.0) rho_pro(i, j) = 1.0;
+            if (rho_pro(i, j) < 0.0) rho_pro(i, j) = 0.0;
+        }
+    }
+    rho = damping * rho + (1.0 - damping) * rho_pro;
+
+}
+
+void TopologyOptimizer::save_result(const std::string& filename) {
+    cv::Mat out_img(rows, cols, CV_8UC1);
+    for (int i = 0; i < rows; ++i) {
+        for (int j = 0; j < cols; ++j) {
+            out_img.at<uint8_t>(i, j) = static_cast<uint8_t>(rho_tilde(i, j) * 255.0);
+        }
+    }
+    cv::imwrite(filename, out_img);
+}
+
+    
