@@ -33,6 +33,12 @@
     <ClCompile Include="src\selfSupVoxel.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="src\TopoOpt.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MMASolver.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\globalPara.h">
@@ -48,6 +54,12 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="src\FastNoiseLite.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\TopoOpt.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\MMASolver.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

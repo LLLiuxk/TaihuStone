@@ -103,7 +103,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;IGL_STATIC_LIBRARY;NOMINMAX;TUTORIAL_SHARED_PATH="D:/libs/libigl/build/_deps/libigl_tutorial_data-src";CMAKE_INTDIR="Debug"</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>D:\libs\libigl\build\_deps\imgui-src\backends;D:\libs\libigl\build\_deps\glad-src\include;D:\libs\libigl\build\_deps\glfw-src\include;D:\libs\libigl\include;D:\libs\eigen-3.4.0;D:\libs\libigl\build\_deps\imgui-src;D:\libs\CGAL-5.6.2;D:\libs\CGAL-5.6.2\include;D:\libs\CGAL-5.6.2\auxiliary\gmp\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\libs\libigl\build\_deps\imgui-src\backends;D:\libs\libigl\build\_deps\glad-src\include;D:\libs\libigl\build\_deps\glfw-src\include;D:\libs\libigl\include;D:\libs\eigen-3.4.0;D:\libs\libigl\build\_deps\imgui-src;D:\libs\CGAL-5.6.2;D:\libs\CGAL-5.6.2\include;D:\libs\CGAL-5.6.2\auxiliary\gmp\include;C:\local\opencv\build\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
@@ -111,7 +111,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>igl_embree.lib;opengl32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib;igl.lib;igl_glfw.lib;igl_opengl.lib;igl_copyleft_cgal.lib;igl_copyleft_core.lib;igl_copyleft_tetgen.lib;glad.lib;glfw3.lib;libgmp-10.lib;libmpfr-4.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>igl_embree.lib;opencv_world4100d.lib;opengl32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib;igl.lib;igl_glfw.lib;igl_opengl.lib;igl_copyleft_cgal.lib;igl_copyleft_core.lib;igl_copyleft_tetgen.lib;glad.lib;glfw3.lib;libgmp-10.lib;libmpfr-4.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>D:\libs\CGAL-5.6.2\auxiliary\gmp\lib;D:\libs\libigl\build\lib\Debug</AdditionalLibraryDirectories>
       <ImportLibrary>D:/libs/libigl/build/lib/Debug/705_MarchingCubes.lib</ImportLibrary>
       <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
@@ -125,30 +125,34 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;WIN32;_WINDOWS;IGL_STATIC_LIBRARY;NOMINMAX;TUTORIAL_SHARED_PATH="D:/libs/libigl/build/_deps/libigl_tutorial_data-src";%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>D:\libs\libigl\build\_deps\imgui-src\backends;D:\libs\libigl\build\_deps\glad-src\include;D:\libs\libigl\build\_deps\glfw-src\include;D:\libs\libigl\include;D:\libs\eigen-3.4.0;D:\libs\libigl\build\_deps\imgui-src;D:\libs\CGAL-5.6.2;D:\libs\CGAL-5.6.2\include;D:\libs\CGAL-5.6.2\auxiliary\gmp\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\libs\libigl\build\_deps\imgui-src\backends;D:\libs\libigl\build\_deps\glad-src\include;D:\libs\libigl\build\_deps\glfw-src\include;D:\libs\libigl\include;D:\libs\eigen-3.4.0;D:\libs\libigl\build\_deps\imgui-src;D:\libs\CGAL-5.6.2;D:\libs\CGAL-5.6.2\include;D:\libs\CGAL-5.6.2\auxiliary\gmp\include;C:\local\opencv\build\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>D:\libs\CGAL-5.6.2\auxiliary\gmp\lib;D:\libs\libigl\build\lib\Release</AdditionalLibraryDirectories>
-      <AdditionalDependencies>igl.lib;igl_glfw.lib;igl_opengl.lib;igl_copyleft_cgal.lib;igl_copyleft_core.lib;igl_copyleft_tetgen.lib;igl_embree.lib;glad.lib;opengl32.lib;glfw3.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib;libgmp-10.lib;libmpfr-4.lib;D:\libs\libigl\build\lib\Release\igl.lib;D:\libs\libigl\build\lib\Release\igl_glfw.lib;D:\libs\libigl\build\lib\Release\igl_opengl.lib;D:\libs\libigl\build\lib\Release\glad.lib;D:\libs\libigl\build\lib\Release\triangle.lib;D:\libs\libigl\build\lib\Release\tinyxml2.lib;D:\libs\libigl\build\lib\Release\tetgen.lib;D:\libs\libigl\build\lib\Release\stb.lib;D:\libs\libigl\build\lib\Release\predicates.lib;D:\libs\libigl\build\lib\Release\imguizmo.lib;D:\libs\libigl\build\lib\Release\imgui.lib;D:\libs\libigl\build\lib\Release\igl_xml.lib;D:\libs\libigl\build\lib\Release\igl_stb.lib;D:\libs\libigl\build\lib\Release\igl_spectra.lib;D:\libs\libigl\build\lib\Release\igl_restricted_matlab.lib;D:\libs\libigl\build\lib\Release\igl_restricted_triangle.lib;D:\libs\libigl\build\lib\Release\igl_imgui.lib;D:\libs\libigl\build\lib\Release\igl_embree.lib;D:\libs\libigl\build\lib\Release\glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>D:\libs\CGAL-5.6.2\auxiliary\gmp\lib;D:\libs\libigl\build\lib\Release;C:\local\opencv\build\x64\vc16\lib</AdditionalLibraryDirectories>
+      <AdditionalDependencies>igl.lib;opencv_world4100.lib;igl_glfw.lib;igl_opengl.lib;igl_copyleft_cgal.lib;igl_copyleft_core.lib;igl_copyleft_tetgen.lib;igl_embree.lib;glad.lib;opengl32.lib;glfw3.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib;libgmp-10.lib;libmpfr-4.lib;D:\libs\libigl\build\lib\Release\igl.lib;D:\libs\libigl\build\lib\Release\igl_glfw.lib;D:\libs\libigl\build\lib\Release\igl_opengl.lib;D:\libs\libigl\build\lib\Release\glad.lib;D:\libs\libigl\build\lib\Release\triangle.lib;D:\libs\libigl\build\lib\Release\tinyxml2.lib;D:\libs\libigl\build\lib\Release\tetgen.lib;D:\libs\libigl\build\lib\Release\stb.lib;D:\libs\libigl\build\lib\Release\predicates.lib;D:\libs\libigl\build\lib\Release\imguizmo.lib;D:\libs\libigl\build\lib\Release\imgui.lib;D:\libs\libigl\build\lib\Release\igl_xml.lib;D:\libs\libigl\build\lib\Release\igl_stb.lib;D:\libs\libigl\build\lib\Release\igl_spectra.lib;D:\libs\libigl\build\lib\Release\igl_restricted_matlab.lib;D:\libs\libigl\build\lib\Release\igl_restricted_triangle.lib;D:\libs\libigl\build\lib\Release\igl_imgui.lib;D:\libs\libigl\build\lib\Release\igl_embree.lib;D:\libs\libigl\build\lib\Release\glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\globalPara.cpp" />
+    <ClCompile Include="src\MMASolver.cpp" />
     <ClCompile Include="src\pathQuery.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\modelGen.cpp" />
     <ClCompile Include="src\selfSupVoxel.cpp" />
     <ClCompile Include="src\Tool.cpp" />
+    <ClCompile Include="src\TopoOpt.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\FastNoiseLite.h" />
     <ClInclude Include="src\globalPara.h" />
+    <ClInclude Include="src\MMASolver.h" />
     <ClInclude Include="src\modelGen.h" />
     <ClInclude Include="src\selfSupVoxel.h" />
     <ClInclude Include="src\Tool.h" />
+    <ClInclude Include="src\TopoOpt.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

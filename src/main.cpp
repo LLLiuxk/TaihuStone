@@ -10,7 +10,7 @@
 
 #include "Tool.h"
 #include "modelGen.h"
-
+#include "TopoOpt.h"
 
 
 int main(int argc, char* argv[])
@@ -24,10 +24,21 @@ int main(int argc, char* argv[])
  //   vis_Kernels_Tubes(pore_centers, edge_connections);
 
 
-    ModelGenerator mg(input_path);
-    //mg.test_item();
-    mg.model_porous_structure();
-    mg.show_model();
+    //ModelGenerator mg(input_path);
+    ////mg.test_item();
+    //mg.model_porous_structure();
+    //mg.show_model();
+
+    initTShape();
+    Config cfg;
+
+
+    std::string filename = "topology.jpg";
+    TopologyOptimizer opt(filename, cfg);
+    std::cout << "Starting Optimization..." << std::endl;
+    opt.solve();
+    std::cout << "Done. Result saved to output_optimized.png" << std::endl;
+
     
   //  vector<int> Poresnum = { 100,150,200,250 };
   //  for (int i = 0; i < Poresnum.size(); i++)

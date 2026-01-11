@@ -7,7 +7,7 @@
 #include <Eigen/Dense>
 #include <opencv2/opencv.hpp>
 
-//#include "MMASolver.h"
+#include "MMASolver.h"
 // ==========================================
 // 1. 配置与辅助结构
 // ==========================================
@@ -17,18 +17,20 @@
 struct Config {
     int max_iter = 10000;
     double vol_frac = 0.5;      // 目标不需要体积约束，但保留参数习惯
-    double r_min = 2.0;         // 滤波半径
+    double r_min = 10.0;         // 滤波半径  //10-1ok
     double alpha_crit_deg = 45.0; // 临界悬垂角
-    int hang_m = 3;             // 悬垂特征水平检测长度
+    int hang_m = 2;             // 悬垂特征水平检测长度
     double beta_start = 1.0;    // Heaviside投影参数
-    double beta_max = 24.0;
+    double beta_max = 1024.0;
     double move_limit = 0.1;    // 每次迭代最大变化量
+    double cost_remove = 2.0; // 保护原结构权重
+    double cost_add = 0.001;      // 添加支撑权重
 
-    double penalty_weight = 10.0;    // 初始罚权重，从10改为100
+    double penalty_weight = 2.0;    // 初始罚权重，从10改为100
     double penalty_increase = 1.1;    // 每次迭代如果没有满足约束，权重增加10%
-    double max_penalty = 600.0;     // 权重上限，防止数值爆炸
-    double eta = 0.3;
-	double beta_increase = 1.2;
+    double max_penalty = 1800.0;     // 权重上限，防止数值爆炸
+    double eta = 0.5;
+	double beta_increase = 2.0;
     // 构建方向：假设图像坐标系 (row, col)，Y向下，X向右。
     // 如果构建方向是"向上打印"，则法向量指向 (0, -1)
     Eigen::Vector2d build_dir = Eigen::Vector2d(0.0, -1.0);
@@ -61,6 +63,12 @@ inline double d_proj_heaviside(double rho, double beta, double eta = 0.5) {
 
 void initTShape();
 
+// 在 TopologyOptimizer 类中添加
+Eigen::VectorXd flatten(const Eigen::MatrixXd& mat);
+
+// 将 1D 向量还原为 2D 矩阵
+void unflatten(const Eigen::VectorXd& vec, Eigen::MatrixXd& mat);
+
 
 // ==========================================
 // 2. 拓扑优化核心类
@@ -76,7 +84,7 @@ public:
     Eigen::MatrixXd target_shape; // 初始目标形状 (用于几何逼近目标函数)
     Config cfg;
 
-
+    Eigen::MatrixXd velocity; // 记录速度
     // 固定的局部拟合矩阵 B_l (Ref: Eq. 25)
     Eigen::Matrix<double, 3, 4> B_l;
     Eigen::Matrix<double, 3, 4> B_r;
@@ -84,6 +92,8 @@ public:
     TopologyOptimizer(const std::string& image_path, Config config);
 
     void solve();
+
+    void update_rho_tilde();
 
     void printTopology();
 
@@ -93,9 +103,9 @@ public:
 
     Eigen::MatrixXd apply_linear_filter(const Eigen::MatrixXd& x, double r);
 
-    void imposeSymmetry();
+    void imposeSymmetry(Eigen::VectorXd & rho_vec);
 
-    void apply_projection(const Eigen::MatrixXd& x_bar, double beta);
+    void apply_projection(const Eigen::MatrixXd& x_bar, double beta, double pro_thres);
 
     Eigen::MatrixXd backprop_filter(const Eigen::MatrixXd& sens_phys, const Eigen::MatrixXd& rho_bar, double beta);
 
@@ -118,6 +128,7 @@ public:
 
     double compute_hanging_constraint(Eigen::MatrixXd& sensitivity);
 
+    double compute_volume_constraint(Eigen::MatrixXd& sensitivity);
     // ==========================================
     // 6. 更新与IO
     // ==========================================
