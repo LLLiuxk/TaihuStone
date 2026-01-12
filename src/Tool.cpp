@@ -721,6 +721,50 @@ void saveVoxelToVTK(std::string filename, VoxelGrid& grid)
     out.close();
 }
 
+void  saveSDFtoVTI(const std::string filename, Eigen::VectorXd& sdf, int nx, int ny, int nz) {
+    std::ofstream out(filename);
+    if (!out) return;
+
+    out << "<?xml version=\"1.0\"?>\n";
+    out << "<VTKFile type=\"ImageData\" version=\"0.1\" byte_order=\"LittleEndian\">\n";
+    out << "  <ImageData WholeExtent=\"0 " << nx - 1 << " 0 " << ny - 1 << " 0 " << nz - 1 << "\" Origin=\"0 0 0\" Spacing=\"1 1 1\">\n";
+    out << "    <Piece Extent=\"0 " << nx - 1 << " 0 " << ny - 1 << " 0 " << nz - 1 << "\">\n";
+    out << "      <PointData Scalars=\"Density\">\n";
+    out << "        <DataArray type=\"Float32\" Name=\"Density\" format=\"ascii\">\n";
+
+	Eigen::VectorXd rho_tilde = sdf;
+	int n_vars = nx * ny * nz;
+    for (int i = 0; i < n_vars; ++i) {
+        out << (float)rho_tilde(i) << " ";
+        if (i % 20 == 0) out << "\n";
+    }
+
+    out << "\n        </DataArray>\n";
+    out << "      </PointData>\n";
+    out << "      <CellData>\n";
+    out << "      </CellData>\n";
+    out << "    </Piece>\n";
+    out << "  </ImageData>\n";
+    out << "</VTKFile>\n";
+
+    std::cout << "Saved VTI: " << filename << std::endl;
+}
+
+void saveSDFtoVOI(const std::string filename, Eigen::VectorXd& sdf, int nx, int ny, int nz) {
+    std::ofstream out(filename);
+    if (!out) return;
+
+    out << nx << ", " << ny << ", " << nz << "\n";
+
+    Eigen::VectorXd rho_tilde = sdf;
+    int n_vars = nx * ny * nz;
+    for (int i = 0; i < n_vars; ++i) {
+        out << rho_tilde(i) << " ";
+        if (i != 0 && i % 20 == 0) out << "\n";
+    }
+
+    std::cout << "Saved RAW sdf: " << filename << std::endl;
+}
 // 保存体素网格为NPY格式
 void saveVoxelGridAsNPY(std::vector<double>& voxel_grid, int res, std::string& filename) 
 {

@@ -123,6 +123,9 @@ void saveVoxelToRaw(std::string filename, VoxelGrid& grid);
 
 void saveVoxelToVTK(std::string filename, VoxelGrid& grid);
 
+void saveSDFtoVTI(const std::string filename, Eigen::VectorXd& sdf, int nx, int ny, int nz);
+void saveSDFtoVOI(const std::string filename, Eigen::VectorXd& sdf, int nx, int ny, int nz);
+
 void saveVoxelGridAsNPY(std::vector<double>& voxel_grid, int res, std::string& filename);
 
 void writeAdjacencyListToFile(const std::vector<std::vector<int>>& adjList, const std::string& filename);

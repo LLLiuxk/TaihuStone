@@ -178,6 +178,11 @@ void ModelGenerator::generateGaussianSDF()
     std::cout << "--------------------5. Generate tubes between kernels based on optimized mst --------------------" << endl;
     //-----------------generate tubes------------------------------------------
     double void_count = generate_mst_tubes(grid_num, resolution, Isolevel, Gauss_level, SmoothT);
+    //std::string vti_filename = "D:/VSprojects/TaihuStone/result/vti/" + input_file + "_voxelized_model_" + std::to_string(resolution) + "x" + std::to_string(resolution) + "x" + std::to_string(resolution) + ".vti";
+    //saveSDFtoVTI(vti_filename, SDF_out, resolution, resolution, resolution);
+
+    std::string raw_filename = "D:/VSprojects/TaihuStone/result/raw/" + input_file + "_voxelized_model_" + std::to_string(resolution) + "x" + std::to_string(resolution) + "x" + std::to_string(resolution) + ".vol";
+    saveSDFtoVOI(raw_filename, SDF_out, resolution, resolution, resolution);
 
     VoxelGrid grids = SDFtoVoxel(SDF_out, bb_min, bb_max, resolution, resolution, resolution);
     //SupportCheckResult scr = checkSupportVoxel(grids, 0.5);
@@ -1899,7 +1904,8 @@ void ModelGenerator::test_item()
     Eigen::MatrixXi F2;
     scale_factor = Mesh2SDF(V_ini, F_ini, GV, SDF_ini, bb_min, bb_max);
     int res = Resolution;
-
+    std::string raw_file = "Tshape.voi";
+    saveSDFtoVOI(raw_file, SDF_ini, res, res, res);
 
     VoxelGrid grids = SDFtoVoxel(SDF_ini, bb_min, bb_max, res, res, res);
     SupportCheckResult scr = checkSupportVoxel(grids, 0.5);

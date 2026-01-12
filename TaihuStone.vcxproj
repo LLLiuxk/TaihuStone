@@ -144,6 +144,7 @@
     <ClCompile Include="src\selfSupVoxel.cpp" />
     <ClCompile Include="src\Tool.cpp" />
     <ClCompile Include="src\TopoOpt.cpp" />
+    <ClCompile Include="src\TopoOpt3D.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\FastNoiseLite.h" />
@@ -153,6 +154,7 @@
     <ClInclude Include="src\selfSupVoxel.h" />
     <ClInclude Include="src\Tool.h" />
     <ClInclude Include="src\TopoOpt.h" />
+    <ClInclude Include="src\TopoOpt3D.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

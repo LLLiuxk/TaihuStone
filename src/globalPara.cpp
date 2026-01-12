@@ -1,6 +1,6 @@
 #include "globalPara.h" 
 
-std::string input_file = "RockSetCr";
+std::string input_file = "test_case";
 int Resolution = 100;
 
 std::vector<double> Weights = { 0.8, 1.0, 1.2 };  //mst 分类系数权重：边界-内部，内部-内部，边界-边界

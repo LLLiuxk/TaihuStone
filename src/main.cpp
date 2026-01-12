@@ -11,7 +11,7 @@
 #include "Tool.h"
 #include "modelGen.h"
 #include "TopoOpt.h"
-
+#include "TopoOpt3D.h"
 
 int main(int argc, char* argv[])
 {
@@ -25,19 +25,19 @@ int main(int argc, char* argv[])
 
 
     //ModelGenerator mg(input_path);
-    ////mg.test_item();
+    //mg.test_item();
     //mg.model_porous_structure();
     //mg.show_model();
 
-    initTShape();
-    Config cfg;
+    std::string input_voi = "D:/VSprojects/TaihuStone/Tshape.voi";
+    Config3D cfg;
+    TopologyOptimizer3D opt(input_voi, cfg);
 
-
-    std::string filename = "topology.jpg";
-    TopologyOptimizer opt(filename, cfg);
-    std::cout << "Starting Optimization..." << std::endl;
-    opt.solve();
-    std::cout << "Done. Result saved to output_optimized.png" << std::endl;
+    //std::string filename = "topology.jpg";
+    //TopologyOptimizer opt(filename, cfg);
+    //std::cout << "Starting Optimization..." << std::endl;
+    //opt.solve();
+    //std::cout << "Done. Result saved to output_optimized.png" << std::endl;
 
     
   //  vector<int> Poresnum = { 100,150,200,250 };
