@@ -137,24 +137,18 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\globalPara.cpp" />
-    <ClCompile Include="src\MMASolver.cpp" />
     <ClCompile Include="src\pathQuery.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\modelGen.cpp" />
     <ClCompile Include="src\selfSupVoxel.cpp" />
     <ClCompile Include="src\Tool.cpp" />
-    <ClCompile Include="src\TopoOpt.cpp" />
-    <ClCompile Include="src\TopoOpt3D.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\FastNoiseLite.h" />
     <ClInclude Include="src\globalPara.h" />
-    <ClInclude Include="src\MMASolver.h" />
     <ClInclude Include="src\modelGen.h" />
     <ClInclude Include="src\selfSupVoxel.h" />
     <ClInclude Include="src\Tool.h" />
-    <ClInclude Include="src\TopoOpt.h" />
-    <ClInclude Include="src\TopoOpt3D.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

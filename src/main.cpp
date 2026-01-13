@@ -10,8 +10,7 @@
 
 #include "Tool.h"
 #include "modelGen.h"
-#include "TopoOpt.h"
-#include "TopoOpt3D.h"
+
 
 int main(int argc, char* argv[])
 {
@@ -24,14 +23,10 @@ int main(int argc, char* argv[])
  //   vis_Kernels_Tubes(pore_centers, edge_connections);
 
 
-    //ModelGenerator mg(input_path);
+    ModelGenerator mg(input_path);
     //mg.test_item();
-    //mg.model_porous_structure();
-    //mg.show_model();
-
-    std::string input_voi = "D:/VSprojects/TaihuStone/Tshape.voi";
-    Config3D cfg;
-    TopologyOptimizer3D opt(input_voi, cfg);
+    mg.model_porous_structure();
+    mg.show_model();
 
     //std::string filename = "topology.jpg";
     //TopologyOptimizer opt(filename, cfg);
