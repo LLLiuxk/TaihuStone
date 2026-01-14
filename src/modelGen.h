@@ -206,7 +206,7 @@ private:
     std::vector<std::vector<int>> Adj_list;
     std::vector<std::vector<int>> Unused_adj_list;
 
-    int model_num = 0;
+    int model_solid_num = 0;
     double initPorosity = 0;
     double finalPorosity = 0;
 	double finalTranslucency = 0;
