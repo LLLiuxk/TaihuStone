@@ -25,9 +25,9 @@ int main(int argc, char* argv[])
 
 
     ModelGenerator mg(input_path);
-    mg.test_item();
-    //mg.model_porous_structure();
-    //mg.show_model();
+    //mg.test_item();
+    mg.model_porous_structure();
+    mg.show_model();
 
     //std::string filename = "topology.jpg";
     //TopologyOptimizer opt(filename, cfg);

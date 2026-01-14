@@ -32,7 +32,6 @@
 class GaussianKernel {
 
 public:
-    GaussianKernel();
 
     GaussianKernel(
         const Eigen::Vector3d& center_,
@@ -51,9 +50,8 @@ public:
     );
 
     double gaussian_fun(const Eigen::Vector3d& p);
-    double gaussian_fun_iso(const Eigen::Vector3d& p);
     bool is_on_surface();
-    bool is_on_surface_iso();
+
 public:
     Eigen::Vector3d center;
 

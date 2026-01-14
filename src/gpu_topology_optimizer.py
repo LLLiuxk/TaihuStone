@@ -574,7 +574,7 @@ class GPUTopologyOptimizer:
         
         return f0.item(), df0dx, G_ov, dg_ov, G_hg, dg_hg
     
-    def optimize(self, initial_x, target, max_iter=50, use_roi=False):
+    def optimize(self, initial_x, target, output_dir, max_iter=50, use_roi=False):
         """GPU主优化循环（支持大模型）
 
         说明:
@@ -626,7 +626,7 @@ class GPUTopologyOptimizer:
             if use_roi:
                 self._export_stl_from_density(
                     target_gpu.cpu().numpy(),
-                    "original_target.stl",
+                    output_dir + "/original_target.stl",
                     level=0.5,
                     step_size=1,
                     origin=roi_origin,
@@ -634,7 +634,7 @@ class GPUTopologyOptimizer:
             else:
                 self._export_stl_from_density(
                     target_gpu.cpu().numpy(),
-                    "original_target.stl",
+                    output_dir + "original_target.stl",
                     level=0.5,
                     step_size=1,
                 )
@@ -699,7 +699,7 @@ class GPUTopologyOptimizer:
             # MMA 更新 - 无显式约束
             # 动态调整移动限制：前期大步长加速生长，后期小步长精细化
             # 初始 0.15，衰减至 0.05，保持一定的搜索能力
-            current_move_limit = max(0.05, 0.15 * (0.99 ** iteration))
+            current_move_limit = max(0.005, 0.15 * (0.99 ** iteration))
             self.mma.move_limit = current_move_limit
             
             # 显式约束传递给 MMA
@@ -732,7 +732,12 @@ class GPUTopologyOptimizer:
                 # 将新计算的x与上一次的x进行平均，抑制跳变
                 x_new = (1 - momentum) * x_new + momentum * x_flat
 
-            x = x_new.view_as(x)
+            # 计算最大密度变化 (L-infinity norm)
+            # 这比目标函数变化更能反映收敛状态
+            x_new_reshaped = x_new.view_as(x)
+            max_density_change = torch.max(torch.abs(x_new_reshaped - x)).item()
+
+            x = x_new_reshaped # 更新 x
 
             # [已移除] 增强的平滑处理以减少棋盘格模式
             # 这里的额外滤波被移除，仅依赖 filter_density_gpu 进行必要的棋盘格控制
@@ -747,26 +752,28 @@ class GPUTopologyOptimizer:
                 'overhang_constraint': G_ov,
                 'hanging_constraint': G_hg,
                 'volume_fraction': vol_current,
+                'max_change': max_density_change,
                 'time': iter_time
             })
-            print(f"迭代时间: {iter_time:.2f}s")
-
+            
+            print(f"迭代时间: {iter_time:.2f}s | 最大密度变化: {max_density_change:.6f}")
             if save_intermediate and (iteration % save_every == 0):
                 base = os.path.join(out_dir, f"iter_{iteration:03d}")
-                try:
-                    if use_roi:
-                        # 保存 ROI 密度
-                        np.save(base + "_roi.npy", x.detach().cpu().numpy())
-                        # 回填到原始尺寸，方便全局对齐比较
-                        full = np.zeros(self.original_shape, dtype=np.float32)
-                        sx, sy, sz = self.roi_slices
-                        full[sx, sy, sz] = rho_current.detach().cpu().numpy()
-                        np.save(base + "_full.npy", full)
-                    else:
-                        # 直接保存完整密度，确保坐标对齐
-                        np.save(base + ".npy", rho_current.detach().cpu().numpy())
-                except Exception as _e:
-                    print(f"保存中间NPY失败: {_e}")
+                # [已禁用] 只保存STL，不再保存NPY以节省空间
+                # try:
+                #     if use_roi:
+                #         # 保存 ROI 密度
+                #         np.save(base + "_roi.npy", x.detach().cpu().numpy())
+                #         # 回填到原始尺寸，方便全局对齐比较
+                #         full = np.zeros(self.original_shape, dtype=np.float32)
+                #         sx, sy, sz = self.roi_slices
+                #         full[sx, sy, sz] = rho_current.detach().cpu().numpy()
+                #         np.save(base + "_full.npy", full)
+                #     else:
+                #         # 直接保存完整密度，确保坐标对齐
+                #         np.save(base + ".npy", rho_current.detach().cpu().numpy())
+                # except Exception as _e:
+                #     print(f"保存中间NPY失败: {_e}")
                 try:
                     if use_roi:
                         # 直接导出 ROI STL，并对顶点添加原点偏移，保证与全局坐标一致
@@ -788,9 +795,37 @@ class GPUTopologyOptimizer:
                 except Exception as _e:
                     print(f"保存中间STL失败: {_e}")
 
-            # 收敛与连续化调整 - 只检查悬挑约束
-            constraint_tol = 0.0
-            constraints_satisfied = (G_ov <= constraint_tol)  # 只检查悬挑约束
+            # 收敛与连续化调整
+            # 使用与MMA更新中一致的容差 (约400体素)
+            constraint_tol = 400.0 
+            constraints_satisfied = (G_ov <= constraint_tol)
+            
+            # 1. 密度场收敛判定 (最重要)
+            # 如果设计变量不再发生显著变化，说明已经找到了(局部)极值
+            is_density_converged = (max_density_change < 0.005)
+            
+            # 2. 目标函数平稳判定
+            is_objective_stable = False
+            if iteration > 10:
+                 # 检查过去5次迭代的目标函数波动
+                 recent_objs = [h['objective'] for h in history[-5:]]
+                 obj_change = (max(recent_objs) - min(recent_objs)) / (abs(recent_objs[-1]) + 1e-6)
+                 # 0.1% 的波动认为稳定
+                 if obj_change < 0.001: 
+                     is_objective_stable = True
+
+            if is_density_converged:
+                if constraints_satisfied:
+                    print(f"收敛: 密度变化极小 ({max_density_change:.6f}) 且 满足悬挑约束 ({G_ov:.1f} <= {constraint_tol})")
+                    break
+                else:
+                    print(f"密度已收敛 ({max_density_change:.6f}) 但未满足约束 ({G_ov:.1f} > {constraint_tol})。")
+                    # 如果已经非常收敛但约束不满足，可能是参数问题，与其空转不如停止或调整beta
+                    # 这里如果是多次连续收敛但违反约束，则强制停止
+                    if iteration > 20 and all(h['max_change'] < 0.005 for h in history[-3:]):
+                         print("无法进一步满足约束，强制停止优化。")
+                         break
+
             if not constraints_satisfied:
                 # 减缓 beta 增长速度，每 10 次迭代更新一次，且增长倍率降低，给予更多收敛时间
                 if iteration > 0 and iteration % 10 == 0:
@@ -799,21 +834,11 @@ class GPUTopologyOptimizer:
                     alpha = min(self.alpha_max, alpha * 1.2)
                     if beta > old_beta or alpha > old_alpha:
                         print(f"连续化参数更新: β={old_beta:.1f}→{beta:.1f}, α={old_alpha:.1f}→{alpha:.1f}")
-                if iteration > 10 and len(history) >= 3:
-                    recent = [h['overhang_constraint'] for h in history[-3:]]  # 只检查悬挑约束
-                    if max(recent) - min(recent) < 0.1:
-                        beta = min(self.beta_max, beta * 1.5)
-                        alpha = min(self.alpha_max, alpha * 1.5)
-                        print("悬挑约束值停滞，加速连续化")
-                if iteration >= max_iter - 5:
-                    max_iter = iteration + 10
-                    print("接近最大迭代次数但未满足约束，延长优化…")
             else:
-                if iteration > 0:
-                    prev = history[-2]['objective']
-                    if abs(f0 - prev) / (abs(prev) + 1e-10) < 1e-6:
-                        print("悬挑约束满足且目标函数收敛")
-                        break
+                # 约束满足情况下，如果目标函数也非常稳定，也可以停止
+                if is_objective_stable and iteration > 20: 
+                    print("悬挑约束满足且目标函数稳定")
+                    break
 
             if (iteration % 5 == 0) and (self.device == 'cuda'):
                 torch.cuda.empty_cache()
@@ -1177,10 +1202,10 @@ def main():
     
 
     #加默认迭代次数，确保硬约束下有足够收敛时间
-    max_iter = 300
+    max_iter = 500
 
     # 默认不使用ROI裁剪，保持与baseline坐标对齐
-    optimized_x, history = optimizer.optimize(initial_x, target, max_iter=max_iter, use_roi=True)
+    optimized_x, history = optimizer.optimize(initial_x, target, output_dir, max_iter=max_iter, use_roi=True)
     total_time = time.time() - start_time
     
     # 保存结果

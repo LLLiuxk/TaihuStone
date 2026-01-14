@@ -1,6 +1,6 @@
 #include "globalPara.h" 
 
-std::string input_file = "test_cube";
+std::string input_file = "RockSetBr";
 int Resolution = 100;
 
 std::vector<double> Weights = { 0.8, 1.0, 1.2 };  //mst 分类系数权重：边界-内部，内部-内部，边界-边界
@@ -38,5 +38,5 @@ bool standard_show = false;
 bool Iso_kernel = true;
 bool Direct_dis = false;
 
-bool optimize_debug = false;
+bool optimize_debug = true;
 bool Enable_noise = false;

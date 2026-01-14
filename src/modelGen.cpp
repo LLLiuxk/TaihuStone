@@ -39,36 +39,38 @@ GaussianKernel::GaussianKernel(const Eigen::Vector3d& center_, double sigma_, do
 
 double GaussianKernel::gaussian_fun(const Eigen::Vector3d& p)
 {
-    Eigen::Vector3d d = p - center;
-    double quad = d.transpose() * invSigma * d;
-    return amplitude * std::exp(-0.5 * quad);
+    if (Iso_kernel)
+    {
+        double d2 = (p - center).squaredNorm();
+        double G = amplitude * std::exp(-d2 / (2.0 * sigma * sigma));
+        return G;
+    }
+    else
+    {
+        Eigen::Vector3d d = p - center;
+        double quad = d.transpose() * invSigma * d;
+        return amplitude * std::exp(-0.5 * quad);
+    }   
 }
 
-double GaussianKernel::gaussian_fun_iso(const Eigen::Vector3d& p)
-{
-    // ---------- 原始高斯值 ----------
-    double d2 = (p - center).squaredNorm();
-    double G = amplitude * std::exp(-d2 / (2.0 * sigma * sigma));
-    return G;
-}
 
 bool GaussianKernel::is_on_surface() 
 {
-    double ratio = Gauss_level / amplitude;
-    double d_factor = std::sqrt(-2.0 * std::log(ratio));
-    // 对各向异性椭球，取最大轴作为判断
-    double d_max = d_factor * std::max(sigma_parallel, sigma_perp);
-
-    return d_max + 1e-3 > abs(center_value);
-}
-
-
-bool GaussianKernel::is_on_surface_iso()
-{
-    double ratio = Gauss_level / amplitude;
-    double d_value = sqrt(-2.0 * sigma * sigma * std::log(ratio));
-    //cout << d_value + 1e-3 << "   " << abs(center_value) << endl;
-    return d_value + 1e-3 > abs(center_value);
+    if (Iso_kernel)
+    {
+        double ratio = Gauss_level / amplitude;
+        double d_value = sqrt(-2.0 * sigma * sigma * std::log(ratio));
+        //cout << d_value + 1e-3 << "   " << abs(center_value) << endl;
+        return d_value + 1e-3 > abs(center_value);
+    }
+    else
+    {
+        double ratio = Gauss_level / amplitude;
+        double d_factor = std::sqrt(-2.0 * std::log(ratio));
+        // 对各向异性椭球，取最大轴作为判断
+        double d_max = d_factor * std::max(sigma_parallel, sigma_perp);
+        return d_max + 1e-3 > abs(center_value);
+    }
 }
 
 ModelGenerator::ModelGenerator(std::string input_file, int pores)
@@ -169,7 +171,7 @@ void ModelGenerator::generateGaussianSDF()
     Unused_adj_list = get_unused_edge_adj(Adj_list, Adj_dis_thres);
     vector<int> leafs_index = all_leafs_mst(Tube_edges);
     vector<int> inner_leafs = check_inner_leafs(leafs_index);
-    
+	//cout << "leafs_index: " << leafs_index.size() << "   inner_leafs: " << inner_leafs.size() << endl;
 	//---------calculate total translucency score------------------------------
     std::cout << "--------------------3. Calculating total translucency of mst --------------------" << endl;
     finalTranslucency = cal_total_translucency(Kernels, Adj_list);
@@ -399,10 +401,7 @@ double ModelGenerator::combinedSDF(Eigen::Vector3d & p, std::vector<GaussianKern
     int gaus_num = G_kernels.size();
     for (size_t i = 0; i < gaus_num; i++) {
         //std::cout <<"gaus_num: "<< gaus_num<<"  "<< i << std::endl;
-        if(Iso_kernel)
-            total_void += G_kernels[i].gaussian_fun_iso(p);
-        else 
-            total_void += G_kernels[i].gaussian_fun(p);
+        total_void += G_kernels[i].gaussian_fun(p);
     }
 
     //double noise_val = myPerlin.noise(p.x() * 0.5, p.y() * 0.5, p.z() * 0.5);
@@ -994,6 +993,7 @@ double ModelGenerator::cal_kernel_translucency(int p_index, int & max_s1, int & 
 double ModelGenerator::cal_total_translucency(std::vector<GaussianKernel> gau,  AdjacencyList adj)
 {
     int kernels_num = Kernels.size();
+    
     double total_score = 0.0;
     max_paths_kernel.clear();
     kernel_translucency.clear();
@@ -1920,7 +1920,7 @@ int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double
 
 void ModelGenerator::optimize_model_py(std::string& filename, std::string& outfilename)
 {
-    std::string scriptDir = "D:/VSprojects/TaihuStone/limitstl"; // Python脚本所在的文件夹
+    std::string scriptDir = "D:/VSprojects/TaihuStone/src"; // Python脚本所在的文件夹
     std::string pythonExe = "D:/VSprojects/TaihuStone/limitstl/taihu_env/Scripts/python.exe";
     std::string scriptName = "gpu_topology_optimizer.py"; // 只需要文件名了，因为我们会切换过去
 
