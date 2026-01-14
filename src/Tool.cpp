@@ -27,6 +27,9 @@ double Mesh2SDF(Eigen::MatrixXd& V,  Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Ei
     bb_min = (bb_min - bb_center) * scale_factor;
     bb_max = (bb_max - bb_center) * scale_factor;
     Vector3d left_corner(-0.5, -0.5, -0.5);
+
+    std::string ori_model = "D:/VSprojects/TaihuStone/model/ori/" + input_file + ".stl";
+    saveMesh(ori_model, V, F);
     //cout << "bb_min: " << bb_min << endl;
     //bb_min = V.colwise().minCoeff();
     
@@ -818,6 +821,91 @@ void saveVoxelGridAsNPY(std::vector<double>& voxel_grid, int res, std::string& f
     std::cout << "NPY文件保存成功: " << filename << " (大小: " << res << "x" << res << "x" << res << ")" << std::endl;
 }
 
+bool readNPYtoVoxel(const std::string& filename, std::vector<double>& voxel_grid, int& res)
+{
+    std::ifstream file(filename, std::ios::binary);
+    if (!file.is_open()) {
+        std::cerr << "Could not load NPY input: " << filename << std::endl;
+        return false;
+    }
+
+    // --- 1. 读取并校验 Magic ---
+    char magic[6];
+    file.read(magic, 6);
+    if (std::string(magic, 6) != "\x93NUMPY") return false;
+
+    // --- 2. 跳过 Version (2 bytes) ---
+    file.ignore(2);
+
+    // --- 3. 读取 Header 长度 ---
+    uint16_t header_len;
+    file.read(reinterpret_cast<char*>(&header_len), 2);
+
+    // --- 4. 读取 Header 内容 ---
+    std::string header_dict(header_len, ' ');
+    file.read(&header_dict[0], header_len);
+
+    // --- 5. 解析 Header (关键修改) ---
+    // 检查是 float (<f4) 还是 double (<f8)
+    bool is_float32 = false;
+    if (header_dict.find("'<f4'") != std::string::npos || header_dict.find("\"<f4\"") != std::string::npos) {
+        is_float32 = true;
+        //std::cout << "检测到数据格式: Float32 (<f4)" << std::endl;
+    }
+    else if (header_dict.find("'<f8'") != std::string::npos || header_dict.find("\"<f8\"") != std::string::npos) {
+        is_float32 = false;
+        //std::cout << "检测到数据格式: Float64/Double (<f8)" << std::endl;
+    }
+    else {
+        //std::cerr << "错误: 未知或不支持的数据类型。" << std::endl;
+        return false;
+    }
+
+    // 解析 shape
+    std::regex shape_regex(R"('shape':\s*\((\d+),\s*(\d+),\s*(\d+)\))");
+    std::smatch match;
+    if (std::regex_search(header_dict, match, shape_regex)) {
+        res = std::stoi(match[1].str()); // 假设是立方体，取第一维
+    }
+    else {
+        std::cerr << "错误: 无法解析 shape。" << std::endl;
+        return false;
+    }
+
+    size_t total_elements = static_cast<size_t>(res) * res * res;
+    voxel_grid.resize(total_elements);
+
+    // --- 6. 分情况读取数据 (关键修改) ---
+    if (is_float32) {
+        // 如果是 float，先创建一个临时的 float buffer
+        std::vector<float> temp_buffer(total_elements);
+
+        file.read(reinterpret_cast<char*>(temp_buffer.data()), total_elements * sizeof(float));
+
+        if (!file) {
+            std::cerr << "错误: 文件数据读取不完整 (期望 " << total_elements * sizeof(float) << " 字节)" << std::endl;
+            return false;
+        }
+
+        // 转换 float -> double
+        for (size_t i = 0; i < total_elements; ++i) {
+            voxel_grid[i] = static_cast<double>(temp_buffer[i]);
+        }
+    }
+    else {
+        // 如果本来就是 double，直接读
+        file.read(reinterpret_cast<char*>(voxel_grid.data()), total_elements * sizeof(double));
+
+        if (!file) {
+            std::cerr << "错误: 文件数据读取不完整 (期望 " << total_elements * sizeof(double) << " 字节)" << std::endl;
+            return false;
+        }
+    }
+
+    file.close();
+    std::cout << "成功读取 NPY (Res: " << res << ")" << std::endl;
+    return true;
+}
 
 void writeAdjacencyListToFile(const std::vector<std::vector<int>>& adjList,
     const std::string& filename) {

@@ -33,6 +33,7 @@ extern double Adj_dis_thres;
 extern bool debug_show;
 extern bool standard_show;
 extern bool Direct_dis;
+extern bool Iso_kernel;  //使用iso还是椭球
 extern bool optimize_debug;
 extern bool Enable_noise;
 //struct Parameters {

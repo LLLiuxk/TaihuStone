@@ -18,6 +18,9 @@
 #include <iomanip>
 #include <queue>
 #include <random>
+#include <stdexcept>
+#include <regex>
+
 #include "FastNoiseLite.h"
 #include "globalPara.h" 
 #include "selfSupVoxel.h"
@@ -127,6 +130,7 @@ void saveSDFtoVTI(const std::string filename, Eigen::VectorXd& sdf, int nx, int 
 void saveSDFtoVOI(const std::string filename, Eigen::VectorXd& sdf, int nx, int ny, int nz);
 
 void saveVoxelGridAsNPY(std::vector<double>& voxel_grid, int res, std::string& filename);
+bool readNPYtoVoxel(const std::string& filename, std::vector<double>& voxel_grid, int& res);
 
 void writeAdjacencyListToFile(const std::vector<std::vector<int>>& adjList, const std::string& filename);
 

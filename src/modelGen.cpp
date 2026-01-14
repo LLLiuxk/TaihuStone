@@ -1,30 +1,5 @@
 ﻿#include "modelGen.h"
 
-//GaussianKernel::GaussianKernel(Eigen::Vector3d center_, double sigma_, double amplitude_, double center_value_)
-//{
-//    center = center_;
-//    sigma = sigma_;         // 核的大小/影响力范围 (高斯函数的标准差)
-//    amplitude = amplitude_;
-//    center_value = center_value_;
-//    on_surface = is_on_surface();  //true: on surface
-//}
-//
-//double GaussianKernel::gaussian_fun(const Eigen::Vector3d& p)
-//{
-//    // ---------- 原始高斯值 ----------
-//    double d2 = (p - center).squaredNorm();
-//    double G = amplitude * std::exp(-d2 / (2.0 * sigma * sigma));
-//    return G;
-//}
-//
-//bool GaussianKernel::is_on_surface() const
-//{
-//    double ratio = Gauss_level / amplitude;
-//    double d_value = sqrt(-2.0 * sigma * sigma * std::log(ratio));
-//    //cout << d_value + 1e-3 << "   " << abs(center_value) << endl;
-//    return d_value + 1e-3 > abs(center_value);
-//}
-
 GaussianKernel::GaussianKernel(
     const Eigen::Vector3d& center_,
     double sigma_parallel_,
@@ -53,14 +28,31 @@ GaussianKernel::GaussianKernel(
     invSigma = R * Dinv * R.transpose();
 }
 
-double GaussianKernel::gaussian_fun(const Eigen::Vector3d& p) const
+GaussianKernel::GaussianKernel(const Eigen::Vector3d& center_, double sigma_, double amplitude_, double center_value_)
+{
+    center = center_;
+    sigma = sigma_;         // 核的大小/影响力范围 (高斯函数的标准差)
+    amplitude = amplitude_;
+    center_value = center_value_;
+    on_surface = is_on_surface();  //true: on surface
+}
+
+double GaussianKernel::gaussian_fun(const Eigen::Vector3d& p)
 {
     Eigen::Vector3d d = p - center;
     double quad = d.transpose() * invSigma * d;
     return amplitude * std::exp(-0.5 * quad);
 }
 
-bool GaussianKernel::is_on_surface() const
+double GaussianKernel::gaussian_fun_iso(const Eigen::Vector3d& p)
+{
+    // ---------- 原始高斯值 ----------
+    double d2 = (p - center).squaredNorm();
+    double G = amplitude * std::exp(-d2 / (2.0 * sigma * sigma));
+    return G;
+}
+
+bool GaussianKernel::is_on_surface() 
 {
     double ratio = Gauss_level / amplitude;
     double d_factor = std::sqrt(-2.0 * std::log(ratio));
@@ -68,6 +60,15 @@ bool GaussianKernel::is_on_surface() const
     double d_max = d_factor * std::max(sigma_parallel, sigma_perp);
 
     return d_max + 1e-3 > abs(center_value);
+}
+
+
+bool GaussianKernel::is_on_surface_iso()
+{
+    double ratio = Gauss_level / amplitude;
+    double d_value = sqrt(-2.0 * sigma * sigma * std::log(ratio));
+    //cout << d_value + 1e-3 << "   " << abs(center_value) << endl;
+    return d_value + 1e-3 > abs(center_value);
 }
 
 ModelGenerator::ModelGenerator(std::string input_file, int pores)
@@ -87,7 +88,39 @@ void ModelGenerator::model_porous_structure()
     //cout << "point index: " << find_nearest_grid(point) << endl;
     generateGaussianSDF();
 
+    
+    //std::string raw_filename = "D:/VSprojects/TaihuStone/result/raw/" + input_file + "_voxelized_model_" + std::to_string(resolution) + "x" + std::to_string(resolution) + "x" + std::to_string(resolution) + ".vol";
+    //saveSDFtoVOI(raw_filename, SDF_out, resolution, resolution, resolution);
+    VoxelGrid grids = SDFtoVoxel(SDF_out, bb_min, bb_max, resolution, resolution, resolution);
+    SupportCheckResult scr = checkSupportVoxel(grids, 0.5);
 
+    std::string npy_filename = "D:/VSprojects/TaihuStone/model/npy/" + input_file + "_voxelized_model_" + std::to_string(resolution) + "x" + std::to_string(resolution) + "x" + std::to_string(resolution) + ".npy";
+    saveVoxelGridAsNPY(grids.rho, resolution, npy_filename);
+    //out file
+    std::string filename = "result/porous_" + input_file;
+    if (optimize_debug)
+        filename += "_opt";
+    filename = filename + "_" + to_string(PoresNum) + "_" + to_string(Resolution) + "_" + to_string_pre(surface_ratio) + "_" +
+        to_string_pre(Trans_thres) + "_" + to_string_pre(Weights[0]) + "_" + to_string_pre(KT_weights[0]) + "_" +
+        to_string_pre(sigma_min, 3) + "_" + to_string_pre(sigma_max, 3) + "_" + to_string_pre(finalTranslucency, 3) + "_" + to_string_pre(finalPorosity * 100.0) + "%.stl";
+    saveMesh(filename, V_out, F_out);
+
+    std::string outputPrefix = "D:/VSprojects/TaihuStone/result/" + input_file + "_opt/";
+
+    optimize_model_py(npy_filename, outputPrefix);
+
+    VoxelGrid grids_opt = grids;
+    readNPYtoVoxel(outputPrefix + "gpu_topology_optimized.npy", grids_opt.rho, Resolution);
+
+    int solid_num1 = 0, solid_num2 = 0;
+    for (int tt = 0; tt < grids_opt.rho.size(); tt++)
+    {
+        if (grids.rho[tt] < 0.5) solid_num1++;
+		if (grids_opt.rho[tt] < 0.5) solid_num2++;
+    }
+	cout << model_solid_num <<"  Solid voxel num changes from : " << solid_num1 << "  to: "<< solid_num2 << endl;
+    // ------------check single component--------------
+    //int comp = single_component(V_g, F_g);
     /*VoxelGrid grids = SDFtoVoxel(SDF_out, bb_min, bb_max, resolution, resolution, resolution);
     SupportCheckResult scr = checkSupportVoxel(grids, 0.5);*/
 
@@ -115,10 +148,12 @@ void ModelGenerator::generateGaussianSDF()
     std::vector<double> pore_sdfs;
     std::vector<int> inside_indices;
     sample_interior_points(pore_centers, pore_sdfs, inside_indices, pores, gen);
-    double model_count = inside_indices.size();
     //for (int i = 0; i < pore_centers.size(); i++)   std::cout << "i: " << i << "  " << pore_centers[i] << std::endl;
 
-    generate_gaussians(pore_centers, pore_sdfs, gen);
+    if(Iso_kernel)
+        generate_gaussians_iso(pore_centers, pore_sdfs, gen);
+    else 
+        generate_gaussians(pore_centers, pore_sdfs, gen);
     
 	int kernel_num = Kernels.size();
     int degree_limit = (kernel_num - 1) / max(1, (int)(kernel_num - surface_kernels.size()));
@@ -180,35 +215,8 @@ void ModelGenerator::generateGaussianSDF()
     double void_count = generate_mst_tubes(grid_num, resolution, Isolevel, Gauss_level, SmoothT);
     //std::string vti_filename = "D:/VSprojects/TaihuStone/result/vti/" + input_file + "_voxelized_model_" + std::to_string(resolution) + "x" + std::to_string(resolution) + "x" + std::to_string(resolution) + ".vti";
     //saveSDFtoVTI(vti_filename, SDF_out, resolution, resolution, resolution);
-
-    std::string raw_filename = "D:/VSprojects/TaihuStone/result/raw/" + input_file + "_voxelized_model_" + std::to_string(resolution) + "x" + std::to_string(resolution) + "x" + std::to_string(resolution) + ".vol";
-    saveSDFtoVOI(raw_filename, SDF_out, resolution, resolution, resolution);
-
-    VoxelGrid grids = SDFtoVoxel(SDF_out, bb_min, bb_max, resolution, resolution, resolution);
-    //SupportCheckResult scr = checkSupportVoxel(grids, 0.5);
-
-    std::string npy_filename = "D:/VSprojects/TaihuStone/model/npy/"+ input_file+ "_voxelized_model_" + std::to_string(resolution) + "x" + std::to_string(resolution) + "x" + std::to_string(resolution) + ".npy";
-    saveVoxelGridAsNPY(grids.rho, resolution, npy_filename);
-
-    // 计算孔隙率
-    double porosity = 1.0 - void_count / model_count;
-    std::cout << "Porosity: " << porosity * 100 << "%" << "    --------:" << void_count << "   " << model_count << std::endl;
-
-    // 存储最终的孔隙率
-    finalPorosity = porosity;
-
-    //out file
-    std::string filename = "result/porous_" + input_file;
-    if (optimize_debug)
-        filename += "_opt";
-    filename = filename + "_" + to_string(PoresNum) + "_" + to_string(Resolution) + "_" + to_string_pre(surface_ratio) + "_" +
-        to_string_pre(Trans_thres) + "_" + to_string_pre(Weights[0]) + "_" + to_string_pre(KT_weights[0]) + "_" +
-        to_string_pre(sigma_min, 3) + "_" + to_string_pre(sigma_max, 3) + "_" + to_string_pre(finalTranslucency, 3) + "_"+ to_string_pre(finalPorosity*100.0)+"%.stl";
-    saveMesh(filename, V_out, F_out);
-	// ------------check single component--------------
-    //int comp = single_component(V_g, F_g);
-  
-
+    initPorosity = 1.0 - void_count / model_solid_num;
+    std::cout << "Porosity: " << initPorosity * 100 << "%" << "    --------:" << void_count << "   " << model_solid_num << std::endl;
     return;
 
 }
@@ -231,9 +239,9 @@ void ModelGenerator::sample_interior_points(std::vector<Eigen::Vector3d>& pore_c
             surface_indices.push_back(idx);
         }
     }
-    double model_count = inside_indices.size();
+    model_solid_num = inside_indices.size();
 	double surface_count = surface_indices.size();
-	cout << "Total grid num: " << grid_num << ", inside grid num: " << model_count << ", surface grid num: " << surface_count <<endl;
+	cout << "Total grid num: " << grid_num << ", inside grid num: " << model_solid_num << ", surface grid num: " << surface_count <<endl;
     if (inside_indices.empty()) {
         std::cerr << "Warning: no legal points inside!" << std::endl;
         return;
@@ -306,42 +314,6 @@ void ModelGenerator::sample_interior_points(std::vector<Eigen::Vector3d>& pore_c
 
 void ModelGenerator::generate_gaussians(std::vector<Eigen::Vector3d> pore_centers, std::vector<double> pore_sdfs, std::mt19937& gen)
 {
-    //Kernels.clear();
-    //surface_kernels.clear();
-    //bool dynamic_change_para = true;
-    //if(dynamic_change_para)
-    //{
-    //    double bbx_v = abs((bb_max.x() - bb_min.x()) * (bb_max.y() - bb_min.y()) * (bb_max.z() - bb_min.z()));
-    //    double w4max = 7.0, w4min = 42.0;
-    //    sigma_min = sigma_value(bbx_v, pore_num, w4min, Gauss_level);
-    //    sigma_max = sigma_value(bbx_v, pore_num, w4max, Gauss_level);
-    //    cout << "sigma_min: " << sigma_min << "   sigma_max: " << sigma_max << endl;
-    //}
-    //
-    //std::uniform_real_distribution<double> dist_amp(amplitude_min, amplitude_max);
-    //std::uniform_real_distribution<double> dist_sigma(sigma_min, sigma_max);
-
-    //// 为每个空洞中心生成随机参数
-    //int pore_size = pore_centers.size();
-    //for (size_t i = 0; i < pore_size; ++i) {
-    //    double sigma_val = dist_sigma(gen);
-    //    double amplitude_val = dist_amp(gen);
-    //    //std::cout << "i: " << i << "  " << sigma_val<<"  "<<amplitude_val << std::endl;
-    //    GaussianKernel kernel(pore_centers[i], sigma_val, amplitude_val, pore_sdfs[i]);
-    //    Kernels.push_back(kernel);
-    //    if (kernel.on_surface) surface_kernels.push_back(i);
-    //    /*pore_amplitudes.push_back(dist_amp(gen));
-    //    pore_sigmas.push_back(dist_sigma(gen));*/
-    //}
-
-    //std::cout << "--------------------1. Sample and generate gaussian kernels--------------------" << endl<<
-    //    "Combine " << Kernels.size() << " Gaussian fileds with " << surface_kernels.size() << " kernels on the surface" << std::endl;
-    //if(standard_show)
-    //{
-    //    std::cout << "surface index:  ";
-    //    for (auto i : surface_kernels) std::cout << i << "  ";
-    //    std::cout << endl;
-    //}
     Kernels.clear();
     surface_kernels.clear();
     bool dynamic_change_para = true;
@@ -363,8 +335,7 @@ void ModelGenerator::generate_gaussians(std::vector<Eigen::Vector3d> pore_center
         double sigma_val = dist_sigma(gen);
         double amplitude_val = dist_amp(gen);
         //std::cout << "i: " << i << "  " << sigma_val<<"  "<<amplitude_val << std::endl;
-        //GaussianKernel kernel(pore_centers[i], sigma_val * 1.5, sigma_val, Eigen::Matrix3d::Identity(), amplitude_val, pore_sdfs[i]);
-        GaussianKernel kernel(pore_centers[i], sigma_val, sigma_val, Eigen::Matrix3d::Identity(), amplitude_val, pore_sdfs[i]);
+        GaussianKernel kernel(pore_centers[i], sigma_val * 1.5, sigma_val, Eigen::Matrix3d::Identity(), amplitude_val, pore_sdfs[i]);
         Kernels.push_back(kernel);
         if (kernel.on_surface) surface_kernels.push_back(i);
         /*pore_amplitudes.push_back(dist_amp(gen));
@@ -381,6 +352,46 @@ void ModelGenerator::generate_gaussians(std::vector<Eigen::Vector3d> pore_center
     }
 }
 
+void ModelGenerator::generate_gaussians_iso(std::vector<Eigen::Vector3d> pore_centers, std::vector<double> pore_sdfs, std::mt19937& gen)
+{
+    Kernels.clear();
+    surface_kernels.clear();
+    bool dynamic_change_para = true;
+    if(dynamic_change_para)
+    {
+        double bbx_v = abs((bb_max.x() - bb_min.x()) * (bb_max.y() - bb_min.y()) * (bb_max.z() - bb_min.z()));
+        double w4max = 7.0, w4min = 42.0;
+        sigma_min = sigma_value(bbx_v, pore_num, w4min, Gauss_level);
+        sigma_max = sigma_value(bbx_v, pore_num, w4max, Gauss_level);
+        cout << "sigma_min: " << sigma_min << "   sigma_max: " << sigma_max << endl;
+    }
+    
+    std::uniform_real_distribution<double> dist_amp(amplitude_min, amplitude_max);
+    std::uniform_real_distribution<double> dist_sigma(sigma_min, sigma_max);
+
+    // 为每个空洞中心生成随机参数
+    int pore_size = pore_centers.size();
+    for (size_t i = 0; i < pore_size; ++i) {
+        double sigma_val = dist_sigma(gen);
+        double amplitude_val = dist_amp(gen);
+        //std::cout << "i: " << i << "  " << sigma_val<<"  "<<amplitude_val << std::endl;
+        GaussianKernel kernel(pore_centers[i], sigma_val, amplitude_val, pore_sdfs[i]);
+        Kernels.push_back(kernel);
+        if (kernel.on_surface) surface_kernels.push_back(i);
+        /*pore_amplitudes.push_back(dist_amp(gen));
+        pore_sigmas.push_back(dist_sigma(gen));*/
+    }
+
+    std::cout << "--------------------1. Sample and generate gaussian kernels--------------------" << endl<<
+        "Combine " << Kernels.size() << " Gaussian fileds with " << surface_kernels.size() << " kernels on the surface" << std::endl;
+    if(standard_show)
+    {
+        std::cout << "surface index:  ";
+        for (auto i : surface_kernels) std::cout << i << "  ";
+        std::cout << endl;
+    }
+    
+}
 
 double ModelGenerator::combinedSDF(Eigen::Vector3d & p, std::vector<GaussianKernel> G_kernels, double C)
 {
@@ -388,7 +399,10 @@ double ModelGenerator::combinedSDF(Eigen::Vector3d & p, std::vector<GaussianKern
     int gaus_num = G_kernels.size();
     for (size_t i = 0; i < gaus_num; i++) {
         //std::cout <<"gaus_num: "<< gaus_num<<"  "<< i << std::endl;
-        total_void += G_kernels[i].gaussian_fun(p);
+        if(Iso_kernel)
+            total_void += G_kernels[i].gaussian_fun_iso(p);
+        else 
+            total_void += G_kernels[i].gaussian_fun(p);
     }
 
     //double noise_val = myPerlin.noise(p.x() * 0.5, p.y() * 0.5, p.z() * 0.5);
@@ -1797,10 +1811,17 @@ double ModelGenerator::generate_tube2(Eigen::Vector3d& p, GaussianKernel& k1, Ga
 
     // 1. 计算 ω_i 和 ω_j, 这里根据sigma进行转换
 // 假设 ω = 1/(2 * sigma^2)，保持与标准高斯函数一致
-    //double omega1 = 1.0 / (2.0 * k1.sigma * k1.sigma);
-    //double omega2 = 1.0 / (2.0 * k2.sigma * k2.sigma);
-    double omega1 = 1.0 / (2.0 * k1.sigma_parallel * k1.sigma_perp);
-    double omega2 = 1.0 / (2.0 * k2.sigma_parallel * k2.sigma_perp);
+    double omega1 = 0.0, omega2 = 0.0;
+    if (Iso_kernel)
+    {
+        omega1 = 1.0 / (2.0 * k1.sigma * k1.sigma);
+        omega2 = 1.0 / (2.0 * k2.sigma * k2.sigma);
+    }
+    else
+    {
+        omega1 = 1.0 / (2.0 * k1.sigma_parallel * k1.sigma_perp);
+        omega2 = 1.0 / (2.0 * k2.sigma_parallel * k2.sigma_perp);
+    }
     double avg_omega = (omega1 + omega2) / 2.0;
     double mu = 10 * mid_radius_factor * avg_omega;  //mid_radius_factor越大，通道越细
 
@@ -1897,34 +1918,85 @@ int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double
     return void_count;
 }
 
+void ModelGenerator::optimize_model_py(std::string& filename, std::string& outfilename)
+{
+    std::string scriptDir = "D:/VSprojects/TaihuStone/limitstl"; // Python脚本所在的文件夹
+    std::string pythonExe = "D:/VSprojects/TaihuStone/limitstl/taihu_env/Scripts/python.exe";
+    std::string scriptName = "gpu_topology_optimizer.py"; // 只需要文件名了，因为我们会切换过去
+
+    std::string inputFilePath = filename;// "D:/VSprojects/TaihuStone/result/mid_npy/voxelized_model.npy";
+    std::string outputPrefix = outfilename;// "D:/VSprojects/TaihuStone/result/" + input_file + "_opt/";
+    // 3. 拼接命令： "python.exe script.py"
+    // 注意：为了防止路径中有空格，最好给路径加上引号
+    if (_chdir(scriptDir.c_str()) != 0) {
+        std::cerr << "Warning: Illegal path" << scriptDir << std::endl;
+        return;
+    }
+    std::cout << "C++: transfer the path to -> " << scriptDir << std::endl;
+
+    std::string command = "\"\"" + pythonExe + "\" \"" + scriptName + "\" --input \"" + inputFilePath + "\" --output \"" + outputPrefix + "\"\"";
+    std::cout << "------------------------------------------------" << std::endl;
+    std::cout << "C++: using Python..." << std::endl;
+    std::cout << "command: " << command << std::endl; // 打印出来检查一下
+    std::cout << "------------------------------------------------" << std::endl;
+    //std::string command = "\"\"" + pythonExe + "\" \"" + scriptName + "\"\"";
+
+    // 4. 执行
+    int result = system(command.c_str());
+
+    if (result == 0) {
+        std::cout << "Success!" << std::endl;
+    }
+    else {
+        std::cout << "Error code: " << result << std::endl;
+    }
+
+}
+
 void ModelGenerator::test_item()
 {
     //std::cout << "Model A loaded successfully." << std::endl;
     Eigen::MatrixXd V2;
     Eigen::MatrixXi F2;
     scale_factor = Mesh2SDF(V_ini, F_ini, GV, SDF_ini, bb_min, bb_max);
+
     int res = Resolution;
-    std::string raw_file = "Tshape.voi";
-    saveSDFtoVOI(raw_file, SDF_ini, res, res, res);
+    //std::string raw_file = "Tshape.voi";
+    //saveSDFtoVOI(raw_file, SDF_ini, res, res, res);
 
     VoxelGrid grids = SDFtoVoxel(SDF_ini, bb_min, bb_max, res, res, res);
     SupportCheckResult scr = checkSupportVoxel(grids, 0.5);
     
-    /*std::string npy_filename = "D:/VSprojects/TaihuStone/model/npy/"+ input_file+ "_voxelized_model_" + std::to_string(res) + "x" + std::to_string(res) + "x" + std::to_string(res) + ".npy";
-    saveVoxelGridAsNPY(grids.rho, res, npy_filename);*/
+
+    std::string npy_filename = "D:/VSprojects/TaihuStone/model/npy/"+ input_file+ "_voxelized_model_" + std::to_string(res) + "x" + std::to_string(res) + "x" + std::to_string(res) + ".npy";
+    saveVoxelGridAsNPY(grids.rho, res, npy_filename);
     
+    std::string outputPrefix = "D:/VSprojects/TaihuStone/result/" + input_file + "_opt/";
+    optimize_model_py(npy_filename, outputPrefix);
+
+    VoxelGrid gridsopt = grids;
+    readNPYtoVoxel(outputPrefix+"gpu_topology_optimized.npy", gridsopt.rho, res);
+    //readNPYtoVoxel(npy_filename, gridsopt.rho, res);
+
+    //cout << "rho.size()" << grids.rho.size() << "    " << gridsopt.rho.size() << endl;
+    for (int tt = 0; tt < 100; tt++)
+    {
+        if(grids.rho[tt]!= gridsopt.rho[tt])
+           cout << "Before and after optimization: " << grids.rho[tt] << "   " << gridsopt.rho[tt] << endl;
+    }
+
     Eigen::VectorXd scalar(res * res * res);
 
     for (int i = 0; i < res * res * res; ++i) {
         //scalar(i) = -static_cast<double>(voxel_grid[i]);
-        scalar(i) = -grids.rho[i];
+        scalar(i) = -gridsopt.rho[i];
     }
 
     igl::marching_cubes(scalar, GV, res, res, res, -0.5, V2, F2);
-    V2 = V2 / scale_factor;
+    //
     view_model(V2, F2);
 
-    igl::write_triangle_mesh("result_change.stl", V2, F2);
+    igl::write_triangle_mesh(outputPrefix + "gpu_result_change.stl", V2, F2);
 
 
 }

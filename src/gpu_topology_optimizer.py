@@ -3,7 +3,8 @@ GPU加速的拓扑优化实现
 使用CuPy和PyTorch进行GPU加速计算
 根据overhang_constraints.tex文档实现
 """
-
+import argparse  # <--- 1. 引入参数解析库
+import sys
 import numpy as np
 import os
 import torch
@@ -212,8 +213,14 @@ class GPUTopologyOptimizer:
         # 1. 密度滤波 (卷积)
         x_batch = x.unsqueeze(0).unsqueeze(0)
         padding = self.filter_kernel.shape[-1] // 2
-        rho_filtered = F.conv3d(x_batch, self.filter_kernel, padding=padding)
+        # 使用 replicate 填充以避免边界处的密度下降
+        x_padded = F.pad(x_batch, (padding, padding, padding, padding, padding, padding), mode='replicate')
+        # pad mode='replicate' 意味着边界值向外复制，
+        # 例如 [1, 1, 0] -> [1, 1, 1, 0, 0] (如果padding=1, 右边复制0? 不，右边复制最右边的值0，左边复制1)
+        # 如果内部是 [1, ..., 1]，那么填充后全是1，卷积结果也是1。此处使用 valid 卷积 (padding=0)，因为已经手动填充了
+        rho_filtered = F.conv3d(x_padded, self.filter_kernel, padding=0)
         rho_filtered = rho_filtered.squeeze(0).squeeze(0)
+    
         
         # 2. Heaviside投影
         # 使用传入的 beta 或默认值
@@ -262,9 +269,23 @@ class GPUTopologyOptimizer:
         """对 bbox 以 margin 做各向同性扩展并裁剪到 shape 内。"""
         (sx, sy, sz) = shape
         (x0, x1), (y0, y1), (z0, z1) = bbox
-        x0 = max(0, x0 - margin); x1 = min(sx, x1 + margin)
-        y0 = max(0, y0 - margin); y1 = min(sy, y1 + margin)
-        z0 = max(0, z0 - margin); z1 = min(sz, z1 + margin)
+
+        # 确定主打印方向，不扩展底板方向的 Margin，防止底部悬空
+        # 假设打印方向为轴正向，且 AM filter 总是从 index 0 开始生长
+        abs_dir = torch.abs(self.print_direction)
+        main_axis = torch.argmax(abs_dir).item()
+        
+        # 如果主轴是X (0)，则 x0 (底部) 不扩展
+        mx0 = 0 if main_axis == 0 else margin
+        # 如果主轴是Y (1)，则 y0 (底部) 不扩展
+        my0 = 0 if main_axis == 1 else margin
+        # 如果主轴是Z (2)，则 z0 (底部) 不扩展
+        mz0 = 0 if main_axis == 2 else margin
+
+        x0 = max(0, x0 - mx0); x1 = min(sx, x1 + margin)
+        y0 = max(0, y0 - my0); y1 = min(sy, y1 + margin)
+        z0 = max(0, z0 - mz0); z1 = min(sz, z1 + margin)
+        
         return (x0, x1), (y0, y1), (z0, z1)
 
     def _apply_roi_crop(self, x_np, target_np, margin):
@@ -637,8 +658,8 @@ class GPUTopologyOptimizer:
 
         # 导出设置
         save_intermediate = True
-        save_every = 1
-        out_dir = "iter_outputs"
+        save_every = 5
+        out_dir = "D:\\VSprojects\\TaihuStone\\limitstl\\iter_outputs"
         os.makedirs(out_dir, exist_ok=True)
 
         # 内存管理
@@ -791,7 +812,7 @@ class GPUTopologyOptimizer:
                 if iteration > 0:
                     prev = history[-2]['objective']
                     if abs(f0 - prev) / (abs(prev) + 1e-10) < 1e-6:
-                        print("✅ 悬挑约束满足且目标函数收敛")
+                        print("悬挑约束满足且目标函数收敛")
                         break
 
             if (iteration % 5 == 0) and (self.device == 'cuda'):
@@ -829,6 +850,34 @@ class GPUTopologyOptimizer:
             # 修正坐标：由于 padding 导致原点偏移了 (1,1,1)，需要减回去
             verts = verts - pad_width
             
+            
+            # ==========================================================
+            # 关键修正 A：轴顺序调整 (解决角度问题)
+            # ==========================================================
+            # 目前 verts 是 (z, y, x) 顺序 (对应 numpy 的 axis 0, 1, 2)
+            # STL 需要 (x, y, z)
+            # 所以我们需要交换第 0 列和第 2 列
+            verts = verts[:, [2, 1, 0]]
+        
+            res = density.shape[0]
+            voxel_size = 1.0 / (res - 1)
+
+            # 2. 处理缩放逻辑
+            if voxel_size is not None:
+                # 【修改点1】修正缩进，使其包含在 if voxel_size is not None 内部
+                # 【修改点2】使用 np.isscalar 增强兼容性（防止 numpy float 类型报错）
+                if np.isscalar(voxel_size) or isinstance(voxel_size, (int, float)):
+                    scale = np.array([voxel_size, voxel_size, voxel_size])
+                else:
+                    scale = np.array(voxel_size) # 假设输入是 (sx, sy, sz)
+                
+                # 【修改点3】千万不要忘了应用缩放！
+                verts = verts * scale
+
+            # 核心修正：如果C++里是居中的，那么体素网格的左下角起点应该是 -0.5
+            start_point = (-0.5, -0.5, -0.5)
+
+            origin = start_point
             if origin is not None:
                 ox, oy, oz = origin
                 verts = verts + np.array([ox, oy, oz], dtype=verts.dtype)
@@ -837,7 +886,7 @@ class GPUTopologyOptimizer:
                 return
             mesh = trimesh.Trimesh(vertices=verts, faces=faces, process=False)
             # 修复法向问题：翻转法向以指向外部
-            mesh.invert()
+            # mesh.invert()
             mesh.export(stl_path)
             print(f"[导出] 中间 STL: {stl_path}，V={len(verts)}, F={len(faces)}")
         except Exception as e:
@@ -1049,9 +1098,35 @@ class GPUTopologyOptimizer:
 
 def main():
     """主函数"""
+    #读参数
+    parser = argparse.ArgumentParser(description='GPU拓扑优化器')
+    
+    # 接收输入文件路径 (绝对路径)
+    parser.add_argument('--input', type=str, required=True, 
+                        help='Input voxel(.npy) path')
+    
+    # 接收输出文件前缀 (绝对路径，例如 D:/res/result)
+    parser.add_argument('--output', type=str, required=True, 
+                        help='Output voxel(.npy) path')
+    
+    args = parser.parse_args()
+
     print("GPU加速拓扑优化器")
     print("="*60)
-    
+    print(f"Input: {args.input}")
+    print(f"Output: {args.output}")
+
+    if not os.path.exists(args.input):
+        print(f"错误: 找不到输入文件 -> {args.input}")
+        sys.exit(1)
+           
+    output_dir = os.path.dirname(args.output)
+    if output_dir and not os.path.exists(output_dir):
+        print(f"提示: 输出目录不存在，正在创建 -> {output_dir}")
+        os.makedirs(output_dir, exist_ok=True)
+
+    print(f"output_dir: {output_dir}")
+
     if not torch.cuda.is_available():
         print("警告: CUDA不可用，将使用CPU")
         device = 'cpu'
@@ -1061,8 +1136,9 @@ def main():
         device = 'cuda'
     
     # 加载输入
-    input_file = "voxelized_model.npy"
-    voxels = np.load(input_file)
+    #input_file = "voxelized_model.npy"
+    #voxels = np.load(input_file)
+    voxels = np.load(args.input)
     print(f"加载模型: {voxels.shape}")
     
     # 不降采样，使用原始精度
@@ -1099,15 +1175,16 @@ def main():
         use_chunking=use_chunking
     )
     
+
     #加默认迭代次数，确保硬约束下有足够收敛时间
     max_iter = 300
-    
+
     # 默认不使用ROI裁剪，保持与baseline坐标对齐
     optimized_x, history = optimizer.optimize(initial_x, target, max_iter=max_iter, use_roi=True)
     total_time = time.time() - start_time
     
     # 保存结果
-    optimizer.save_results(optimized_x, "gpu_topology_optimized")
+    optimizer.save_results(optimized_x, output_dir + "/gpu_topology_optimized")
     
     print(f"\nGPU拓扑优化完成!")
     print(f"总时间: {total_time:.2f}s")

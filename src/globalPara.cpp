@@ -1,6 +1,6 @@
 #include "globalPara.h" 
 
-std::string input_file = "test_case";
+std::string input_file = "test_ok";
 int Resolution = 100;
 
 std::vector<double> Weights = { 0.8, 1.0, 1.2 };  //mst 分类系数权重：边界-内部，内部-内部，边界-边界
@@ -35,7 +35,7 @@ double Adj_dis_thres = 0.25;
 bool debug_show = false;
 bool standard_show = false;
 
-
+bool Iso_kernel = true;
 bool Direct_dis = false;
 
 bool optimize_debug = false;

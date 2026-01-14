@@ -3,7 +3,7 @@
 #include <queue>
 #include <random>
 #include <chrono>  // 添加时间测量
-
+#include <direct.h>
 #include <filesystem>
 #include <igl/read_triangle_mesh.h>
 
@@ -43,9 +43,17 @@ public:
         double center_value_ = 0.0
     );
 
-    double gaussian_fun(const Eigen::Vector3d& p) const;
-    bool is_on_surface() const;
+    GaussianKernel(
+        const Eigen::Vector3d& center_,
+        double sigma_,              // 沿主轴（建造方向）
+        double amplitude_,
+        double center_value_ = 0.0
+    );
 
+    double gaussian_fun(const Eigen::Vector3d& p);
+    double gaussian_fun_iso(const Eigen::Vector3d& p);
+    bool is_on_surface();
+    bool is_on_surface_iso();
 public:
     Eigen::Vector3d center;
 
@@ -55,7 +63,9 @@ public:
     Eigen::Matrix3d R;       // 局部 → 世界 旋转矩阵
     Eigen::Matrix3d invSigma; // Σ^{-1}
 
+    double sigma;   // ball
     double amplitude;
+
     double center_value;
     bool on_surface;
 };
@@ -106,6 +116,7 @@ public:
         std::vector<int>& inside_indices, int pores, std::mt19937& gen);
 
     void generate_gaussians(std::vector<Eigen::Vector3d> pore_centers, std::vector<double> pore_sdfs, std::mt19937& gen);
+    void generate_gaussians_iso(std::vector<Eigen::Vector3d> pore_centers, std::vector<double> pore_sdfs, std::mt19937& gen);
 
     double combinedSDF(Eigen::Vector3d& p, std::vector<GaussianKernel> G_kernels, double C);
 
@@ -155,6 +166,8 @@ public:
     int generate_mst_tubes(int grid_num, int res, double iso, double gaus_iso, double smooth_t);
 
     void test_item();
+
+	void optimize_model_py(std::string& filename, std::string& outfilename);
 private:
 
 	int pore_num = PoresNum;			   // 空洞数量
@@ -193,6 +206,8 @@ private:
     std::vector<std::vector<int>> Adj_list;
     std::vector<std::vector<int>> Unused_adj_list;
 
+    int model_num = 0;
+    double initPorosity = 0;
     double finalPorosity = 0;
 	double finalTranslucency = 0;
 
