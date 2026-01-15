@@ -17,79 +17,32 @@ int main(int argc, char* argv[])
 {
     auto start_time = std::chrono::high_resolution_clock::now();
 
-    std::string input_path = "D:/VSprojects/TaihuStone/model/" + input_file + ".stl";
-    
- //   std::vector<Eigen::Vector3d> pore_centers = { Eigen::Vector3d(2,2,2), Eigen::Vector3d(4,3,2), Eigen::Vector3d(5,5,5) };
-	//std::vector<pair<int, int>> edge_connections = { {0,1}, {1,2}, {0,2} };
- //   vis_Kernels_Tubes(pore_centers, edge_connections);
+    std::string configFileName = "default"; // 用于日志显示
+    if (argc > 1) {
+        configFileName = argv[1];
+        std::cout << "Loading configuration from: " << configFileName << std::endl;
+        if (!loadParameters(configFileName)) {
+            std::cerr << "Failed to load parameters, exiting." << std::endl;
+            return -1;
+        }
+    }
+    else {
+        std::cout << "No configuration file provided. Using default hardcoded parameters." << std::endl;
+    }
+    std::cout << "--- Current Parameters ---" << std::endl;
+    std::cout << "Input File: " << input_file << std::endl;
+    std::cout << "PoresNum: " << PoresNum << std::endl;
+    std::cout << "--------------------------" << std::endl;
 
+
+    std::string input_path = "D:/VSprojects/TaihuStone/model/" + input_file + ".stl";
 
     ModelGenerator mg(input_path);
     //mg.test_item();
     mg.model_porous_structure();
-    mg.show_model();
+    if (figure_show)
+        mg.show_model();
 
-    //std::string filename = "topology.jpg";
-    //TopologyOptimizer opt(filename, cfg);
-    //std::cout << "Starting Optimization..." << std::endl;
-    //opt.solve();
-    //std::cout << "Done. Result saved to output_optimized.png" << std::endl;
-
-    
-  //  vector<int> Poresnum = { 100,150,200,250 };
-  //  for (int i = 0; i < Poresnum.size(); i++)
-  //  {
-		//PoresNum = Poresnum[i];
-  //      ModelGenerator mg(input_path);
-  //      //mg.show_model();
-  //  }
-    
-
-
-    //----------test---------------
-    //std::string filename = "result/36-14.txt";
-    //std::vector<std::vector<int>> adj = readAdjacencyListFromFile(filename);
-    //PathQuery p_bfs(PoresNum, adj, 36);
-    //int s1 = 14;
-    //int s2 = 6;
-
-    //std::vector<int> path1 = p_bfs.query_path(s1);
-    //std::vector<int> path2 = p_bfs.query_path(s2);
-    //cout << path1.size() << "   " << path2.size() << endl;
-
-
- //   std::string input_file_ = "D:/VSprojects/TaihuStone/model/gaussian_pores150.stl";
- //   Eigen::MatrixXd V_ini; //初始网格顶点
- //   Eigen::MatrixXi F_ini; // 初始网格面片
- //   Eigen::VectorXd SDF_ini;           // 原始/已处理的SDF网格值
- //   Eigen::MatrixXd GV;            // 网格点坐标
- //   if (!igl::read_triangle_mesh(input_file_, V_ini, F_ini)) {
- //       std::cerr << "Error: Could not load model A." << std::endl;
- //   }
- //   Mesh2SDF(V_ini, F_ini, GV, SDF_ini);
- //   Eigen::MatrixXd V_t; //输出网格顶点
- //   Eigen::MatrixXi F_t; // 输出网格面片
- //   MarchingCubes(SDF_ini, GV, Resolution, Resolution, Resolution, 0, V_t, F_t);  //gaussian combined with tubes
- //   view_model(V_t, F_t);
-
-	////VoxelGrid grid_ = SDFtoVoxel(SDF_ini, GV.row(0), GV.row(GV.rows() - 1), Resolution, Resolution, Resolution, 1.0);
-	////saveVoxelToRaw( "D:/VSprojects/TaihuStone/model/raw/voxelized_model.raw", grid_);
-	////saveVoxelToVTK("D:/VSprojects/TaihuStone/model/vtk/voxelized_model.vtk", grid_);
- //   //  保存体素化结果为NPY格式
- //   std::cout << "开始保存体素化结果..." << std::endl;
- //   // 创建二值体素网格 (1=实心, 0=空心)
- //   std::vector<uint8_t> voxel_grid(Resolution * Resolution * Resolution, 0);
-
- //   for (int i = 0; i < SDF_ini.size(); ++i) {
- //       voxel_grid[i] = (SDF_ini(i) < 0) ? 1 : 0;
- //   }
-
- //   // 保存为NPY格式
- //   std::string npy_filename = "D:/VSprojects/TaihuStone/model/npy/voxelized_model.npy";
- //   saveVoxelGridAsNPY(voxel_grid, Resolution, npy_filename);
-
-	// ------------------------------------- view two models after alignment -------------------------------------
- 
     auto end_time = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
     std::cout << "Model generation completed in " << duration.count()/1000.0 << " s" << std::endl;

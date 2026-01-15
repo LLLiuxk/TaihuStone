@@ -12,6 +12,21 @@ struct VoxelGrid
     Eigen::Vector3d origin;
     std::vector<double> rho;
 
+    VoxelGrid()
+    {
+        nx = ny = nz = 0;
+        dx = dy = dz = 1.0;
+		origin = Eigen::Vector3d::Zero();
+    }
+    VoxelGrid(int nx_, int ny_, int nz_,
+        double dx_ = 1.0,
+        double dy_ = 1.0,
+        double dz_ = 1.0,
+        const Eigen::Vector3d& origin_ = Eigen::Vector3d::Zero())
+        : nx(nx_), ny(ny_), nz(nz_),
+        dx(dx_), dy(dy_), dz(dz_),
+        origin(origin_)
+    {}
     inline int index(int i, int j, int k) const
     {
         return i + nx * (j + ny * k);

@@ -868,7 +868,7 @@ bool readNPYtoVoxel(const std::string& filename, std::vector<double>& voxel_grid
         res = std::stoi(match[1].str()); // 假设是立方体，取第一维
     }
     else {
-        std::cerr << "错误: 无法解析 shape。" << std::endl;
+        std::cerr << "Warnning: could not analyze shape" << std::endl;
         return false;
     }
 
@@ -903,7 +903,7 @@ bool readNPYtoVoxel(const std::string& filename, std::vector<double>& voxel_grid
     }
 
     file.close();
-    std::cout << "成功读取 NPY (Res: " << res << ")" << std::endl;
+    std::cout << "Loading NPY success(Res: " << res << ") from" << filename<<std::endl;
     return true;
 }
 

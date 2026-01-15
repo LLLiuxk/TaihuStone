@@ -5,6 +5,7 @@
 #include <chrono>  // 添加时间测量
 #include <direct.h>
 #include <filesystem>
+#include <omp.h>
 #include <igl/read_triangle_mesh.h>
 
 
@@ -109,6 +110,7 @@ public:
 
     void model_porous_structure();
 	void generateGaussianSDF();
+    void supportFreeOpt();
 
     void sample_interior_points(std::vector<Eigen::Vector3d>& pore_centers, std::vector<double>& pore_sdfs, 
         std::vector<int>& inside_indices, int pores, std::mt19937& gen);
@@ -182,6 +184,7 @@ private:
     Eigen::MatrixXi F_out; // 输出网格面片
     Eigen::VectorXd SDF_out;           // 输出的SDF网格值
     //Eigen::MatrixXd GV_out;            // 网格点坐标
+    VoxelGrid Grids;
 
     Eigen::Vector3d bb_min; 
     Eigen::Vector3d bb_max;

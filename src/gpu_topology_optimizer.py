@@ -692,9 +692,9 @@ class GPUTopologyOptimizer:
                     continue
                 raise
 
-            print(f"目标函数: {f0:.6f}")
-            print(f"悬挑约束: {G_ov:.6f} (目标: ≤0)")
-            print(f"悬挂约束: 已禁用")
+            print(f"Obj: {f0:.6f}  Cons_overhang: {G_ov:.6f}")
+            #print(f"悬挑约束: {G_ov:.6f} (目标: ≤0)")
+            #print(f"悬挂约束: 已禁用")
 
             # MMA 更新 - 无显式约束
             # 动态调整移动限制：前期大步长加速生长，后期小步长精细化
@@ -858,9 +858,9 @@ class GPUTopologyOptimizer:
         field = np.asarray(density, dtype=np.float32)
         # 快速检查是否有足够体素超过阈值
         solid_voxels = int(np.count_nonzero(field >= level))
-        print(f"[导出] level={level}，体素>=level数量: {solid_voxels}")
+        #print(f"[导出] level={level}，体素>=level数量: {solid_voxels}")
         if solid_voxels < 50:
-            print("[导出] 体素过少，跳过 STL 生成")
+            print("Too less voxels, skip generating STL")
             return
         try:
             # 自动闭合网格：在四周填充一圈 0，强迫边界处生成封闭面
@@ -907,15 +907,15 @@ class GPUTopologyOptimizer:
                 ox, oy, oz = origin
                 verts = verts + np.array([ox, oy, oz], dtype=verts.dtype)
             if len(verts) == 0 or len(faces) == 0:
-                print("[导出] 未生成有效网格，跳过")
+                print("Illegal mesh, skip!")
                 return
             mesh = trimesh.Trimesh(vertices=verts, faces=faces, process=False)
             # 修复法向问题：翻转法向以指向外部
             # mesh.invert()
             mesh.export(stl_path)
-            print(f"[导出] 中间 STL: {stl_path}，V={len(verts)}, F={len(faces)}")
+            print(f"Intermediate STL: {stl_path}，V={len(verts)}, F={len(faces)}")
         except Exception as e:
-            print(f"[导出] STL失败: {e}")
+            print(f"Write STL failed!: {e}")
     
     def finite_difference_check(self, x_numpy, target_numpy, n_checks=50, h=1e-4, beta=None, alpha=None):
         """对 G_ov 和 G_hg 做有限差分校验（中心差分），比较解析梯度（自动求导）和数值梯度。

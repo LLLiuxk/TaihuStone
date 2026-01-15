@@ -90,37 +90,9 @@ void ModelGenerator::model_porous_structure()
     //cout << "point index: " << find_nearest_grid(point) << endl;
     generateGaussianSDF();
 
+    supportFreeOpt();
     
-    //std::string raw_filename = "D:/VSprojects/TaihuStone/result/raw/" + input_file + "_voxelized_model_" + std::to_string(resolution) + "x" + std::to_string(resolution) + "x" + std::to_string(resolution) + ".vol";
-    //saveSDFtoVOI(raw_filename, SDF_out, resolution, resolution, resolution);
-    VoxelGrid grids = SDFtoVoxel(SDF_out, bb_min, bb_max, resolution, resolution, resolution);
-    SupportCheckResult scr = checkSupportVoxel(grids, 0.5);
-
-    std::string npy_filename = "D:/VSprojects/TaihuStone/model/npy/" + input_file + "_voxelized_model_" + std::to_string(resolution) + "x" + std::to_string(resolution) + "x" + std::to_string(resolution) + ".npy";
-    saveVoxelGridAsNPY(grids.rho, resolution, npy_filename);
-    //out file
-    std::string filename = "result/porous_" + input_file;
-    if (optimize_debug)
-        filename += "_opt";
-    filename = filename + "_" + to_string(PoresNum) + "_" + to_string(Resolution) + "_" + to_string_pre(surface_ratio) + "_" +
-        to_string_pre(Trans_thres) + "_" + to_string_pre(Weights[0]) + "_" + to_string_pre(KT_weights[0]) + "_" +
-        to_string_pre(sigma_min, 3) + "_" + to_string_pre(sigma_max, 3) + "_" + to_string_pre(finalTranslucency, 3) + "_" + to_string_pre(finalPorosity * 100.0) + "%.stl";
-    saveMesh(filename, V_out, F_out);
-
-    std::string outputPrefix = "D:/VSprojects/TaihuStone/result/" + input_file + "_opt/";
-
-    optimize_model_py(npy_filename, outputPrefix);
-
-    VoxelGrid grids_opt = grids;
-    readNPYtoVoxel(outputPrefix + "gpu_topology_optimized.npy", grids_opt.rho, Resolution);
-
-    int solid_num1 = 0, solid_num2 = 0;
-    for (int tt = 0; tt < grids_opt.rho.size(); tt++)
-    {
-        if (grids.rho[tt] < 0.5) solid_num1++;
-		if (grids_opt.rho[tt] < 0.5) solid_num2++;
-    }
-	cout << model_solid_num <<"  Solid voxel num changes from : " << solid_num1 << "  to: "<< solid_num2 << endl;
+  
     // ------------check single component--------------
     //int comp = single_component(V_g, F_g);
     /*VoxelGrid grids = SDFtoVoxel(SDF_out, bb_min, bb_max, resolution, resolution, resolution);
@@ -165,7 +137,8 @@ void ModelGenerator::generateGaussianSDF()
 
 	std::vector<pair<int, int>> edge_connections;
 	for (auto e : Tube_edges) edge_connections.push_back(make_pair(e.from, e.to));
-    vis_Kernels_Tubes(pore_centers, edge_connections);
+    if(figure_show)
+        vis_Kernels_Tubes(pore_centers, edge_connections);
 	// 构建邻接表
     Adj_list = construct_adj_list(Tube_edges, kernel_num);
     Unused_adj_list = get_unused_edge_adj(Adj_list, Adj_dis_thres);
@@ -209,18 +182,66 @@ void ModelGenerator::generateGaussianSDF()
     finalTranslucency = new_trans_score; 
     std::vector<pair<int, int>> edge_conn_new;
     for (auto e : Tube_edges) edge_conn_new.push_back(make_pair(e.from, e.to));
-    vis_Kernels_Tubes(pore_centers, edge_conn_new);
+    if (figure_show)
+        vis_Kernels_Tubes(pore_centers, edge_conn_new);
     
 
     std::cout << "--------------------5. Generate tubes between kernels based on optimized mst --------------------" << endl;
     //-----------------generate tubes------------------------------------------
-    double void_count = generate_mst_tubes(grid_num, resolution, Isolevel, Gauss_level, SmoothT);
+    double solid_count = generate_mst_tubes(grid_num, resolution, Isolevel, Gauss_level, SmoothT);
     //std::string vti_filename = "D:/VSprojects/TaihuStone/result/vti/" + input_file + "_voxelized_model_" + std::to_string(resolution) + "x" + std::to_string(resolution) + "x" + std::to_string(resolution) + ".vti";
     //saveSDFtoVTI(vti_filename, SDF_out, resolution, resolution, resolution);
-    initPorosity = 1.0 - void_count / model_solid_num;
-    std::cout << "Porosity: " << initPorosity * 100 << "%" << "    --------:" << void_count << "   " << model_solid_num << std::endl;
+    initPorosity = 1.0 - solid_count / model_solid_num;
+    std::cout << "Porosity: " << initPorosity * 100 << "%" << "    --------:" << solid_count << "   " << model_solid_num << std::endl;
+
+    //output save
+    VoxelGrid grids = SDFtoVoxel(SDF_out, bb_min, bb_max, resolution, resolution, resolution);
+    SupportCheckResult scr = checkSupportVoxel(grids, 0.5);
+
+    std::string outputPrefix = "D:/VSprojects/TaihuStone/result/" + input_file + "_" + std::to_string(PoresNum) + "_opt/";
+
+    if (std::filesystem::exists(outputPrefix)) {
+        std::cout << "Directory already exists: " << outputPrefix << std::endl;
+    }
+    else {
+        // create_directories 会递归创建路径（例如父目录不存在也会一并创建）
+        if (!std::filesystem::create_directories(outputPrefix))
+            std::cerr << "Failed to create directory: " << outputPrefix << std::endl;
+    }
+
+    std::string npy_filename = outputPrefix + input_file + "_voxelized_model_" + std::to_string(PoresNum)+"_" + std::to_string(resolution) + "^3" + ".npy";
+    saveVoxelGridAsNPY(grids.rho, resolution, npy_filename);
+    std::string filename = outputPrefix + input_file;
+    if (optimize_debug)
+        filename += "_opt";
+    filename = filename + "_" + to_string(PoresNum) + "_" + to_string(Resolution) + "_" + to_string_pre(surface_ratio) + "_" +
+        to_string_pre(Trans_thres) + "_" + to_string_pre(Weights[0]) + "_" + to_string_pre(KT_weights[0]) + "_" +
+        to_string_pre(sigma_min, 3) + "_" + to_string_pre(sigma_max, 3) + "_" + to_string_pre(finalTranslucency, 3) + "_" + to_string_pre(finalPorosity * 100.0) + "%.stl";
+    saveMesh(filename, V_out, F_out);
+	Grids = grids;
     return;
 
+}
+
+void ModelGenerator::supportFreeOpt()
+{
+
+    std::string outputPrefix = "D:/VSprojects/TaihuStone/result/" + input_file + "_" + std::to_string(PoresNum) + "_opt/";
+    std::string npy_filename = outputPrefix + input_file + "_voxelized_model_" + std::to_string(PoresNum) + "_" + std::to_string(resolution) + "^3" + ".npy";
+
+    optimize_model_py(npy_filename, outputPrefix);
+
+    VoxelGrid grids_opt(Resolution, Resolution, Resolution);
+    readNPYtoVoxel(outputPrefix + "gpu_topology_optimized.npy", grids_opt.rho, Resolution);
+
+    SupportCheckResult scr = checkSupportVoxel(grids_opt, 0.5);
+    int solid_num1 = 0, solid_num2 = 0;
+    for (int tt = 0; tt < grids_opt.rho.size(); tt++)
+    {
+        if (Grids.rho[tt] > 0.5) solid_num1++;
+        if (grids_opt.rho[tt] > 0.5) solid_num2++;
+    }
+    cout << " Solid voxel num changes from : " << solid_num1 << "  to: " << solid_num2 << "    --final prosity: "<< 100.0 - 100.0* solid_num2 / model_solid_num <<"%"<< endl;
 }
 
 void ModelGenerator::sample_interior_points(std::vector<Eigen::Vector3d>& pore_centers, std::vector<double>& pore_sdfs, std::vector<int>& inside_indices, int pores, std::mt19937& gen)
@@ -318,7 +339,6 @@ void ModelGenerator::generate_gaussians(std::vector<Eigen::Vector3d> pore_center
 {
     Kernels.clear();
     surface_kernels.clear();
-    bool dynamic_change_para = true;
     if (dynamic_change_para)
     {
         double bbx_v = abs((bb_max.x() - bb_min.x()) * (bb_max.y() - bb_min.y()) * (bb_max.z() - bb_min.z()));
@@ -988,6 +1008,85 @@ double ModelGenerator::cal_kernel_translucency(int p_index, int & max_s1, int & 
     }
 
     return max_perm;
+    //// 初始化结果变量
+    //max_s1 = -1;
+    //max_s2 = -1;
+    //max_path.clear();
+    //
+    //int kernel_num = Kernels.size();
+    //
+    //// 1. BFS 预计算 (这部分必须在并行前完成，且假设 PathQuery 是只读的/线程安全的)
+    //// 如果 PathQuery 构造函数非常耗时且 query_path 只是查表，那么这行放在外面是对的。
+    //PathQuery p_bfs(kernel_num, adj, p_index);
+    //
+    //if (!p_bfs.isConnected) return 0.0;
+
+    //int surface_size = surface_kernels.size();
+    //
+    //// 全局最大值变量 (实际上是函数参数传进来的引用和局部变量)
+    //double global_max_perm = 0.0;
+
+    //// --- 并行区域开始 ---
+    //#pragma omp parallel
+    //{
+    //    // 2. 定义【线程私有】的局部最优变量
+    //    // 每个线程都在这里记录它自己负责的那部分循环中找到的最好结果
+    //    double  thread_max_perm = 0.0;
+    //    int     thread_max_s1 = -1;
+    //    int     thread_max_s2 = -1;
+    //    std::vector<int> thread_max_path;
+
+    //    // 3. 并行化外层循环
+    //    // schedule(dynamic): 因为内层循环是 j=i+1 (三角形)，i 越小任务越重。
+    //    // 使用 dynamic 调度可以让这就快干完的线程去领新任务，实现负载均衡。
+    //    #pragma omp for schedule(dynamic)
+    //    for (int i = 0; i < surface_size; i++) 
+    //    {
+    //        int s1 = surface_kernels[i];
+    //        
+    //        // 内层循环不需要并行，通常并行外层就够了
+    //        for (int j = i + 1; j < surface_size; j++) 
+    //        {
+    //            int s2 = surface_kernels[j];
+    //            
+    //            // --- 核心计算逻辑 (保持不变) ---
+    //            // 注意：PathQuery::query_path 必须是 const 的或者不修改内部状态的，否则线程不安全
+    //            std::vector<int> path1 = p_bfs.query_path(s1);
+    //            std::vector<int> path2 = p_bfs.query_path(s2);
+
+    //            std::vector<int> path_(path1.rbegin(), path1.rend());
+    //            path_.insert(path_.end(), path2.begin() + 1, path2.end());
+
+    //            // 这些计算函数应该是只读 Kernels 的，是安全的
+    //            double path_translucency = calculate_path_translucency(path_);
+    //            double perm = path_translucency;
+
+    //            // --- 更新【线程私有】的最大值 ---
+    //            if (perm > thread_max_perm)
+    //            {
+    //                thread_max_perm = perm;
+    //                thread_max_s1 = s1;
+    //                thread_max_s2 = s2;
+    //                thread_max_path = path_; // vector 拷贝
+    //            }
+    //        }
+    //    } // end of omp for
+
+    //    // 4. 合并各线程结果到全局变量
+    //    // critical: 一次只允许一个线程进入，比较并更新最终结果
+    //    #pragma omp critical
+    //    {
+    //        if (thread_max_perm > global_max_perm)
+    //        {
+    //            global_max_perm = thread_max_perm;
+    //            max_s1 = thread_max_s1;
+    //            max_s2 = thread_max_s2;
+    //            max_path = thread_max_path;
+    //        }
+    //    }
+    //} // end of omp parallel
+
+    //return global_max_perm;
 }
 
 double ModelGenerator::cal_total_translucency(std::vector<GaussianKernel> gau,  AdjacencyList adj)
@@ -1863,9 +1962,10 @@ int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double
     Eigen::VectorXd SDF_gaussian(grid_num);
     Eigen::VectorXd SDF_gaussian_tubes(grid_num);
     SDF_out.resize(grid_num);
-    double void_count = 0;
+    double solid_count = 0;
     double tube_radius = Tube_radius_factor;
 
+//#pragma omp parallel for 
     for (int idx = 0; idx < grid_num; ++idx) {
         Eigen::Vector3d p = GV.row(idx);
         //gaussian kernel
@@ -1891,11 +1991,12 @@ int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double
         add_noise_near_isosurface(SDF_gaussian_tubes, GV, Isolevel, 0.58, 0.16, 10);  //100分辨率
     }
 
+//#pragma omp parallel for reduction(+:solid_count)
     for (int idx = 0; idx < grid_num; ++idx) {
         Eigen::Vector3d p = GV.row(idx);
         SDF_out(idx) = smooth_IntersecSDF(SDF_ini(idx), -SDF_gaussian_tubes(idx), smooth_t);
         if (SDF_out(idx) < iso) {
-            void_count += 1;
+            solid_count += 1;
         }
     }
     //std::cout << "成功在仿生形状内放置 " << void_centers.size() << " 个空洞点" << std::endl;
@@ -1903,19 +2004,20 @@ int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double
     // Marching Cubes
     MarchingCubes(SDF_out, GV, res, res, res, iso, V_out, F_out);   //final result
 
-    Eigen::MatrixXd V_g; //输出网格顶点
-    Eigen::MatrixXi F_g; // 输出网格面片
-    MarchingCubes(SDF_gaussian, GV, res, res, res, iso, V_g, F_g);  //gaussian combined
-    view_model(V_g, F_g);
+    //Eigen::MatrixXd V_g; //输出网格顶点
+    //Eigen::MatrixXi F_g; // 输出网格面片
+    //MarchingCubes(SDF_gaussian, GV, res, res, res, iso, V_g, F_g);  //gaussian combined
+    //if (figure_show)
+    //    view_model(V_g, F_g);
 
-    MarchingCubes(SDF_gaussian_tubes, GV, res, res, res, iso, V_t, F_t);  //gaussian combined with tubes
+    //MarchingCubes(SDF_gaussian_tubes, GV, res, res, res, iso, V_t, F_t);  //gaussian combined with tubes
     //view_model(V_t, F_t);
 
     //view_three_models(V_out, F_out, V_t, F_t, V_t, F_t, Eigen::RowVector3d(1, 0, 0));
 
     std::cout << "Generated mesh: " << V_out.rows() << " vertices, " << F_out.rows() << " faces" << std::endl;
 
-    return void_count;
+    return solid_count;
 }
 
 void ModelGenerator::optimize_model_py(std::string& filename, std::string& outfilename)
@@ -1945,7 +2047,7 @@ void ModelGenerator::optimize_model_py(std::string& filename, std::string& outfi
     int result = system(command.c_str());
 
     if (result == 0) {
-        std::cout << "Success!" << std::endl;
+        std::cout << "Optimization is Over Successfully!" << std::endl;
     }
     else {
         std::cout << "Error code: " << result << std::endl;
@@ -1972,24 +2074,28 @@ void ModelGenerator::test_item()
     saveVoxelGridAsNPY(grids.rho, res, npy_filename);
     
     std::string outputPrefix = "D:/VSprojects/TaihuStone/result/" + input_file + "_opt/";
-    optimize_model_py(npy_filename, outputPrefix);
+    //optimize_model_py(npy_filename, outputPrefix);
 
-    VoxelGrid gridsopt = grids;
-    readNPYtoVoxel(outputPrefix+"gpu_topology_optimized.npy", gridsopt.rho, res);
+    VoxelGrid grids_opt = grids;
+    readNPYtoVoxel(outputPrefix+"gpu_topology_optimized.npy", grids_opt.rho, res);
     //readNPYtoVoxel(npy_filename, gridsopt.rho, res);
 
     //cout << "rho.size()" << grids.rho.size() << "    " << gridsopt.rho.size() << endl;
-    for (int tt = 0; tt < 100; tt++)
+
+    int solid_num1 = 0, solid_num2 = 0;
+    for (int tt = 0; tt < grids_opt.rho.size(); tt++)
     {
-        if(grids.rho[tt]!= gridsopt.rho[tt])
-           cout << "Before and after optimization: " << grids.rho[tt] << "   " << gridsopt.rho[tt] << endl;
+        if (grids.rho[tt] > 0.5) solid_num1++;
+        if (grids_opt.rho[tt] > 0.5) solid_num2++;
     }
+    cout << model_solid_num << "  Solid voxel num changes from : " << solid_num1 << "  to: " << solid_num2 << endl;
+
 
     Eigen::VectorXd scalar(res * res * res);
 
     for (int i = 0; i < res * res * res; ++i) {
         //scalar(i) = -static_cast<double>(voxel_grid[i]);
-        scalar(i) = -gridsopt.rho[i];
+        scalar(i) = -grids_opt.rho[i];
     }
 
     igl::marching_cubes(scalar, GV, res, res, res, -0.5, V2, F2);

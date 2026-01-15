@@ -8,7 +8,7 @@ std::vector<double> KT_weights = { 0.7, 0.1, 0.1, 0.1 };  //kernel translucencyÈ
 double Isolevel = 0;
 double Gauss_level = 0.5;
 
-int PoresNum = 25;
+int PoresNum = 200;
 double surface_ratio = 0.4; //±íÃæºËÕ¼±È
 
 int Min_degree = 4;
@@ -34,9 +34,91 @@ double Trans_thres = 0.8;  //kernel translucency threshold
 double Adj_dis_thres = 0.25;
 bool debug_show = false;
 bool standard_show = false;
+bool figure_show = false;
 
 bool Iso_kernel = true;
 bool Direct_dis = false;
 
 bool optimize_debug = true;
 bool Enable_noise = false;
+bool dynamic_change_para = true;
+
+std::string trim(const std::string& str) {
+    size_t first = str.find_first_not_of(" \t\r\n");
+    if (std::string::npos == first) return str;
+    size_t last = str.find_last_not_of(" \t\r\n");
+    return str.substr(first, (last - first + 1));
+}
+
+// ¸¨Öúº¯Êı£º½âÎö vector<double> (ÀıÈç "0.8, 1.0, 1.2")
+std::vector<double> parseVector(std::string valStr) {
+    std::vector<double> vec;
+    std::stringstream ss(valStr);
+    std::string item;
+    while (std::getline(ss, item, ',')) {
+        vec.push_back(std::stod(item));
+    }
+    return vec;
+}
+
+bool loadParameters(const std::string& filename) {
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+        std::cerr << "Error: Cannot open parameter file: " << filename << std::endl;
+        return false;
+    }
+
+    std::string line;
+    while (std::getline(file, line)) {
+        // Ìø¹ı×¢ÊÍºÍ¿ÕĞĞ
+        if (line.empty() || line[0] == '#' || line.substr(0, 2) == "//") continue;
+
+        std::stringstream ss(line);
+        std::string key, valStr;
+
+        // ¼ÙÉè¸ñÊ½Îª "key = value"
+        if (std::getline(ss, key, '=') && std::getline(ss, valStr)) {
+            key = trim(key);
+            valStr = trim(valStr);
+
+            // ÒÆ³ıĞĞÎ²¿ÉÄÜ´æÔÚµÄ×¢ÊÍ
+            size_t commentPos = valStr.find("//");
+            if (commentPos != std::string::npos) valStr = valStr.substr(0, commentPos);
+            valStr = trim(valStr);
+
+            try {
+                if (key == "input_file") input_file = valStr;
+                else if (key == "Resolution") Resolution = std::stoi(valStr);
+                else if (key == "Weights") Weights = parseVector(valStr);
+                else if (key == "KT_weights") KT_weights = parseVector(valStr);
+                else if (key == "Isolevel") Isolevel = std::stod(valStr);
+                else if (key == "Gauss_level") Gauss_level = std::stod(valStr);
+                else if (key == "PoresNum") PoresNum = std::stoi(valStr);
+                else if (key == "surface_ratio") surface_ratio = std::stod(valStr);
+                else if (key == "Min_degree") Min_degree = std::stoi(valStr);
+                else if (key == "Amplitude_min") Amplitude_min = std::stod(valStr);
+                else if (key == "Amplitude_max") Amplitude_max = std::stod(valStr);
+                else if (key == "Sigma_min") Sigma_min = std::stod(valStr);
+                else if (key == "Sigma_max") Sigma_max = std::stod(valStr);
+                else if (key == "SmoothT") SmoothT = std::stod(valStr);
+                else if (key == "Tube_radius_factor") Tube_radius_factor = std::stod(valStr);
+                else if (key == "Safe_distance_ratio") Safe_distance_ratio = std::stod(valStr);
+                else if (key == "Trans_thres") Trans_thres = std::stod(valStr);
+                else if (key == "Adj_dis_thres") Adj_dis_thres = std::stod(valStr);
+                else if (key == "debug_show") debug_show = (valStr == "true" || valStr == "1");
+                else if (key == "standard_show") standard_show = (valStr == "true" || valStr == "1");
+                else if (key == "figure_show") figure_show = (valStr == "true" || valStr == "1");
+                else if (key == "Iso_kernel") Iso_kernel = (valStr == "true" || valStr == "1");
+                else if (key == "Direct_dis") Direct_dis = (valStr == "true" || valStr == "1");
+                else if (key == "optimize_debug") optimize_debug = (valStr == "true" || valStr == "1");
+                else if (key == "Enable_noise") Enable_noise = (valStr == "true" || valStr == "1");
+                else if (key == "dynamic_change_para") dynamic_change_para = (valStr == "true" || valStr == "1");
+            }
+            catch (...) {
+                std::cerr << "Warning: Failed to parse value for key: " << key << std::endl;
+            }
+        }
+    }
+    file.close();
+    return true;
+}

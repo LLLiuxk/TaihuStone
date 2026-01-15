@@ -2,6 +2,10 @@
 #define NO_DEBUG false
 #include <vector>
 #include <string>
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <map>
 
 extern std::string input_file;
 
@@ -32,37 +36,17 @@ extern double Trans_thres;
 extern double Adj_dis_thres;
 extern bool debug_show;
 extern bool standard_show;
+extern bool figure_show;
 extern bool Direct_dis;
 extern bool Iso_kernel;  //使用iso还是椭球
 extern bool optimize_debug;
 extern bool Enable_noise;
-//struct Parameters {
-//    Eigen::Vector3d radii = { 1, 0.5, 0.5 };
-//    int num_voids = 188;
-//    double min_distance = 0.15;
-//    double amplitude_min = 1;
-//    double amplitude_max = 1;
-//    double sigma_min = 150;
-//    double sigma_max = 150;
-//    int resolution = 100;
-//    double bound = 1.2;
-//    double isolevel = 0;
-//    double t = 0.1;    //控制平滑布尔的平滑区域大小
-//    unsigned int seed = 0;
-//    double porosity = 0.7; // 孔隙率
-//    double yta = 0.01;    // 误差
-//    bool enable_self_support_post = false; // 是否启用自支撑后处理（默认关闭）
-//
-//    // 新增：基础形状参数
-//    enum BaseShapeType {
-//        ELLIPSOID,
-//        CYLINDER,
-//        SPHERE
-//    };
-//    BaseShapeType base_shape = ELLIPSOID;
-//
-//    // 表面采样参数
-//    int surface_sample_count = 100;      // 表面采样点数量
-//    double surface_gaussian_amplitude = 1;  // 表面高斯核振幅
-//    double surface_gaussian_sigma = 100;     // 表面高斯核标准差
-//}; 
+extern bool dynamic_change_para;
+
+
+std::string trim(const std::string& str);
+
+// 辅助函数：解析 vector<double> (例如 "0.8, 1.0, 1.2")
+std::vector<double> parseVector(std::string valStr);
+
+bool loadParameters(const std::string& filename);
