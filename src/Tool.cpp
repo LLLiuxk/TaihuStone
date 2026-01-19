@@ -121,26 +121,23 @@ void MarchingCubes(Eigen::VectorXd& S, Eigen::MatrixXd& GV, int nx, int ny, int 
 }
 
 
-void view_model(Eigen::MatrixXd V1, Eigen::MatrixXi F1)
+void view_model(Eigen::MatrixXd V1, Eigen::MatrixXi F1, std::string win_name)
 {
     std::cout << "show libigl viewer" << std::endl;
     igl::opengl::glfw::Viewer viewer;
-    //viewer.core().set_uicontrol(false);
+
     viewer.core().background_color.setConstant(1.0f); // White background
-    viewer.callback_key_pressed = [](igl::opengl::glfw::Viewer&, unsigned int, int)->bool
-        {
-            return true; // 阻止默认 key handler 执行，usage 不会打印
-        };
 
     viewer.data().set_mesh(V1, F1);
     viewer.data().show_lines = false;   // 不显示网格线
     //viewer.data().set_colors(Eigen::RowVector3d(0.8, 0.7, 0.2)); // 设置一个漂亮的蓝色
 
     viewer.data().point_size = 10; // 让点更显眼
-    viewer.launch();
+    //viewer.launch();
+    viewer.launch(false, win_name);
 }
 
-void view_two_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V2, Eigen::MatrixXi F2, Eigen::RowVector3d shift)
+void view_two_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V2, Eigen::MatrixXi F2, Eigen::RowVector3d shift, std::string win_name)
 {
     std::cout << "show libigl viewer" << std::endl;
     igl::opengl::glfw::Viewer viewer;
@@ -160,10 +157,10 @@ void view_two_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V2,
     // 添加辅助点 (高斯核的中心)，设置为红色
    // viewer.data().add_points(kernel_points, Eigen::RowVector3d(1, 0, 0));
     viewer.data().point_size = 10; // 让点更显眼
-    viewer.launch();
+    viewer.launch(false, win_name);
 }
 
-void view_three_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V2, Eigen::MatrixXi F2, Eigen::MatrixXd V3, Eigen::MatrixXi F3, Eigen::RowVector3d shift)
+void view_three_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V2, Eigen::MatrixXi F2, Eigen::MatrixXd V3, Eigen::MatrixXi F3, Eigen::RowVector3d shift, std::string win_name)
 {
     std::cout << "show libigl viewer" << std::endl;
     igl::opengl::glfw::Viewer viewer;
@@ -189,7 +186,7 @@ void view_three_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V
     // 添加辅助点 (高斯核的中心)，设置为红色
    // viewer.data().add_points(kernel_points, Eigen::RowVector3d(1, 0, 0));
     viewer.data().point_size = 10; // 让点更显眼
-    viewer.launch();
+    viewer.launch(false, win_name);
 }
 
 int single_component(Eigen::MatrixXd V, Eigen::MatrixXi F)
@@ -428,7 +425,7 @@ void show_path(std::vector<int> path)
     cout << endl;
 }
 
-void vis_Kernels_Tubes(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections)
+void vis_Kernels_Tubes(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, std::string win_name)
 {
     const double sphereRadius = 0.01;
     const double lineWidth = 5;
@@ -497,7 +494,7 @@ void vis_Kernels_Tubes(std::vector<Eigen::Vector3d>& points, std::vector<pair<in
     viewer.data().line_width = lineWidth;
 
     // Launch the viewer
-    viewer.launch();
+    viewer.launch(false, win_name);
 }
 
 

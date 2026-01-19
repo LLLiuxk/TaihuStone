@@ -23,6 +23,8 @@ extern double Amplitude_min;
 extern double Amplitude_max;
 extern double Sigma_min;
 extern double Sigma_max;
+extern double W4sig_max; //7.0
+extern double W4sig_min; // 42.0;
 extern double Gauss_level;
 
 extern double SmoothT;    //控制平滑布尔的平滑区域大小
@@ -37,10 +39,12 @@ extern double Adj_dis_thres;
 extern bool debug_show;
 extern bool standard_show;
 extern bool figure_show;
+extern bool compare_show;
 extern bool Direct_dis;
 extern bool Iso_kernel;  //使用iso还是椭球
 extern bool optimize_debug;
 extern bool Enable_noise;
+extern bool topo_optimize;
 extern bool dynamic_change_para;
 
 

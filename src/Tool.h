@@ -20,6 +20,7 @@
 #include <random>
 #include <stdexcept>
 #include <regex>
+#include <GLFW/glfw3.h>
 
 #include "FastNoiseLite.h"
 #include "globalPara.h" 
@@ -82,9 +83,9 @@ double differenceSDF(double sdf1, double sdf2);
 
 void MarchingCubes(Eigen::VectorXd& S, Eigen::MatrixXd& GV, int nx, int ny, int nz, double isovalue, Eigen::MatrixXd& V, Eigen::MatrixXi& F);
 
-void view_model(Eigen::MatrixXd V1, Eigen::MatrixXi F1);
-void view_two_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V2, Eigen::MatrixXi F2, Eigen::RowVector3d shift = RowVector3d(0.0, 0.0, 0.0));
-void view_three_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V2, Eigen::MatrixXi F2, Eigen::MatrixXd V3, Eigen::MatrixXi F3, Eigen::RowVector3d shift = RowVector3d(0.0, 0.0, 0.0));
+void view_model(Eigen::MatrixXd V1, Eigen::MatrixXi F1, std::string win_name="View one model");
+void view_two_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V2, Eigen::MatrixXi F2, Eigen::RowVector3d shift = RowVector3d(0.0, 0.0, 0.0), std::string win_name = "Two models");
+void view_three_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V2, Eigen::MatrixXi F2, Eigen::MatrixXd V3, Eigen::MatrixXi F3, Eigen::RowVector3d shift = RowVector3d(0.0, 0.0, 0.0), std::string win_name= "Three models");
 
 int  single_component(Eigen::MatrixXd V, Eigen::MatrixXi F);
 
@@ -105,8 +106,7 @@ bool align_models_with_pca(const std::string& model1_path, const std::string& mo
 void show_path(std::vector<int> path);
 
 
-void vis_Kernels_Tubes(std::vector<Eigen::Vector3d>& points, 
-    std::vector<pair<int, int>>& connections);
+void vis_Kernels_Tubes(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, std::string win_name="vis_Kernels_Tubes");
 
 //kinds of check
 void geometry_analyzer(Eigen::VectorXd SDF, int resolution, double thres_degree, int& overhang_count, int& floating_count, std::vector<uint8_t>& overhang_mask, std::vector<uint8_t>& floating_mask);

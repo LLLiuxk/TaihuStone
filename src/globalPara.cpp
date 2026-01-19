@@ -8,15 +8,17 @@ std::vector<double> KT_weights = { 0.7, 0.1, 0.1, 0.1 };  //kernel translucencyÈ
 double Isolevel = 0;
 double Gauss_level = 0.5;
 
-int PoresNum = 200;
-double surface_ratio = 0.4; //±íÃæºËÕ¼±È
+int PoresNum = 50;
+double surface_ratio = 0.5; //±íÃæºËÕ¼±È
 
-int Min_degree = 4;
+int Min_degree = 5;
 
 double Amplitude_min = 1.0;
 double Amplitude_max = 1.0;
 double Sigma_min = 0.015;
 double Sigma_max = 0.033;
+double W4sig_max = 5.0;
+double W4sig_min = 25.0; 
 //250: 0.02, 0.04
 //150~200: 0.025, 0.045
 // 100: 0.033, 0.05
@@ -27,20 +29,22 @@ double Sigma_max = 0.033;
 // w for max = 5.0     for min = 30
 
 double SmoothT = 15;    //¿ØÖÆÆ½»¬²¼¶ûµÄÆ½»¬ÇøÓò´óĞ¡, Ô½´ó£¬Æ½»¬Ğ§¹ûÔ½Ğ¡£¬Ç÷½üÓÚÆÕÍ¨²¢¼¯
-double Tube_radius_factor = 0.9; // ¿ØÖÆ¹ÜµÀ°ë¾¶Ïà¶ÔÓÚ¸ßË¹ºË°ë¾¶µÄ±ÈÀı, mid_radius_factorÔ½´ó£¬Í¨µÀÔ½Ï¸
-double Safe_distance_ratio = 0.7;
+double Tube_radius_factor = 0.8; // ¿ØÖÆ¹ÜµÀ°ë¾¶Ïà¶ÔÓÚ¸ßË¹ºË°ë¾¶µÄ±ÈÀı, mid_radius_factorÔ½´ó£¬Í¨µÀÔ½Ï¸
+double Safe_distance_ratio = 0.9;
 
-double Trans_thres = 0.8;  //kernel translucency threshold 
+double Trans_thres = 0.9;  //kernel translucency threshold 
 double Adj_dis_thres = 0.25;
 bool debug_show = false;
 bool standard_show = false;
-bool figure_show = false;
+bool figure_show = true;
+bool compare_show = false;
 
-bool Iso_kernel = true;
+bool Iso_kernel = false;
 bool Direct_dis = false;
 
-bool optimize_debug = true;
+bool optimize_debug = false;
 bool Enable_noise = false;
+bool topo_optimize = false;
 bool dynamic_change_para = true;
 
 std::string trim(const std::string& str) {
