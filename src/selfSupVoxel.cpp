@@ -2,7 +2,7 @@
 
 SupportCheckResult checkSupportVoxel(VoxelGrid& grid, double densityThreshold)
 {
-    SupportCheckResult result = { true, 0, 0.0};
+    SupportCheckResult result;
 
     // 1. 统计总体积
     int totalSolidVoxels = 0;
@@ -62,6 +62,7 @@ SupportCheckResult checkSupportVoxel(VoxelGrid& grid, double densityThreshold)
         if(p)
             usnum++;
 
+	result.solid_nums = totalSolidVoxels;
 	std::cout << "unsupport num: " << totalSolidVoxels - usnum << "   " << result.unsupportedVoxelCount << std::endl;
     // 5. 计算统计数据
     //double vVol = grid.voxelVolume();
@@ -103,4 +104,99 @@ int findBaseLayer(const VoxelGrid& grid, double densityThreshold)
         }
     }
 	return -1; // 未找到实体体素
+}
+
+SupportCheckResult checkFloatingVoxel(VoxelGrid& grid, double densityThreshold)
+{
+    SupportCheckResult result;
+    const int nx = grid.nx;
+    const int ny = grid.ny;
+    const int nz = grid.nz;
+
+    const int N = nx * ny * nz;
+
+    std::vector<int> parts_solids;
+    
+
+    // visited 标记
+    std::vector<char> visited(N, 0);
+    // 6 邻域
+    const int dx[6] = { 1,-1, 0, 0, 0, 0 };
+    const int dy[6] = { 0, 0, 1,-1, 0, 0 };
+    const int dz[6] = { 0, 0, 0, 0, 1,-1 };
+
+    auto inside = [&](int i, int j, int k) {
+        return (i >= 0 && i < nx &&
+                j >= 0 && j < ny &&
+                k >= 0 && k < nz);
+    };
+
+    // Flood fill
+    for (int k = 0; k < nz; ++k)
+    for (int j = 0; j < ny; ++j)
+    for (int i = 0; i < nx; ++i)
+    {
+        int id = grid.index(i, j, k);
+
+        // 只从“未访问的实体体素”出发
+        if (visited[id]) continue;
+        if (grid.at(i, j, k) <= densityThreshold) continue;
+
+        int component_count = 0;
+        std::queue<Eigen::Vector3i> q;
+
+        q.emplace(i, j, k);
+        visited[id] = 1;
+
+        while (!q.empty())
+        {
+            Eigen::Vector3i p = q.front();
+            q.pop();
+            component_count++;
+
+            for (int d = 0; d < 6; ++d)
+            {
+                int ni = p.x() + dx[d];
+                int nj = p.y() + dy[d];
+                int nk = p.z() + dz[d];
+
+                if (!inside(ni, nj, nk)) continue;
+
+                int nid = grid.index(ni, nj, nk);
+                if (visited[nid]) continue;
+                if (grid.at(ni, nj, nk) <= densityThreshold) continue;
+
+                visited[nid] = 1;
+                q.emplace(ni, nj, nk);
+            }
+        }
+
+        parts_solids.push_back(component_count);
+    }
+
+    // 按体素数从大到小排序
+    std::sort(parts_solids.begin(),
+        parts_solids.end(),
+        std::greater<int>());
+
+    result.component_num = parts_solids.size();
+	result.parts_solid_nums = parts_solids;
+    int floating_nums = 0;
+    for (auto ps : parts_solids)
+        floating_nums += ps;
+    std::cout << "This result has " << result.component_num << " components, and the biggest one has " << parts_solids[0] << " voxels, other floating voxels are: " << floating_nums - parts_solids[0] << " voxels"<<std::endl;
+    return result;
+}
+
+
+SupportCheckResult check_result_voxel(VoxelGrid& grid, double densityThreshold)
+{
+    SupportCheckResult result = checkSupportVoxel(grid, densityThreshold);
+
+    SupportCheckResult result2 = checkFloatingVoxel(grid, densityThreshold);
+
+	result.component_num = result2.component_num;
+	result.parts_solid_nums = result2.parts_solid_nums;
+     
+    return result;
 }

@@ -114,6 +114,8 @@ public:
 
     void sample_interior_points(std::vector<Eigen::Vector3d>& pore_centers, std::vector<double>& pore_sdfs, 
         std::vector<int>& inside_indices, int pores, std::mt19937& gen);
+    void sample_interior_close(std::vector<Eigen::Vector3d>& pore_centers, std::vector<double>& pore_sdfs,
+        std::vector<int>& inside_indices, int pores, std::mt19937& gen);
 
     void generate_gaussians(std::vector<Eigen::Vector3d> pore_centers, std::vector<double> pore_sdfs, std::mt19937& gen);
     void generate_gaussians_iso(std::vector<Eigen::Vector3d> pore_centers, std::vector<double> pore_sdfs, std::mt19937& gen);

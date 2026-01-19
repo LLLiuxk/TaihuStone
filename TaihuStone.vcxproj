@@ -141,6 +141,7 @@
     <ClCompile Include="src\pathQuery.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\modelGen.cpp" />
+    <ClCompile Include="src\resultComp.cpp" />
     <ClCompile Include="src\selfSupVoxel.cpp" />
     <ClCompile Include="src\Tool.cpp" />
   </ItemGroup>
@@ -148,6 +149,7 @@
     <ClInclude Include="src\FastNoiseLite.h" />
     <ClInclude Include="src\globalPara.h" />
     <ClInclude Include="src\modelGen.h" />
+    <ClInclude Include="src\resultComp.h" />
     <ClInclude Include="src\selfSupVoxel.h" />
     <ClInclude Include="src\Tool.h" />
   </ItemGroup>

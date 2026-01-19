@@ -1,0 +1,35 @@
+input_file = RockSetAr
+Resolution = 100
+
+# 数组用逗号分隔
+Weights = 0.8, 1.0, 1.2
+KT_weights = 0.6, 0.1, 0.1, 0.2
+
+Isolevel = 0
+Gauss_level = 0.5
+
+PoresNum = 150
+surface_ratio = 0.4
+Min_degree = 4
+
+Amplitude_min = 1.0
+Amplitude_max = 1.0
+Sigma_min = 0.015
+Sigma_max = 0.033
+
+SmoothT = 15
+Tube_radius_factor = 0.9
+Safe_distance_ratio = 0.7
+
+Trans_thres = 0.8
+Adj_dis_thres = 0.25
+
+#布尔值可以使用 true/false 或者 1/0
+debug_show = false
+standard_show = false
+figure_show = false
+Iso_kernel = true
+Direct_dis = false
+optimize_debug = true
+Enable_noise = false
+dynamic_change_para = true

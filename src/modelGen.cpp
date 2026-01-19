@@ -123,7 +123,8 @@ void ModelGenerator::generateGaussianSDF()
     std::vector<Eigen::Vector3d> pore_centers;
     std::vector<double> pore_sdfs;
     std::vector<int> inside_indices;
-    sample_interior_points(pore_centers, pore_sdfs, inside_indices, pores, gen);
+    //sample_interior_points(pore_centers, pore_sdfs, inside_indices, pores, gen);
+    sample_interior_close(pore_centers, pore_sdfs, inside_indices, pores, gen);
     //for (int i = 0; i < pore_centers.size(); i++)   std::cout << "i: " << i << "  " << pore_centers[i] << std::endl;
 
     if(Iso_kernel)
@@ -198,7 +199,7 @@ void ModelGenerator::generateGaussianSDF()
 
     //output save
     VoxelGrid grids = SDFtoVoxel(SDF_out, bb_min, bb_max, resolution, resolution, resolution);
-    SupportCheckResult scr = checkSupportVoxel(grids, 0.5);
+    SupportCheckResult scr = check_result_voxel(grids, 0.5);
 
     std::string outputPrefix = "D:/VSprojects/TaihuStone/result/" + input_file + "_" + std::to_string(PoresNum) + "_opt/";
 
@@ -283,7 +284,7 @@ void ModelGenerator::sample_interior_points(std::vector<Eigen::Vector3d>& pore_c
     std::uniform_int_distribution<int> surface_dist(0, surface_indices.size() - 1);
 
     int attempts = 0;
-    int max_attempts = pores * 50;
+    int max_attempts = pores * 500;
     double suf_ratio = surface_ratio;
 	int surface_sam = pores * suf_ratio;
     int surface_p = 0;
@@ -342,6 +343,66 @@ void ModelGenerator::sample_interior_points(std::vector<Eigen::Vector3d>& pore_c
 
     std::cout << "Generate " << pore_centers.size() << " kernels   " << all_sam_num<<" , include "<< surface_p <<" sp with safe_dis: "<< Safe_distance_ratio << std::endl;
 }
+
+void ModelGenerator::sample_interior_close(std::vector<Eigen::Vector3d>& pore_centers, std::vector<double>& pore_sdfs, std::vector<int>& inside_indices, int pores, std::mt19937& gen)
+{
+    Eigen::VectorXd SDF = this->SDF_ini;
+    Eigen::MatrixXd GV = this->GV;
+    int grid_num = SDF.size();
+    double Safe_distance_ratio = 0.55;
+
+
+    // search inside points
+    for (int idx = 0; idx < grid_num; ++idx) {
+        if (SDF(idx) < Isolevel) {
+            inside_indices.push_back(idx);
+        }
+    }
+    model_solid_num = inside_indices.size();
+    if (inside_indices.empty()) {
+        std::cerr << "Warning: no legal points inside!" << std::endl;
+        return;
+    }
+
+    // 在整个形状内部采样
+    std::uniform_int_distribution<int> index_dist(0, inside_indices.size() - 1);
+
+    int attempts = 0;
+    int max_attempts = pores * 500;
+    int all_sam_num = pore_centers.size();
+    Eigen::Vector3d min_pt = GV.colwise().minCoeff();
+    Eigen::Vector3d max_pt = GV.colwise().maxCoeff();
+    Eigen::Vector3d box_size = max_pt - min_pt;
+    double volume = box_size.x() * box_size.y() * box_size.z();
+    double safe_unit = std::cbrt(volume / pores);
+    safe_distance = Safe_distance_ratio * safe_unit;
+    int base_layer = find_nearest_grid(bb_min) / 10000;
+
+    while (all_sam_num < pores && attempts < max_attempts) {
+        attempts++;
+        // 随机选择一个内部点，保存其sdf值
+        int chosen_idx = -1;
+        chosen_idx = inside_indices[index_dist(gen)];
+        Eigen::Vector3d candidate_center = GV.row(chosen_idx).transpose();
+        // 检查与已有空洞中心的最小距离
+        bool valid = true;
+        for (const auto& existing_center : pore_centers) {
+            if ((candidate_center - existing_center).squaredNorm() < safe_distance * safe_distance || (candidate_center - existing_center).squaredNorm() > 2* safe_distance * safe_distance) {
+                valid = false;
+                break;
+            }
+        }
+
+        if (valid) {
+            pore_centers.push_back(candidate_center);
+            pore_sdfs.push_back(SDF(chosen_idx));
+            all_sam_num++;
+        }
+    }
+
+    std::cout << "Generate " << pore_centers.size() << " close kernels" << std::endl;
+}
+
 
 void ModelGenerator::generate_gaussians(std::vector<Eigen::Vector3d> pore_centers, std::vector<double> pore_sdfs, std::mt19937& gen)
 {
@@ -432,12 +493,6 @@ double ModelGenerator::combinedSDF(Eigen::Vector3d & p, std::vector<GaussianKern
         total_void += G_kernels[i].gaussian_fun(p);
     }
 
-    //double noise_val = myPerlin.noise(p.x() * 0.5, p.y() * 0.5, p.z() * 0.5);
-    //double noise_weight = 0.05; // 权重
-
-    //// 注意：SDF通常定义为 (IsoLevel - FieldValue)，所以加在 FieldValue 上
-    //total_void = total_void *(1+ noise_weight * noise_val) ;
-    //std::cout << "total_void: " << total_void << std::endl;
     return  C - total_void;  // 当前使用：负的空洞总和 
 }
 

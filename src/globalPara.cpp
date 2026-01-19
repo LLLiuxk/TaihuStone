@@ -1,6 +1,6 @@
 #include "globalPara.h" 
 
-std::string input_file = "RockSetBr";
+std::string input_file = "test_cube";
 int Resolution = 100;
 
 std::vector<double> Weights = { 0.8, 1.0, 1.2 };  //mst ·ÖÀàÏµÊıÈ¨ÖØ£º±ß½ç-ÄÚ²¿£¬ÄÚ²¿-ÄÚ²¿£¬±ß½ç-±ß½ç
@@ -8,7 +8,7 @@ std::vector<double> KT_weights = { 0.7, 0.1, 0.1, 0.1 };  //kernel translucencyÈ
 double Isolevel = 0;
 double Gauss_level = 0.5;
 
-int PoresNum = 50;
+int PoresNum = 3;
 double surface_ratio = 0.5; //±íÃæºËÕ¼±È
 
 int Min_degree = 5;

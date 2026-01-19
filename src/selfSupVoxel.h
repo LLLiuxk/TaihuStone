@@ -2,6 +2,7 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
+#include <queue>
 #include <Eigen/Dense>
 
 
@@ -54,11 +55,18 @@ struct VoxelGrid
 
 // 检测结果结构体
 struct SupportCheckResult {
-    bool isSupportFree;             // 是否免支撑
-    int unsupportedVoxelCount;// 需要支撑的体素数量
-    double unsupportedRatio;        // 悬垂比例
+    bool isSupportFree = false;             // 是否免支撑
+    int solid_nums = 0;
+    int unsupportedVoxelCount = 0;// 需要支撑的体素数量
+    double unsupportedRatio = 0.0;        // 悬垂比例
+    int component_num = 0;
+    std::vector<int> parts_solid_nums;
 };
 
-SupportCheckResult checkSupportVoxel(VoxelGrid& grid, double densityThreshold = 0.5); 
+SupportCheckResult check_result_voxel(VoxelGrid& grid, double densityThreshold = 0.5);
+
+SupportCheckResult checkSupportVoxel(VoxelGrid& grid, double densityThreshold = 0.5);
 
 int findBaseLayer(const VoxelGrid& grid, double densityThreshold);
+
+SupportCheckResult checkFloatingVoxel(VoxelGrid& grid, double densityThreshold = 0.5);

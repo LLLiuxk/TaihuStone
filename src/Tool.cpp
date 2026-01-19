@@ -121,7 +121,7 @@ void MarchingCubes(Eigen::VectorXd& S, Eigen::MatrixXd& GV, int nx, int ny, int 
 }
 
 
-void view_model(Eigen::MatrixXd V1, Eigen::MatrixXi F1, std::string win_name)
+void view_model(Eigen::MatrixXd V1, Eigen::MatrixXi F1, bool show_line, std::string win_name)
 {
     std::cout << "show libigl viewer" << std::endl;
     igl::opengl::glfw::Viewer viewer;
@@ -129,7 +129,8 @@ void view_model(Eigen::MatrixXd V1, Eigen::MatrixXi F1, std::string win_name)
     viewer.core().background_color.setConstant(1.0f); // White background
 
     viewer.data().set_mesh(V1, F1);
-    viewer.data().show_lines = false;   // 不显示网格线
+    viewer.data().show_lines = show_line;   // 不显示网格线
+    viewer.data().show_faces = !show_line;   // 不显示三角面
     //viewer.data().set_colors(Eigen::RowVector3d(0.8, 0.7, 0.2)); // 设置一个漂亮的蓝色
 
     viewer.data().point_size = 10; // 让点更显眼
@@ -447,6 +448,7 @@ void vis_Kernels_Tubes(std::vector<Eigen::Vector3d>& points, std::vector<pair<in
     const RowVector3d lineColor= colors[1]; // dark gray
     //const RowVector3d sphereColor(0.75, 0.33, 0.20); // muted red
     //const RowVector3d lineColor(0.20, 0.20, 0.20); // dark gray
+
     igl::opengl::glfw::Viewer viewer;
 	viewer.core().background_color.setConstant(1.0f); // White background
 
