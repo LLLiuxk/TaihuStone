@@ -121,7 +121,7 @@ void MarchingCubes(Eigen::VectorXd& S, Eigen::MatrixXd& GV, int nx, int ny, int 
 }
 
 
-void view_model(Eigen::MatrixXd V1, Eigen::MatrixXi F1, bool show_line, std::string win_name)
+void view_model(Eigen::MatrixXd V1, Eigen::MatrixXi F1, std::string win_name, bool show_line)
 {
     std::cout << "show libigl viewer" << std::endl;
     igl::opengl::glfw::Viewer viewer;
@@ -280,6 +280,42 @@ double distance(Vector3d v1, Vector3d v2)
 double squared_distance(Vector3d v1, Vector3d v2)
 {
     return (v1 - v2).squaredNorm();
+}
+
+Eigen::Matrix3d construct_R(double u, double v, double theta_max_rad, Eigen::Vector3d z_axis)
+{
+    double cos_theta = 1.0 - u * (1.0 - std::cos(theta_max_rad));
+    double sin_theta = std::sqrt(std::max(0.0, 1.0 - cos_theta * cos_theta));
+
+    Eigen::Vector3d d(
+        sin_theta * std::cos(v),
+        sin_theta * std::sin(v),
+        cos_theta
+    );
+    d.normalize();
+    // 如果几乎没有旋转，直接返回单位矩阵
+    if ((d - z_axis).norm() < 1e-6) {
+        return Eigen::Matrix3d::Identity();
+    }
+    // Rodrigues 公式
+    Eigen::Vector3d axis = z_axis.cross(d);
+    axis.normalize();
+
+    double angle = std::acos(
+        std::min(1.0, std::max(-1.0, z_axis.dot(d)))
+    );
+
+    Eigen::Matrix3d K;
+    K << 0, -axis.z(), axis.y(),
+        axis.z(), 0, -axis.x(),
+        -axis.y(), axis.x(), 0;
+
+    Eigen::Matrix3d R =
+        Eigen::Matrix3d::Identity()
+        + std::sin(angle) * K
+        + (1.0 - std::cos(angle)) * K * K;
+
+    return R;
 }
 
 bool align_models_with_pca(const std::string& model1_path, const std::string& model2_path, const std::string& output_path) 

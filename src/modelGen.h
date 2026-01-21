@@ -36,6 +36,7 @@ public:
 
     GaussianKernel(
         const Eigen::Vector3d& center_,
+        double sigma_,
         double sigma_parallel_,              // 沿主轴（建造方向）
         double sigma_perp_,                  // 垂直主轴
         const Eigen::Matrix3d& rotation_,    // 主轴方向
@@ -116,15 +117,17 @@ public:
         std::vector<int>& inside_indices, int pores, std::mt19937& gen);
     void sample_interior_close(std::vector<Eigen::Vector3d>& pore_centers, std::vector<double>& pore_sdfs,
         std::vector<int>& inside_indices, int pores, std::mt19937& gen);
+    void sample_regular(std::vector<Eigen::Vector3d>& pore_centers, std::vector<double>& pore_sdfs, std::vector<int>& inside_indices, int pores);
 
     void generate_gaussians(std::vector<Eigen::Vector3d> pore_centers, std::vector<double> pore_sdfs, std::mt19937& gen);
-    void generate_gaussians_iso(std::vector<Eigen::Vector3d> pore_centers, std::vector<double> pore_sdfs, std::mt19937& gen);
+    //void generate_gaussians_iso(std::vector<Eigen::Vector3d> pore_centers, std::vector<double> pore_sdfs, std::mt19937& gen);
 
     double combinedSDF(Eigen::Vector3d& p, std::vector<GaussianKernel> G_kernels, double C);
 
     void show_model();
 
-    std::vector<Edge>  pores_connection_mst(const std::vector<GaussianKernel>& gau, int Dmax = 7);
+    std::vector<Edge>  pores_connection_mbdst(const std::vector<GaussianKernel>& gau, int Dmax = 7);
+    std::vector<Edge>  pores_connection_mst(const std::vector<GaussianKernel>& gau);
     std::vector<std::vector<int>> construct_adj_list(std::vector<Edge> edges_list, int kernel_num);
     std::vector<std::vector<int>> get_unused_edge_adj(AdjacencyList Adj_list, double dis_thres);
     double cal_path_graph_length(std::vector<int> path_);
@@ -165,7 +168,8 @@ public:
 	//------------generate tubes----------------
     double generate_tube(const Eigen::Vector3d& p, const GaussianKernel& k1, const GaussianKernel& k2, double iso_level_C, double mid_radius_factor);
     double generate_tube2(Eigen::Vector3d& p, GaussianKernel& k1, GaussianKernel& k2, double iso_level_C, double mid_radius_factor = 0.5);
-    int generate_mst_tubes(int grid_num, int res, double iso, double gaus_iso, double smooth_t);
+    double generate_tube3(Eigen::Vector3d& p, GaussianKernel& k1, GaussianKernel& k2, double iso_level_C, double mid_radius_factor = 0.5);
+    int generate_mst_tubes(std::vector<pair<int, int>> edge_con, int grid_num, int res, double iso, double gaus_iso, double smooth_t);
     void compare_msc(Eigen::VectorXd SDF_gaussian, int res, int grid_num, double smooth_t);
 
     void test_item();
@@ -186,6 +190,7 @@ private:
     Eigen::MatrixXd V_out; //输出网格顶点
     Eigen::MatrixXi F_out; // 输出网格面片
     Eigen::VectorXd SDF_out;           // 输出的SDF网格值
+    Eigen::VectorXd SDF_gau;           // 只有gaussian的SDF网格值
     //Eigen::MatrixXd GV_out;            // 网格点坐标
     VoxelGrid Grids;
 
@@ -209,6 +214,12 @@ private:
     std::vector<Edge> Tube_edges;
     std::vector<std::vector<int>> Adj_list;
     std::vector<std::vector<int>> Unused_adj_list;
+
+    //show compare
+    std::vector<pair<int, int>> edge_con_mst;
+    std::vector<pair<int, int>> edge_con_mbdst;
+    std::vector<pair<int, int>> edge_con_msc;
+    std::vector<pair<int, int>> edge_con_final;
 
     int model_solid_num = 0;
     double initPorosity = 0;

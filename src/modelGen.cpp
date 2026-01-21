@@ -3,6 +3,7 @@
 
 GaussianKernel::GaussianKernel(
     const Eigen::Vector3d& center_,
+    double sigma_,
     double sigma_parallel_,
     double sigma_perp_,
     const Eigen::Matrix3d& rotation_,
@@ -11,6 +12,7 @@ GaussianKernel::GaussianKernel(
 )
 {
     center = center_;
+    sigma = sigma_;         // 核的大小/影响力范围 (高斯函数的标准差)
     sigma_parallel = sigma_parallel_;
     sigma_perp = sigma_perp_;
     R = rotation_;
@@ -123,25 +125,34 @@ void ModelGenerator::generateGaussianSDF()
     std::vector<Eigen::Vector3d> pore_centers;
     std::vector<double> pore_sdfs;
     std::vector<int> inside_indices;
-    //sample_interior_points(pore_centers, pore_sdfs, inside_indices, pores, gen);
-    sample_interior_close(pore_centers, pore_sdfs, inside_indices, pores, gen);
+    sample_interior_points(pore_centers, pore_sdfs, inside_indices, pores, gen);
+    //sample_interior_close(pore_centers, pore_sdfs, inside_indices, pores, gen);
+    //sample_regular(pore_centers, pore_sdfs, inside_indices, 40);
     //for (int i = 0; i < pore_centers.size(); i++)   std::cout << "i: " << i << "  " << pore_centers[i] << std::endl;
 
-    if(Iso_kernel)
+    generate_gaussians(pore_centers, pore_sdfs, gen);
+    /*if(Iso_kernel)
         generate_gaussians_iso(pore_centers, pore_sdfs, gen);
     else 
-        generate_gaussians(pore_centers, pore_sdfs, gen);
+        generate_gaussians(pore_centers, pore_sdfs, gen);*/
     
 	int kernel_num = Kernels.size();
     int degree_limit = (kernel_num - 1) / max(1, (int)(kernel_num - surface_kernels.size()));
 
     degree_limit = max(degree_limit, Min_degree);
-    Tube_edges = pores_connection_mst(Kernels, degree_limit);
+    Tube_edges = pores_connection_mbdst(Kernels, degree_limit);
+    edge_con_mbdst.clear();
+    for (auto e : Tube_edges) edge_con_mbdst.push_back(make_pair(e.from, e.to));
 
-	std::vector<pair<int, int>> edge_connections;
-	for (auto e : Tube_edges) edge_connections.push_back(make_pair(e.from, e.to));
-    if(figure_show)
-        vis_Kernels_Tubes(pore_centers, edge_connections,"mst resut");
+    std::vector<Edge> Tube_edges_mst = pores_connection_mst(Kernels);
+    edge_con_mst.clear();
+    for (auto e : Tube_edges_mst) edge_con_mst.push_back(make_pair(e.from, e.to));
+
+    if (figure_show)
+    {
+        vis_Kernels_Tubes(pore_centers, edge_con_mbdst, "mbdst  Kernels Tubes");
+        vis_Kernels_Tubes(pore_centers, edge_con_mst, "mst Kernels Tubes");
+    }
 	// 构建邻接表
     Adj_list = construct_adj_list(Tube_edges, kernel_num);
     Unused_adj_list = get_unused_edge_adj(Adj_list, Adj_dis_thres);
@@ -183,17 +194,15 @@ void ModelGenerator::generateGaussianSDF()
         }
     }
     finalTranslucency = new_trans_score; 
-    std::vector<pair<int, int>> edge_conn_new;
-    for (auto e : Tube_edges) edge_conn_new.push_back(make_pair(e.from, e.to));
+    edge_con_final.clear();
+    for (auto e : Tube_edges) edge_con_final.push_back(make_pair(e.from, e.to));
     if (figure_show)
-        vis_Kernels_Tubes(pore_centers, edge_conn_new,"After optimization connection");
+        vis_Kernels_Tubes(pore_centers, edge_con_final,"After optimization connection");
     
 
     std::cout << "--------------------5. Generate tubes between kernels based on optimized mst --------------------" << endl;
     //-----------------generate tubes------------------------------------------
-    double solid_count = generate_mst_tubes(grid_num, resolution, Isolevel, Gauss_level, SmoothT);
-    //std::string vti_filename = "D:/VSprojects/TaihuStone/result/vti/" + input_file + "_voxelized_model_" + std::to_string(resolution) + "x" + std::to_string(resolution) + "x" + std::to_string(resolution) + ".vti";
-    //saveSDFtoVTI(vti_filename, SDF_out, resolution, resolution, resolution);
+    double solid_count = generate_mst_tubes(edge_con_final, grid_num, resolution, Isolevel, Gauss_level, SmoothT);
     initPorosity = 1.0 - solid_count / model_solid_num;
     std::cout << "Porosity: " << initPorosity * 100 << "%" << "    --------:" << solid_count << "   " << model_solid_num << std::endl;
 
@@ -225,7 +234,7 @@ void ModelGenerator::generateGaussianSDF()
 
     if (figure_show)
     {
-        view_model(V_out, F_out);
+        view_model(V_out, F_out, "our final result" );
     }
 
     return;
@@ -403,6 +412,42 @@ void ModelGenerator::sample_interior_close(std::vector<Eigen::Vector3d>& pore_ce
     std::cout << "Generate " << pore_centers.size() << " close kernels" << std::endl;
 }
 
+void ModelGenerator::sample_regular(std::vector<Eigen::Vector3d>& pore_centers, std::vector<double>& pore_sdfs, std::vector<int>& inside_indices, int pores)
+{
+    Eigen::VectorXd SDF = this->SDF_ini;
+    Eigen::MatrixXd GV = this->GV;
+    int grid_num = SDF.size();
+    double Safe_distance_ratio = 0.55;
+
+
+    // search inside points
+    for (int idx = 0; idx < grid_num; ++idx) {
+        if (SDF(idx) < Isolevel) {
+            inside_indices.push_back(idx);
+        }
+    }
+    model_solid_num = inside_indices.size();
+    if (inside_indices.empty()) {
+        std::cerr << "Warning: no legal points inside!" << std::endl;
+        return;
+    }
+
+    for (int z = pores; z < Resolution; z=z+ pores) {
+        for (int y = pores; y < Resolution; y=y+ pores) {
+            for (int x = pores; x < Resolution; x=x+ pores) {
+				int chosen_idx = x + y * Resolution + z * Resolution * Resolution;
+                Eigen::Vector3d candidate_center = GV.row(chosen_idx).transpose();
+                if (SDF(chosen_idx) < Isolevel)
+                {
+                    pore_centers.push_back(candidate_center);
+                    pore_sdfs.push_back(SDF(chosen_idx));
+                }
+            }
+        }
+    }
+
+    std::cout << "Generate " << pore_centers.size() << " close kernels" << std::endl;
+}
 
 void ModelGenerator::generate_gaussians(std::vector<Eigen::Vector3d> pore_centers, std::vector<double> pore_sdfs, std::mt19937& gen)
 {
@@ -419,14 +464,19 @@ void ModelGenerator::generate_gaussians(std::vector<Eigen::Vector3d> pore_center
 
     std::uniform_real_distribution<double> dist_amp(amplitude_min, amplitude_max);
     std::uniform_real_distribution<double> dist_sigma(sigma_min, sigma_max);
+    std::uniform_real_distribution<double> uni01(0.0, 1.0);
+    std::uniform_real_distribution<double> uni02pi(0.0, 2.0 * M_PI);
 
+    cout << "sigma_min: " << sigma_min << "    sigma_max:" << sigma_max << endl;
     // 为每个空洞中心生成随机参数
     int pore_size = pore_centers.size();
     for (size_t i = 0; i < pore_size; ++i) {
         double sigma_val = dist_sigma(gen);
         double amplitude_val = dist_amp(gen);
-        //std::cout << "i: " << i << "  " << sigma_val<<"  "<<amplitude_val << std::endl;
-        GaussianKernel kernel(pore_centers[i], sigma_val * 1.5, sigma_val, Eigen::Matrix3d::Identity(), amplitude_val, pore_sdfs[i]);
+        double u = uni01(gen);
+        double v = uni02pi(gen);
+        std::cout << "i: " << i << "  " << sigma_val<<"  "<<amplitude_val << "  u:"<<u<<"  v:"<<v<<std::endl;
+        GaussianKernel kernel(pore_centers[i], sigma_val, sigma_val * 1.5, sigma_val, /*Eigen::Matrix3d::Identity()*/construct_R(u,v, 25.0 * M_PI / 180.0), amplitude_val, pore_sdfs[i]);
         Kernels.push_back(kernel);
         if (kernel.on_surface) surface_kernels.push_back(i);
         /*pore_amplitudes.push_back(dist_amp(gen));
@@ -442,58 +492,67 @@ void ModelGenerator::generate_gaussians(std::vector<Eigen::Vector3d> pore_center
         std::cout << endl;
     }
 }
-
-void ModelGenerator::generate_gaussians_iso(std::vector<Eigen::Vector3d> pore_centers, std::vector<double> pore_sdfs, std::mt19937& gen)
-{
-    Kernels.clear();
-    surface_kernels.clear();
-    bool dynamic_change_para = true;
-    if(dynamic_change_para)
-    {
-        double bbx_v = abs((bb_max.x() - bb_min.x()) * (bb_max.y() - bb_min.y()) * (bb_max.z() - bb_min.z()));
-        double w4max = W4sig_max, w4min = W4sig_min;
-        sigma_min = sigma_value(bbx_v, pore_num, w4min, Gauss_level);
-        sigma_max = sigma_value(bbx_v, pore_num, w4max, Gauss_level);
-        cout << "sigma_min: " << sigma_min << "   sigma_max: " << sigma_max << endl;
-    }
-    
-    std::uniform_real_distribution<double> dist_amp(amplitude_min, amplitude_max);
-    std::uniform_real_distribution<double> dist_sigma(sigma_min, sigma_max);
-
-    // 为每个空洞中心生成随机参数
-    int pore_size = pore_centers.size();
-    for (size_t i = 0; i < pore_size; ++i) {
-        double sigma_val = dist_sigma(gen);
-        double amplitude_val = dist_amp(gen);
-        //std::cout << "i: " << i << "  " << sigma_val<<"  "<<amplitude_val << std::endl;
-        GaussianKernel kernel(pore_centers[i], sigma_val, amplitude_val, pore_sdfs[i]);
-        Kernels.push_back(kernel);
-        if (kernel.on_surface) surface_kernels.push_back(i);
-        /*pore_amplitudes.push_back(dist_amp(gen));
-        pore_sigmas.push_back(dist_sigma(gen));*/
-    }
-
-    std::cout << "--------------------1. Sample and generate gaussian kernels--------------------" << endl<<
-        "Combine " << Kernels.size() << " Gaussian fileds with " << surface_kernels.size() << " kernels on the surface" << std::endl;
-    if(standard_show)
-    {
-        std::cout << "surface index:  ";
-        for (auto i : surface_kernels) std::cout << i << "  ";
-        std::cout << endl;
-    }
-    
-}
+//
+//void ModelGenerator::generate_gaussians_iso(std::vector<Eigen::Vector3d> pore_centers, std::vector<double> pore_sdfs, std::mt19937& gen)
+//{
+//    Kernels.clear();
+//    surface_kernels.clear();
+//    if(dynamic_change_para)
+//    {
+//        double bbx_v = abs((bb_max.x() - bb_min.x()) * (bb_max.y() - bb_min.y()) * (bb_max.z() - bb_min.z()));
+//        double w4max = W4sig_max, w4min = W4sig_min;
+//        sigma_min = sigma_value(bbx_v, pore_num, w4min, Gauss_level);
+//        sigma_max = sigma_value(bbx_v, pore_num, w4max, Gauss_level);
+//        cout << "sigma_min: " << sigma_min << "   sigma_max: " << sigma_max << endl;
+//    }
+//    
+//    std::uniform_real_distribution<double> dist_amp(amplitude_min, amplitude_max);
+//    std::uniform_real_distribution<double> dist_sigma(sigma_min, sigma_max);
+//    cout << "sigma_min: " << sigma_min << "    sigma_max:" << sigma_max << endl;
+//    // 为每个空洞中心生成随机参数
+//    int pore_size = pore_centers.size();
+//    for (size_t i = 0; i < pore_size; ++i) {
+//        double sigma_val = dist_sigma(gen);
+//        double amplitude_val = dist_amp(gen);
+//        std::cout << "i: " << i << "  " << sigma_val<<"  "<<amplitude_val << std::endl;
+//        GaussianKernel kernel(pore_centers[i], sigma_val, amplitude_val, pore_sdfs[i]);
+//        Kernels.push_back(kernel);
+//        if (kernel.on_surface) surface_kernels.push_back(i);
+//        /*pore_amplitudes.push_back(dist_amp(gen));
+//        pore_sigmas.push_back(dist_sigma(gen));*/
+//    }
+//
+//    std::cout << "--------------------1. Sample and generate gaussian kernels--------------------" << endl<<
+//        "Combine " << Kernels.size() << " Gaussian fileds with " << surface_kernels.size() << " kernels on the surface" << std::endl;
+//    if(standard_show)
+//    {
+//        std::cout << "surface index:  ";
+//        for (auto i : surface_kernels) std::cout << i << "  ";
+//        std::cout << endl;
+//    }
+//    
+//}
 
 double ModelGenerator::combinedSDF(Eigen::Vector3d & p, std::vector<GaussianKernel> G_kernels, double C)
 {
-    double total_void = 0.0;
-    int gaus_num = G_kernels.size();
-    for (size_t i = 0; i < gaus_num; i++) {
-        //std::cout <<"gaus_num: "<< gaus_num<<"  "<< i << std::endl;
-        total_void += G_kernels[i].gaussian_fun(p);
+    //double total_void = 0.0;
+    //int gaus_num = G_kernels.size();
+    //for (size_t i = 0; i < gaus_num; i++) {
+    //    //std::cout <<"gaus_num: "<< gaus_num<<"  "<< i << std::endl;
+    //    total_void += G_kernels[i].gaussian_fun(p);
+    //}
+
+    //return  C - total_void;  // 当前使用：负的空洞总和 
+
+    double max_void = 0.0;
+
+    for (size_t i = 0; i < G_kernels.size(); ++i) {
+        double val = G_kernels[i].gaussian_fun(p);
+        if (val > max_void)
+            max_void = val;
     }
 
-    return  C - total_void;  // 当前使用：负的空洞总和 
+    return C - max_void;
 }
 
 void ModelGenerator::show_model()
@@ -541,9 +600,9 @@ void ModelGenerator::show_model()
 }
 
 
-std::vector<Edge> ModelGenerator::pores_connection_mst(const std::vector<GaussianKernel>& gau, int Dmax)
+std::vector<Edge> ModelGenerator::pores_connection_mbdst(const std::vector<GaussianKernel>& gau, int Dmax)
 {
-    cout << "--------------------2. Constructing connection MST with most degree Dmax: " << Dmax << "--------------------"<<endl;
+    cout << "--------------------2. Constructing connection MBDST with most degree Dmax: " << Dmax << "--------------------"<<endl;
     std::vector<Edge> mst_edges;
 
     int n = gau.size();
@@ -598,6 +657,62 @@ std::vector<Edge> ModelGenerator::pores_connection_mst(const std::vector<Gaussia
             std::cout << "Edge from " << e.from << " to " << e.to << " with weight " << e.weight << " with length " << e.length << std::endl;
     return mst_edges;
 }
+
+std::vector<Edge> ModelGenerator::pores_connection_mst(const std::vector<GaussianKernel>& gau)
+{
+    cout << "-------------------- Constructing connection MST --------------------" << endl;
+    std::vector<Edge> mst_edges;
+
+    int n = gau.size();
+    if (n <= 1)
+    {
+        std::cout << "Only one or no Gaussian kernels provided." << std::endl;
+        return mst_edges;
+    }
+
+    std::vector<bool> visited(n, false);
+    std::vector<int> degree(n, 0);   // <-- 新增：记录节点度数
+    std::priority_queue<Edge, std::vector<Edge>, std::greater<Edge>> pq;
+
+    // 从第一个节点开始
+    visited[0] = true;
+
+    // 初始化：加入与第一个节点相连的所有边
+    for (int j = 1; j < n; ++j) {
+        double dist = distance(gau[0].center, gau[j].center);
+        double dist_w = dist * 1.0;
+        pq.push({ 0, j, dist, dist_w });
+    }
+
+    // 逐步扩展生成树
+    while (!pq.empty() && mst_edges.size() < n - 1) {
+        Edge e = pq.top();
+        pq.pop();
+
+        if (visited[e.to]) continue; // 避免重复访问
+
+        // 接受该边
+        mst_edges.push_back(e);
+        visited[e.to] = true;
+
+        degree[e.from]++;
+        degree[e.to]++;
+
+        // 将新加入节点的边放入队列
+        for (int j = 0; j < n; ++j) {
+            if (!visited[j]) {
+                double dist = distance(gau[e.to].center, gau[j].center);
+                double dist_w = dist * 1.0;
+                pq.push({ e.to, j, dist, dist_w });
+            }
+        }
+    }
+    if (standard_show)
+        for (Edge e : mst_edges)
+            std::cout << "Edge from " << e.from << " to " << e.to << " with weight " << e.weight << " with length " << e.length << std::endl;
+    return mst_edges;
+}
+
 
 std::vector<std::vector<int>> ModelGenerator::construct_adj_list(std::vector<Edge> edges_list, int kernel_num)
 {
@@ -1071,85 +1186,6 @@ double ModelGenerator::cal_kernel_translucency(int p_index, int & max_s1, int & 
     }
 
     return max_perm;
-    //// 初始化结果变量
-    //max_s1 = -1;
-    //max_s2 = -1;
-    //max_path.clear();
-    //
-    //int kernel_num = Kernels.size();
-    //
-    //// 1. BFS 预计算 (这部分必须在并行前完成，且假设 PathQuery 是只读的/线程安全的)
-    //// 如果 PathQuery 构造函数非常耗时且 query_path 只是查表，那么这行放在外面是对的。
-    //PathQuery p_bfs(kernel_num, adj, p_index);
-    //
-    //if (!p_bfs.isConnected) return 0.0;
-
-    //int surface_size = surface_kernels.size();
-    //
-    //// 全局最大值变量 (实际上是函数参数传进来的引用和局部变量)
-    //double global_max_perm = 0.0;
-
-    //// --- 并行区域开始 ---
-    //#pragma omp parallel
-    //{
-    //    // 2. 定义【线程私有】的局部最优变量
-    //    // 每个线程都在这里记录它自己负责的那部分循环中找到的最好结果
-    //    double  thread_max_perm = 0.0;
-    //    int     thread_max_s1 = -1;
-    //    int     thread_max_s2 = -1;
-    //    std::vector<int> thread_max_path;
-
-    //    // 3. 并行化外层循环
-    //    // schedule(dynamic): 因为内层循环是 j=i+1 (三角形)，i 越小任务越重。
-    //    // 使用 dynamic 调度可以让这就快干完的线程去领新任务，实现负载均衡。
-    //    #pragma omp for schedule(dynamic)
-    //    for (int i = 0; i < surface_size; i++) 
-    //    {
-    //        int s1 = surface_kernels[i];
-    //        
-    //        // 内层循环不需要并行，通常并行外层就够了
-    //        for (int j = i + 1; j < surface_size; j++) 
-    //        {
-    //            int s2 = surface_kernels[j];
-    //            
-    //            // --- 核心计算逻辑 (保持不变) ---
-    //            // 注意：PathQuery::query_path 必须是 const 的或者不修改内部状态的，否则线程不安全
-    //            std::vector<int> path1 = p_bfs.query_path(s1);
-    //            std::vector<int> path2 = p_bfs.query_path(s2);
-
-    //            std::vector<int> path_(path1.rbegin(), path1.rend());
-    //            path_.insert(path_.end(), path2.begin() + 1, path2.end());
-
-    //            // 这些计算函数应该是只读 Kernels 的，是安全的
-    //            double path_translucency = calculate_path_translucency(path_);
-    //            double perm = path_translucency;
-
-    //            // --- 更新【线程私有】的最大值 ---
-    //            if (perm > thread_max_perm)
-    //            {
-    //                thread_max_perm = perm;
-    //                thread_max_s1 = s1;
-    //                thread_max_s2 = s2;
-    //                thread_max_path = path_; // vector 拷贝
-    //            }
-    //        }
-    //    } // end of omp for
-
-    //    // 4. 合并各线程结果到全局变量
-    //    // critical: 一次只允许一个线程进入，比较并更新最终结果
-    //    #pragma omp critical
-    //    {
-    //        if (thread_max_perm > global_max_perm)
-    //        {
-    //            global_max_perm = thread_max_perm;
-    //            max_s1 = thread_max_s1;
-    //            max_s2 = thread_max_s2;
-    //            max_path = thread_max_path;
-    //        }
-    //    }
-    //} // end of omp parallel
-
-    //return global_max_perm;
 }
 
 double ModelGenerator::cal_total_translucency(std::vector<GaussianKernel> gau,  AdjacencyList adj)
@@ -2019,11 +2055,61 @@ double ModelGenerator::generate_tube2(Eigen::Vector3d& p, GaussianKernel& k1, Ga
     return iso_level_C - tubeValue;
 }
 
-int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double gaus_iso, double smooth_t)
+double ModelGenerator::generate_tube3(Eigen::Vector3d& p, GaussianKernel& k1, GaussianKernel& k2, double iso_level_C, double mid_radius_factor)
+{
+    const Eigen::Vector3d& c1 = k1.center;
+    const Eigen::Vector3d& c2 = k2.center;
+    double omega1 = 0.0, omega2 = 0.0;
+    if (Iso_kernel)
+    {
+        omega1 = 1.0 / (2.0 * k1.sigma * k1.sigma);
+        omega2 = 1.0 / (2.0 * k2.sigma * k2.sigma);
+    }
+    else
+    {
+        omega1 = 1.0 / (2.0 * k1.sigma_parallel * k1.sigma_perp);
+        omega2 = 1.0 / (2.0 * k2.sigma_parallel * k2.sigma_perp);
+    }
+	double avg_omega = (omega1 + omega2) / 2.0;
+
+    double mu = 0.05 * mid_radius_factor * avg_omega;  //mid_radius_factor越大，通道越细
+
+    Eigen::Vector3d line_dir = c2 - c1;
+    double len2 = line_dir.squaredNorm();
+    double t = 0.0;
+    if (len2 > 1e-12) {
+        t = (p - c1).dot(line_dir) / len2;
+        t = std::max(0.0, std::min(1.0, t));
+    }
+
+    Eigen::Vector3d s = c1 + t * line_dir;   // 最近点
+    Eigen::Vector3d d = p - s;
+
+    Eigen::Matrix3d inv1 = k1.invSigma;
+    Eigen::Matrix3d inv2 = k2.invSigma;
+
+    Eigen::Matrix3d tubeInvSigma = 0.5 * (inv1 + inv2);
+
+    double dis = d.transpose() * tubeInvSigma * d;
+
+    double tunnelMain = std::exp(-mu * dis);
+
+    double pore1 = k1.gaussian_fun(p);
+    double pore2 = k2.gaussian_fun(p);
+
+    // --------------------------------------------------
+    // 7. 融合并返回隐式值
+    // --------------------------------------------------
+    double tubeValue = tunnelMain + pore1 + pore2;
+
+    return iso_level_C - tubeValue;
+}
+
+int ModelGenerator::generate_mst_tubes(std::vector<pair<int, int>> edge_con, int grid_num, int res, double iso, double gaus_iso, double smooth_t)
 {
     //单独保存高斯孔隙场SDF
-    Eigen::VectorXd SDF_gaussian(grid_num);
     Eigen::VectorXd SDF_gaussian_tubes(grid_num);
+    SDF_gau.resize(grid_num);
     SDF_out.resize(grid_num);
     double solid_count = 0;
     double tube_radius = Tube_radius_factor;
@@ -2032,14 +2118,15 @@ int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double
     for (int idx = 0; idx < grid_num; ++idx) {
         Eigen::Vector3d p = GV.row(idx);
         //gaussian kernel
-        SDF_gaussian(idx) = combinedSDF(p, Kernels, gaus_iso);
+        SDF_gau(idx) = combinedSDF(p, Kernels, gaus_iso);
         //tubes
         double sdf_p = 1000.0;
-        for (auto& e : Tube_edges) {
-            sdf_p = min(sdf_p, generate_tube2(p, Kernels[e.from], Kernels[e.to], gaus_iso, tube_radius));
+        for (auto& e : edge_con) {
+            //sdf_p = min(sdf_p, generate_tube2(p, Kernels[e.first], Kernels[e.second], gaus_iso, tube_radius));
+            sdf_p = min(sdf_p, generate_tube2(p, Kernels[e.first], Kernels[e.second], gaus_iso, tube_radius));
             //sdf_p = min(sdf_p, generate_tube(p, Kernels[e.from], Kernels[e.to], gauss_iso, tube_radius));
         }
-        SDF_gaussian_tubes(idx) = smooth_UnionSDF(SDF_gaussian(idx), sdf_p, 3 * smooth_t);
+        SDF_gaussian_tubes(idx) = smooth_UnionSDF(SDF_gau(idx), sdf_p, 3 * smooth_t);
     }
 
     if (Enable_noise)
@@ -2074,15 +2161,15 @@ int ModelGenerator::generate_mst_tubes(int grid_num, int res, double iso, double
         view_model(V_out, F_out, "our final result");
         Eigen::MatrixXd V_g; //输出网格顶点
         Eigen::MatrixXi F_g; // 输出网格面片
-        MarchingCubes(SDF_gaussian, GV, res, res, res, iso, V_g, F_g);  //gaussian combined
-        view_model(V_g, F_g);
+        MarchingCubes(SDF_gau, GV, res, res, res, iso, V_g, F_g);  //gaussian combined
+        view_model(V_g, F_g, "gaussian field");
 
         MarchingCubes(SDF_gaussian_tubes, GV, res, res, res, iso, V_t, F_t);  //gaussian combined with tubes
-        view_model(V_t, F_t);
+        view_model(V_t, F_t, "gaussian with tubes field");
     }
        
     if(compare_show)
-        compare_msc(SDF_gaussian, res, grid_num, smooth_t);
+        compare_msc(SDF_gau, res, grid_num, smooth_t);
 
 
     //view_three_models(V_out, F_out, V_t, F_t, V_t, F_t, Eigen::RowVector3d(1, 0, 0));
@@ -2124,45 +2211,17 @@ void ModelGenerator::compare_msc(Eigen::VectorXd SDF_gaussian, int res, int grid
     // 3. 计算连接
     // 返回的 adj 是一个邻接表，adj[i] 包含了与 gaussian_centers[i] 相连的点的索引
     auto adj = msc.ComputeConnectivity(SDF_gau_out, gaussian_centers);
-    std::vector<pair<int, int>> edge_conn_new;
+    edge_con_msc.clear();
     for (int u = 0; u < adj.size(); ++u) {
         for (int v : adj[u]) {
             // 如果是无向图，加上 if (u < v) 判断以避免重复存储 (例如避免同时存入 1-2 和 2-1)
             // 如果是有向图，去掉这个 if 即可
             if (u < v) {
-                edge_conn_new.push_back({ u, v });
+                edge_con_msc.push_back({ u, v });
             }
         }
     }
-
-    //int isolated_idx = -1;
-    //for (int i = 0; i < adj.size(); ++i) {
-    //    if (adj[i].empty()) {
-    //        std::cout << "Found isolated point index: " << i << std::endl;
-    //        isolated_idx = i;
-    //    }
-    //}
-
-    //if (isolated_idx != -1) {
-    //    float min_dist = 1e9;
-    //    int nearest_idx = -1;
-    //    // 假设 points 是 std::vector<Point>
-    //    auto p1 = gaussian_centers[isolated_idx];
-
-    //    for (int i = 0; i < gaussian_centers.size(); ++i) {
-    //        if (i == isolated_idx) continue;
-    //        auto p2 = gaussian_centers[i];
-    //        // 简单的欧氏距离计算
-    //        float dist = std::sqrt(pow(p1.x - p2.x, 2) + pow(p1.y - p2.y, 2) + pow(p1.z - p2.z, 2));
-    //        if (dist < min_dist) {
-    //            min_dist = dist;
-    //            nearest_idx = i;
-    //        }
-    //    }
-    //    std::cout << "Nearest neighbor is " << nearest_idx << " with distance: " << min_dist << std::endl;
-    //}
-
-	cout << "edge_conn_new size: " << edge_conn_new.size() << "     vs   our: "<< Tube_edges.size()<< endl;
+	cout << "edge_conn_new size: " << edge_con_msc.size() << "     vs   our: "<< Tube_edges.size()<< endl;
     //Eigen::MatrixXd V_g; //输出高斯场对应网格顶点
     //Eigen::MatrixXi F_g;
     //MarchingCubes(SDF_gaussian, GV, res, res, res, Isolevel, V_g, F_g);   //final result
@@ -2175,7 +2234,7 @@ void ModelGenerator::compare_msc(Eigen::VectorXd SDF_gaussian, int res, int grid
 
 
 
-    vis_Kernels_Tubes(pore_centers, edge_conn_new, "msc_Kernels_Tubes");
+    vis_Kernels_Tubes(pore_centers, edge_con_msc, "msc_Kernels_Tubes");
 
     double tube_radius = Tube_radius_factor;
 	double gaus_iso = Gauss_level;
@@ -2185,7 +2244,7 @@ void ModelGenerator::compare_msc(Eigen::VectorXd SDF_gaussian, int res, int grid
         Eigen::Vector3d p = GV.row(idx);
         //tubes
         double sdf_p = 1000.0;
-        for (auto& e : edge_conn_new) {
+        for (auto& e : edge_con_msc) {
             sdf_p = min(sdf_p, generate_tube2(p, Kernels[e.first], Kernels[e.second], gaus_iso, tube_radius));
             //sdf_p = min(sdf_p, generate_tube(p, Kernels[e.from], Kernels[e.to], gauss_iso, tube_radius));
         }

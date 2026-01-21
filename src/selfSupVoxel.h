@@ -55,7 +55,7 @@ struct VoxelGrid
 
 // 检测结果结构体
 struct SupportCheckResult {
-    bool isSupportFree = false;             // 是否免支撑
+    bool isSupportFree = true;             // 是否免支撑
     int solid_nums = 0;
     int unsupportedVoxelCount = 0;// 需要支撑的体素数量
     double unsupportedRatio = 0.0;        // 悬垂比例

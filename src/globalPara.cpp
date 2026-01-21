@@ -1,6 +1,6 @@
 #include "globalPara.h" 
 
-std::string input_file = "test_cube";
+std::string input_file = "RockSetBr"; //RockSetBr  test_cube
 int Resolution = 100;
 
 std::vector<double> Weights = { 0.8, 1.0, 1.2 };  //mst ·ÖÀàÏµÊıÈ¨ÖØ£º±ß½ç-ÄÚ²¿£¬ÄÚ²¿-ÄÚ²¿£¬±ß½ç-±ß½ç
@@ -8,7 +8,7 @@ std::vector<double> KT_weights = { 0.7, 0.1, 0.1, 0.1 };  //kernel translucencyÈ
 double Isolevel = 0;
 double Gauss_level = 0.5;
 
-int PoresNum = 3;
+int PoresNum = 20;
 double surface_ratio = 0.5; //±íÃæºËÕ¼±È
 
 int Min_degree = 5;
@@ -30,10 +30,10 @@ double W4sig_min = 25.0;
 
 double SmoothT = 15;    //¿ØÖÆÆ½»¬²¼¶ûµÄÆ½»¬ÇøÓò´óĞ¡, Ô½´ó£¬Æ½»¬Ğ§¹ûÔ½Ğ¡£¬Ç÷½üÓÚÆÕÍ¨²¢¼¯
 double Tube_radius_factor = 0.8; // ¿ØÖÆ¹ÜµÀ°ë¾¶Ïà¶ÔÓÚ¸ßË¹ºË°ë¾¶µÄ±ÈÀı, mid_radius_factorÔ½´ó£¬Í¨µÀÔ½Ï¸
-double Safe_distance_ratio = 0.9;
+double Safe_distance_ratio = 0.6;
 
 double Trans_thres = 0.9;  //kernel translucency threshold 
-double Adj_dis_thres = 0.25;
+double Adj_dis_thres = 0.4;
 bool debug_show = false;
 bool standard_show = false;
 bool figure_show = true;
