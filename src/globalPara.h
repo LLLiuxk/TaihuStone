@@ -25,6 +25,9 @@ extern double Sigma_min;
 extern double Sigma_max;
 extern double W4sig_max; //7.0
 extern double W4sig_min; // 42.0;
+extern double max_ratio;
+
+
 extern double Gauss_level;
 
 extern double SmoothT;    //控制平滑布尔的平滑区域大小

@@ -43,7 +43,7 @@ SupportCheckResult checkSupportVoxel(VoxelGrid& grid, double densityThreshold)
                     for (int dx = -1; dx <= 1; ++dx) {
                         // 获取下方体素的密度
                         double belowVal = grid.getSafe(i + dx, j + dy, k - 1);
-                        if (belowVal >= densityThreshold && supported[grid.index(i + dx, j + dy, k - 1)]) { // && supported[grid.index(i + dx, j + dy, k - 1)]
+                        if (belowVal >= densityThreshold /*&& supported[grid.index(i + dx, j + dy, k - 1)]*/) { // && supported[grid.index(i + dx, j + dy, k - 1)]
                             supported[idx] = true;
                             goto check_done; // 只要找到一个支撑点，就跳出内层循环
                         }
@@ -63,7 +63,7 @@ SupportCheckResult checkSupportVoxel(VoxelGrid& grid, double densityThreshold)
             usnum++;
 
 	result.solid_nums = totalSolidVoxels;
-	std::cout << "unsupport num: " << totalSolidVoxels - usnum << "   " << result.unsupportedVoxelCount << std::endl;
+	std::cout << "unsupport num: " << totalSolidVoxels<<" - " <<usnum << " =  " << result.unsupportedVoxelCount << std::endl;
     // 5. 计算统计数据
     //double vVol = grid.voxelVolume();
     //result.totalVolume = totalSolidVoxels * vVol;

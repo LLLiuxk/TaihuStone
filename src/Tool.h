@@ -169,3 +169,12 @@ void add_noise_near_isosurface(
 
 //cal sigma
 double sigma_value(double v, double n, double w, double iso);
+
+static inline bool isFiniteVec(const Eigen::Vector3d& v) {
+    return std::isfinite(v.x()) && std::isfinite(v.y()) && std::isfinite(v.z());
+}
+
+static inline bool isFiniteMat(const Eigen::Matrix3d& m) {
+    for (int r = 0; r < 3; r++) for (int c = 0; c < 3; c++) if (!std::isfinite(m(r, c))) return false;
+    return true;
+}

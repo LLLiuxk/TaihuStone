@@ -53,6 +53,8 @@ public:
 
     double gaussian_fun(const Eigen::Vector3d& p);
     bool is_on_surface();
+    
+    void rebuildInvSigma();
 
 public:
     Eigen::Vector3d center;
@@ -155,9 +157,6 @@ public:
     int find_nearest_grid(Eigen::Vector3d point);
 	double line_cross_surface(Eigen::Vector3d p1, Eigen::Vector3d p2, double thres, int sam_num = 3);
 
-
-    double calculate_score(std::vector<std::vector<int>>  Paths);
-
     //---------------optimize------------------
     vector<int> cal_edge_usage(std::vector<std::vector<int>> Paths, bool show_debug = true);
     pair<double, double> add_edges(Edge cand_edge, AdjacencyList adj, std::vector<int>& max_path1, std::vector<int>& max_path2, bool debug = false);
@@ -175,6 +174,22 @@ public:
     void test_item();
 
 	void optimize_model_py(std::string& filename, std::string& outfilename);
+
+    int resolveOverlaps3D(
+        std::vector<GaussianKernel>& kernels,
+        int maxIters = 50,
+        double isoValue = 0.5,
+        double minSigmaPerp = 1e-4,
+        double minSigmaParallel = 1e-4,
+        double tol = 1e-5,                 // 投影分离容差（单位同坐标）
+        double margin = 1e-4,               // 额外分离裕量（可设成 1e-4 等）
+        double minScalePerUpdate = 0.90,   // 每次更新最多缩到多少（避免骤缩/抖动）
+        bool verbose = false);
+
+    void buildCandidateAxes(const GaussianKernel& a, const GaussianKernel& b, const Eigen::Vector3d& delta, std::vector<Eigen::Vector3d>& axesOut);
+
+    double supportHalfLengthOnAxis(const GaussianKernel& k, const Eigen::Vector3d& n_unit, double chi);
+
 private:
 
 	int pore_num = PoresNum;			   // 空洞数量

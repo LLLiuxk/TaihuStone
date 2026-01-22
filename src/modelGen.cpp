@@ -56,7 +56,6 @@ double GaussianKernel::gaussian_fun(const Eigen::Vector3d& p)
     }   
 }
 
-
 bool GaussianKernel::is_on_surface() 
 {
     if (Iso_kernel)
@@ -76,6 +75,23 @@ bool GaussianKernel::is_on_surface()
     }
 }
 
+void GaussianKernel::rebuildInvSigma()
+{
+    // 兼容 ball（sigma）情形：若 sigma_perp / parallel 未正确设置，则回退到 sigma
+    double sp = sigma_perp;
+    double sa = sigma_parallel;
+
+    Eigen::Matrix3d Dinv = Eigen::Matrix3d::Zero();
+    Dinv(0, 0) = 1.0 / (sp * sp);
+    Dinv(1, 1) = 1.0 / (sp * sp);
+    Dinv(2, 2) = 1.0 / (sa * sa);
+
+    invSigma = R * Dinv * R.transpose();
+}
+
+
+
+//--------------------------------------------ModelGenerator part------------------------------------------------//
 ModelGenerator::ModelGenerator(std::string input_file, int pores)
 {
     if (!igl::read_triangle_mesh(input_file, V_ini, F_ini)) {
@@ -136,6 +152,14 @@ void ModelGenerator::generateGaussianSDF()
     else 
         generate_gaussians(pore_centers, pore_sdfs, gen);*/
     
+
+    if (!Iso_kernel)
+    {
+        double support_k = sqrt(-2 * log(Gauss_level / Amplitude_min));
+        int hits = resolveOverlaps3D(Kernels);
+        cout << "Total hits:" << hits << endl;
+    }
+
 	int kernel_num = Kernels.size();
     int degree_limit = (kernel_num - 1) / max(1, (int)(kernel_num - surface_kernels.size()));
 
@@ -324,11 +348,11 @@ void ModelGenerator::sample_interior_points(std::vector<Eigen::Vector3d>& pore_c
                     continue;
         }
         //cout << chosen_idx << "    " << chosen_idx / (Resolution * Resolution) << "   " << base_layer + 15 << endl;
-        //if (chosen_idx / (Resolution * Resolution) < base_layer + 10)
-        //{
-        //    cout << chosen_idx << "    " << chosen_idx / (Resolution * Resolution) << "   " << base_layer + 10 << endl;
-        //    continue;
-        //}
+        if (chosen_idx / (Resolution * Resolution) < base_layer + 8)
+        {
+            cout << chosen_idx << "    " << chosen_idx / (Resolution * Resolution) << "   " << base_layer + 8 << endl;
+            continue;
+        }
         Eigen::Vector3d candidate_center = GV.row(chosen_idx).transpose();
         // 检查与已有空洞中心的最小距离
         bool valid = true;
@@ -432,7 +456,7 @@ void ModelGenerator::sample_regular(std::vector<Eigen::Vector3d>& pore_centers, 
         return;
     }
 
-    for (int z = pores; z < Resolution; z=z+ pores) {
+   /* for (int z = pores; z < Resolution; z=z+ pores) {
         for (int y = pores; y < Resolution; y=y+ pores) {
             for (int x = pores; x < Resolution; x=x+ pores) {
 				int chosen_idx = x + y * Resolution + z * Resolution * Resolution;
@@ -444,6 +468,22 @@ void ModelGenerator::sample_regular(std::vector<Eigen::Vector3d>& pore_centers, 
                 }
             }
         }
+    }*/
+    int x = 45, y = 45, z = 45;
+    int chosen_idx = x + y * Resolution + z * Resolution * Resolution;
+    Eigen::Vector3d candidate_center = GV.row(chosen_idx).transpose();
+    if (SDF(chosen_idx) < Isolevel)
+    {
+        pore_centers.push_back(candidate_center);
+        pore_sdfs.push_back(SDF(chosen_idx));
+    }
+    x += 8; y += 8; z += 8;
+    chosen_idx = x + y * Resolution + z * Resolution * Resolution;
+    candidate_center = GV.row(chosen_idx).transpose();
+    if (SDF(chosen_idx) < Isolevel)
+    {
+        pore_centers.push_back(candidate_center);
+        pore_sdfs.push_back(SDF(chosen_idx));
     }
 
     std::cout << "Generate " << pore_centers.size() << " close kernels" << std::endl;
@@ -466,6 +506,7 @@ void ModelGenerator::generate_gaussians(std::vector<Eigen::Vector3d> pore_center
     std::uniform_real_distribution<double> dist_sigma(sigma_min, sigma_max);
     std::uniform_real_distribution<double> uni01(0.0, 1.0);
     std::uniform_real_distribution<double> uni02pi(0.0, 2.0 * M_PI);
+    std::uniform_real_distribution<double> dist_scale(1.0, max_ratio);
 
     cout << "sigma_min: " << sigma_min << "    sigma_max:" << sigma_max << endl;
     // 为每个空洞中心生成随机参数
@@ -475,8 +516,9 @@ void ModelGenerator::generate_gaussians(std::vector<Eigen::Vector3d> pore_center
         double amplitude_val = dist_amp(gen);
         double u = uni01(gen);
         double v = uni02pi(gen);
+		double scale_ = dist_scale(gen);
         std::cout << "i: " << i << "  " << sigma_val<<"  "<<amplitude_val << "  u:"<<u<<"  v:"<<v<<std::endl;
-        GaussianKernel kernel(pore_centers[i], sigma_val, sigma_val * 1.5, sigma_val, /*Eigen::Matrix3d::Identity()*/construct_R(u,v, 25.0 * M_PI / 180.0), amplitude_val, pore_sdfs[i]);
+        GaussianKernel kernel(pore_centers[i], sigma_val, sigma_val * scale_, sigma_val, /*Eigen::Matrix3d::Identity()*/construct_R(u,v, 15.0 * M_PI / 180.0), amplitude_val, pore_sdfs[i]);
         Kernels.push_back(kernel);
         if (kernel.on_surface) surface_kernels.push_back(i);
         /*pore_amplitudes.push_back(dist_amp(gen));
@@ -1282,66 +1324,6 @@ double ModelGenerator::line_cross_surface(Eigen::Vector3d p1, Eigen::Vector3d p2
     }
 }
 
-double ModelGenerator::calculate_score(std::vector<std::vector<int>>  Paths)
-{
-    double sum_score = 0.0;
-    for (auto t : Tube_edges)
-    {
-        sum_score += t.weight;
-    }
-	cout << "Total score: " << sum_score << endl;
-	return sum_score;
-
-    double total_weighted_permeability = 0.0;
-    double total_path_length_sum = 0.0;
-    if (Paths.empty()) {
-        return 0.0;
-    }
-    else
-    {
-        for (auto path_ : Paths)
-        {
-            //std::pair<double, double>  properties = calculate_path_translucency(path_);
-            //double path_permeability = properties.first;
-            //double path_length = properties.second;
-
-            //total_weighted_permeability += path_permeability * path_length;
-            //total_path_length_sum += path_length;
-        }
-    }
-    // --- 1. 计算通透性 Permeability(G) ---
-
-    double permeability_G = 0.0;
-    if (total_path_length_sum > 1e-9) {
-        permeability_G = total_weighted_permeability / total_path_length_sum;
-    }
-    else {
-        // 如果没有边界-边界路径（例如少于2个边界点），则通透性为0
-        permeability_G = 0.0;
-    }
-
-    // --- 2. 计算成本 Cost(G) ---
-    double cost_L = 0.0; // 长度成本
-    int cost_E = Tube_edges.size();      // 边数成本
-
-    for (auto& edge : Tube_edges)
-    {
-        cost_L += (Kernels[edge.from].center - Kernels[edge.to].center).norm();  //length
-        //cost_L += edge.weight;  //length         
-    }
-     
-	double w_e = 0.01; // 边数权重
-    double cost_G = cost_L + w_e * cost_E;
-
-    // --- 3. 计算最终得分 Score(G) ---
-    if (cost_G < 1e-9) {
-        // 成本几乎为0，如果通透性也为0，得分为0；否则得分非常高
-        return (permeability_G > 1e-9) ? std::numeric_limits<double>::max() : 0.0;
-    }
-
-    return permeability_G / cost_G;
-}
-
 
 vector<int> ModelGenerator::cal_edge_usage(std::vector<std::vector<int>> Paths, bool show_debug)
 {
@@ -2059,48 +2041,72 @@ double ModelGenerator::generate_tube3(Eigen::Vector3d& p, GaussianKernel& k1, Ga
 {
     const Eigen::Vector3d& c1 = k1.center;
     const Eigen::Vector3d& c2 = k2.center;
-    double omega1 = 0.0, omega2 = 0.0;
-    if (Iso_kernel)
-    {
-        omega1 = 1.0 / (2.0 * k1.sigma * k1.sigma);
-        omega2 = 1.0 / (2.0 * k2.sigma * k2.sigma);
-    }
-    else
-    {
-        omega1 = 1.0 / (2.0 * k1.sigma_parallel * k1.sigma_perp);
-        omega2 = 1.0 / (2.0 * k2.sigma_parallel * k2.sigma_perp);
-    }
-	double avg_omega = (omega1 + omega2) / 2.0;
 
-    double mu = 0.05 * mid_radius_factor * avg_omega;  //mid_radius_factor越大，通道越细
+    // ----------------------------
+    // 1) 最近点到线段 + 距离向量 d
+    // ----------------------------
+    Eigen::Vector3d line = c2 - c1;
+    double len2 = line.squaredNorm();
 
-    Eigen::Vector3d line_dir = c2 - c1;
-    double len2 = line_dir.squaredNorm();
     double t = 0.0;
     if (len2 > 1e-12) {
-        t = (p - c1).dot(line_dir) / len2;
-        t = std::max(0.0, std::min(1.0, t));
+        t = (p - c1).dot(line) / len2;
+        t = std::clamp(t, 0.0, 1.0);
     }
 
-    Eigen::Vector3d s = c1 + t * line_dir;   // 最近点
-    Eigen::Vector3d d = p - s;
+    Eigen::Vector3d s = c1 + t * line;   // 线段最近点
+    Eigen::Vector3d d = p - s;           // 到中心线的最短向量
+    double r = d.norm();                 // 欧氏距离到中心线
 
-    Eigen::Matrix3d inv1 = k1.invSigma;
-    Eigen::Matrix3d inv2 = k2.invSigma;
+    // ----------------------------
+    // 2) 用“端点核的典型 iso 半径”推一个管道半径 R
+    //    mid_radius_factor 越大，R 越小 => 通道越细
+    // ----------------------------
+    // 取两个与轴线垂直的方向作为“典型截面方向”
+    Eigen::Vector3d axis = (len2 > 1e-12) ? (line / std::sqrt(len2)) : Eigen::Vector3d(1, 0, 0);
 
-    Eigen::Matrix3d tubeInvSigma = 0.5 * (inv1 + inv2);
+    // 构造任意两个正交单位向量 u,v 组成垂直平面基
+    Eigen::Vector3d tmp = (std::abs(axis.x()) < 0.9) ? Eigen::Vector3d(1, 0, 0) : Eigen::Vector3d(0, 1, 0);
+    Eigen::Vector3d u = axis.cross(tmp).normalized();
+    Eigen::Vector3d v = axis.cross(u).normalized();
 
-    double dis = d.transpose() * tubeInvSigma * d;
+    // 端点核在这两个方向上的 iso 半径，取平均作为“典型截面半径”
+    const double chi = -2.0 * std::log(iso_level_C);
+    Eigen::Matrix3d k1_m = 0.5 * (k1.invSigma + k1.invSigma.transpose());
+    Eigen::Matrix3d k2_m = 0.5 * (k2.invSigma + k2.invSigma.transpose());
+    double r1u = std::sqrt(chi / std::max((double)(u.transpose() * k1_m * u), 1e-12));
+    double r1v = std::sqrt(chi / std::max((double)(v.transpose() * k1_m * v), 1e-12));
+    double r2u = std::sqrt(chi / std::max((double)(u.transpose() * k2_m * u), 1e-12));
+    double r2v = std::sqrt(chi / std::max((double)(v.transpose() * k2_m * v), 1e-12));
 
-    double tunnelMain = std::exp(-mu * dis);
+    double R1 = 0.5 * (r1u + r1v);
+    double R2 = 0.5 * (r2u + r2v);
+    double Ravg = 0.5 * (R1 + R2);
 
+    double R = mid_radius_factor * Ravg;               // factor 越大 => R 越小
+    R = std::max(R, 1e-8);                             // 防止除零
+
+    // ----------------------------
+    // 3) 管道场：保证 r=R 时恰好等于 iso_level_C
+    // ----------------------------
+    double quad_tube = chi * (r * r) / (R * R);
+    double tunnelMain = std::exp(-0.5 * quad_tube);
+
+    // ----------------------------
+    // 4) 两个 pore（仍用你的核函数）
+    // ----------------------------
     double pore1 = k1.gaussian_fun(p);
     double pore2 = k2.gaussian_fun(p);
 
-    // --------------------------------------------------
-    // 7. 融合并返回隐式值
-    // --------------------------------------------------
-    double tubeValue = tunnelMain + pore1 + pore2;
+    // ----------------------------
+    // 5) 平滑“并集”融合：smooth-max 而不是相加
+    //    这样 iso 面更接近 union，不会被叠加抬高太多
+    // ----------------------------
+    double eps = 1e-4; // 可调：越小越接近 max，越大越平滑
+    
+    double pores = smooth_IntersecSDF(pore1, pore2, SmoothT);
+    double tubeValue = smooth_IntersecSDF(pores, tunnelMain, SmoothT);
+    //double tubeValue = tunnelMain + (pore1 + pore2);
 
     return iso_level_C - tubeValue;
 }
@@ -2122,8 +2128,10 @@ int ModelGenerator::generate_mst_tubes(std::vector<pair<int, int>> edge_con, int
         //tubes
         double sdf_p = 1000.0;
         for (auto& e : edge_con) {
-            //sdf_p = min(sdf_p, generate_tube2(p, Kernels[e.first], Kernels[e.second], gaus_iso, tube_radius));
-            sdf_p = min(sdf_p, generate_tube2(p, Kernels[e.first], Kernels[e.second], gaus_iso, tube_radius));
+            if(Iso_kernel)
+                sdf_p = min(sdf_p, generate_tube2(p, Kernels[e.first], Kernels[e.second], gaus_iso, tube_radius));
+            else 
+                sdf_p = min(sdf_p, generate_tube3(p, Kernels[e.first], Kernels[e.second], gaus_iso, tube_radius));
             //sdf_p = min(sdf_p, generate_tube(p, Kernels[e.from], Kernels[e.to], gauss_iso, tube_radius));
         }
         SDF_gaussian_tubes(idx) = smooth_UnionSDF(SDF_gau(idx), sdf_p, 3 * smooth_t);
@@ -2365,4 +2373,215 @@ void ModelGenerator::test_item()
 
 }
 
+
+int ModelGenerator::resolveOverlaps3D(std::vector<GaussianKernel>& kernels, int maxIters, double isoValue, double minSigmaPerp, double minSigmaParallel, double tol, double margin, double minScalePerUpdate, bool verbose)
+{
+    if (isoValue <= 0.0 || isoValue >= 1.0) return 0;
+
+    const double chi = -2.0 * std::log(isoValue); // amplitude=1，且指数里有 -0.5
+
+    const int n = (int)kernels.size();
+    if (n < 2) return 0;
+
+    auto clampSigmasAndRebuild = [&](GaussianKernel& k) {
+        k.sigma_perp = std::max(k.sigma_perp, minSigmaPerp);
+        k.sigma_parallel = std::max(k.sigma_parallel, minSigmaParallel);
+        k.rebuildInvSigma();
+        };
+
+    // 初始化保证 invSigma 合法
+    for (auto& k : kernels) {
+        clampSigmasAndRebuild(k);
+    }
+
+    int totalHits = 0;
+
+    for (int iter = 0; iter < maxIters; ++iter) {
+        int hitsThisIter = 0;
+
+        for (int i = 0; i < n; ++i) {
+            for (int j = i + 1; j < n; ++j) {
+
+                const Eigen::Vector3d ci = kernels[i].center;
+                const Eigen::Vector3d cj = kernels[j].center;
+                const Eigen::Vector3d delta = cj - ci;
+
+                if (!isFiniteVec(ci) || !isFiniteVec(cj) ||
+                    !isFiniteMat(kernels[i].invSigma) || !isFiniteMat(kernels[j].invSigma)) {
+                    continue;
+                }
+
+                // 构建候选轴
+                std::vector<Eigen::Vector3d> axes;
+                buildCandidateAxes(kernels[i], kernels[j], delta, axes);
+
+                // 如果中心几乎重合，选一个固定轴也行
+                if (axes.empty()) {
+                    axes.push_back(Eigen::Vector3d(1, 0, 0));
+                    axes.push_back(Eigen::Vector3d(0, 1, 0));
+                    axes.push_back(Eigen::Vector3d(0, 0, 1));
+                }
+
+                bool separated = false;
+
+                // 我们还需要找“最严重的重叠轴”，用它决定缩放比例
+                double worstOverlap = -std::numeric_limits<double>::infinity();
+                double worstProj = 0.0;
+                double worstSumH = 1.0;
+
+                for (const auto& n_axis : axes) {
+                    // 投影距离
+                    double proj = std::abs(delta.dot(n_axis));
+
+                    // 两椭球在该轴上的投影半长度
+                    double hi = supportHalfLengthOnAxis(kernels[i], n_axis, chi);
+                    double hj = supportHalfLengthOnAxis(kernels[j], n_axis, chi);
+
+                    if (!std::isfinite(hi) || !std::isfinite(hj)) continue;
+
+                    double sumH = hi + hj;
+
+                    // 分离条件：proj > sumH + tol + margin
+                    if (proj > sumH + tol + margin) {
+                        separated = true;
+                        break;
+                    }
+
+                    // 重叠量（越大越糟）
+                    double overlap = (sumH + margin) - proj;
+                    if (overlap > worstOverlap) {
+                        worstOverlap = overlap;
+                        worstProj = proj;
+                        worstSumH = std::max(sumH, 1e-12);
+                    }
+                }
+
+                if (separated) continue; // 认为不重叠
+
+                // 认为重叠：按“最严重轴”缩放两个核（同比缩放）
+                // h(n) 对整体缩放 s 是线性：sigma -> s*sigma  => Σ -> s^2 Σ => h -> s h
+                // 目标：s*(hi+hj) <= proj - margin - tol
+                double target = worstProj - margin - tol;
+                // 若 target<=0，表示中心非常接近/重合，只能继续缩到最小
+                double s = (target > 0.0) ? (target / worstSumH) : 0.0;
+
+                // 我们只允许缩小；并限制每次最大缩小幅度（minScalePerUpdate）
+                s = std::clamp(s, 0.0, 1.0);
+                s = std::max(s, minScalePerUpdate); // 防止一次缩太多导致抖动（可按需关掉）
+
+                // 如果已经非常接近分离边界，避免死循环：小于某阈值就不再算“命中”
+                if (worstOverlap <= tol) continue;
+
+                auto applyScale = [&](GaussianKernel& k) {
+                    k.sigma_perp *= s;
+                    k.sigma_parallel *= s;
+                    clampSigmasAndRebuild(k);
+                    };
+
+                applyScale(kernels[i]);
+                applyScale(kernels[j]);
+
+                hitsThisIter++;
+                totalHits++;
+
+                if (verbose) {
+                    double d = delta.norm();
+                    std::printf(
+                        "[iter %d] overlap i=%d j=%d  d=%.6g  worstOverlap=%.6g  scale=%.6g  "
+                        "sig_i=(%.6g,%.6g) sig_j=(%.6g,%.6g)\n",
+                        iter, i, j, d, worstOverlap, s,
+                        kernels[i].sigma_perp, kernels[i].sigma_parallel,
+                        kernels[j].sigma_perp, kernels[j].sigma_parallel
+                    );
+                }
+            }
+        }
+
+        if (hitsThisIter == 0) break;
+    }
+
+    return totalHits;
+}
+
+void ModelGenerator::buildCandidateAxes(
+    const GaussianKernel& a,
+    const GaussianKernel& b,
+    const Eigen::Vector3d& delta,
+    std::vector<Eigen::Vector3d>& axesOut)
+{
+    axesOut.clear();
+    axesOut.reserve(1 + 3 + 3 + 9);
+
+    const double eps = 1e-12;
+
+    auto pushAxis = [&](const Eigen::Vector3d& v) {
+        double nrm = v.norm();
+        if (nrm > eps && isFiniteVec(v)) axesOut.push_back(v / nrm);
+        };
+
+    // 1) 中心连线
+    pushAxis(delta);
+
+    // 2) 主轴（invSigma 的特征向量）
+    auto addPrincipalAxes = [&](const GaussianKernel& k) {
+        Eigen::Matrix3d A = 0.5 * (k.invSigma + k.invSigma.transpose());
+        Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> es(A);
+        if (es.info() != Eigen::Success) return;
+        Eigen::Matrix3d V = es.eigenvectors(); // 列向量是特征向量（正交归一）
+        pushAxis(V.col(0));
+        pushAxis(V.col(1));
+        pushAxis(V.col(2));
+        };
+
+    addPrincipalAxes(a);
+    addPrincipalAxes(b);
+
+    // 3) 叉乘轴（类似 OBB SAT）
+    // 取最后加入的 3+3 个主轴（如果失败就少一些）
+    // 简化：重新算一遍主轴以便配对
+    Eigen::Matrix3d Va = Eigen::Matrix3d::Identity();
+    Eigen::Matrix3d Vb = Eigen::Matrix3d::Identity();
+    {
+        Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> es(0.5 * (a.invSigma + a.invSigma.transpose()));
+        if (es.info() == Eigen::Success) Va = es.eigenvectors();
+    }
+    {
+        Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> es(0.5 * (b.invSigma + b.invSigma.transpose()));
+        if (es.info() == Eigen::Success) Vb = es.eigenvectors();
+    }
+
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            pushAxis(Va.col(i).cross(Vb.col(j)));
+        }
+    }
+}
+
+
+double ModelGenerator::supportHalfLengthOnAxis(
+    const GaussianKernel& k,
+    const Eigen::Vector3d& n_unit,
+    double chi)
+{
+    // 数值保护
+    const double eps = 1e-12;
+
+    // A 应该对称；这里强制对称化，减小数值噪声
+    Eigen::Matrix3d A = 0.5 * (k.invSigma + k.invSigma.transpose());
+
+    // 用 LDLT 解 A x = n
+    Eigen::LDLT<Eigen::Matrix3d> ldlt(A);
+    if (ldlt.info() != Eigen::Success) {
+        // 极端情况退化：返回很大的值，避免“误判不重叠”
+        return std::numeric_limits<double>::infinity();
+    }
+
+    Eigen::Vector3d x = ldlt.solve(n_unit); // x = Σ n
+    double nsn = n_unit.dot(x);             // n^T Σ n
+
+    if (!std::isfinite(nsn)) return std::numeric_limits<double>::infinity();
+    nsn = std::max(nsn, eps);
+
+    return std::sqrt(chi * nsn);
+}
 
