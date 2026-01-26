@@ -1,5 +1,6 @@
 ﻿#include "modelGen.h"
 #include "resultComp.h"
+#include "MorseComplex.h"
 
 GaussianKernel::GaussianKernel(
     const Eigen::Vector3d& center_,
@@ -141,9 +142,9 @@ void ModelGenerator::generateGaussianSDF()
     std::vector<Eigen::Vector3d> pore_centers;
     std::vector<double> pore_sdfs;
     std::vector<int> inside_indices;
-    sample_interior_points(pore_centers, pore_sdfs, inside_indices, pores, gen);
+    //sample_interior_points(pore_centers, pore_sdfs, inside_indices, pores, gen);
     //sample_interior_close(pore_centers, pore_sdfs, inside_indices, pores, gen);
-    //sample_regular(pore_centers, pore_sdfs, inside_indices, 40);
+    sample_regular(pore_centers, pore_sdfs, inside_indices, 20);
     //for (int i = 0; i < pore_centers.size(); i++)   std::cout << "i: " << i << "  " << pore_centers[i] << std::endl;
 
     generate_gaussians(pore_centers, pore_sdfs, gen);
@@ -155,9 +156,9 @@ void ModelGenerator::generateGaussianSDF()
 
     if (!Iso_kernel)
     {
-        double support_k = sqrt(-2 * log(Gauss_level / Amplitude_min));
-        int hits = resolveOverlaps3D(Kernels);
-        cout << "Total hits:" << hits << endl;
+        //double support_k = sqrt(-2 * log(Gauss_level / Amplitude_min));
+        //int hits = resolveOverlaps3D(Kernels);
+        //cout << "Total hits:" << hits << endl;
     }
 
 	int kernel_num = Kernels.size();
@@ -350,9 +351,10 @@ void ModelGenerator::sample_interior_points(std::vector<Eigen::Vector3d>& pore_c
         //cout << chosen_idx << "    " << chosen_idx / (Resolution * Resolution) << "   " << base_layer + 15 << endl;
         if (chosen_idx / (Resolution * Resolution) < base_layer + 8)
         {
-            cout << chosen_idx << "    " << chosen_idx / (Resolution * Resolution) << "   " << base_layer + 8 << endl;
+            //cout << chosen_idx << "    " << chosen_idx / (Resolution * Resolution) << "   " << base_layer + 8 << endl;
             continue;
         }
+        
         Eigen::Vector3d candidate_center = GV.row(chosen_idx).transpose();
         // 检查与已有空洞中心的最小距离
         bool valid = true;
@@ -373,7 +375,7 @@ void ModelGenerator::sample_interior_points(std::vector<Eigen::Vector3d>& pore_c
                 cout << "pore_sdfs: " << SDF(chosen_idx) << endl;
         }
     }
-
+    cout << "base layer: "<< base_layer<<"   sample layer: "<< base_layer + 8 << endl;
     std::cout << "Generate " << pore_centers.size() << " kernels   " << all_sam_num<<" , include "<< surface_p <<" sp with safe_dis: "<< Safe_distance_ratio << std::endl;
 }
 
@@ -456,7 +458,7 @@ void ModelGenerator::sample_regular(std::vector<Eigen::Vector3d>& pore_centers, 
         return;
     }
 
-   /* for (int z = pores; z < Resolution; z=z+ pores) {
+    for (int z = pores; z < Resolution; z=z+ pores) {
         for (int y = pores; y < Resolution; y=y+ pores) {
             for (int x = pores; x < Resolution; x=x+ pores) {
 				int chosen_idx = x + y * Resolution + z * Resolution * Resolution;
@@ -468,8 +470,8 @@ void ModelGenerator::sample_regular(std::vector<Eigen::Vector3d>& pore_centers, 
                 }
             }
         }
-    }*/
-    int x = 45, y = 45, z = 45;
+    }
+   /* int x = 45, y = 45, z = 45;
     int chosen_idx = x + y * Resolution + z * Resolution * Resolution;
     Eigen::Vector3d candidate_center = GV.row(chosen_idx).transpose();
     if (SDF(chosen_idx) < Isolevel)
@@ -484,7 +486,7 @@ void ModelGenerator::sample_regular(std::vector<Eigen::Vector3d>& pore_centers, 
     {
         pore_centers.push_back(candidate_center);
         pore_sdfs.push_back(SDF(chosen_idx));
-    }
+    }*/
 
     std::cout << "Generate " << pore_centers.size() << " close kernels" << std::endl;
 }
@@ -2042,79 +2044,89 @@ double ModelGenerator::generate_tube3(Eigen::Vector3d& p, GaussianKernel& k1, Ga
     const Eigen::Vector3d& c1 = k1.center;
     const Eigen::Vector3d& c2 = k2.center;
 
-    // ----------------------------
-    // 1) 最近点到线段 + 距离向量 d
-    // ----------------------------
-    Eigen::Vector3d line = c2 - c1;
-    double len2 = line.squaredNorm();
+    // --- segment axis ---
+    Eigen::Vector3d d = c2 - c1;
+    double L = d.norm();
+    Eigen::Vector3d u = d / L;
 
-    double t = 0.0;
-    if (len2 > 1e-12) {
-        t = (p - c1).dot(line) / len2;
-        t = std::clamp(t, 0.0, 1.0);
+    // --- Euclidean projection to segment (clamped) ---
+    double t = (p - c1).dot(u);       // in [0,L] before clamp
+    double tClamped = std::min(std::max(t, 0.0), L);
+    Eigen::Vector3d p_proj = c1 + tClamped * u;
+
+    bool insideSegment = (tClamped > 0.0 && tClamped < L);
+
+    // --- build tube metric ---
+    // average covariance -> project to plane normal to u
+    Eigen::Matrix3d D1 = Eigen::Matrix3d::Zero();
+    Eigen::Matrix3d D2 = Eigen::Matrix3d::Zero();
+    D1(0, 0) = k1.sigma_perp * k1.sigma_perp;
+    D1(1, 1) = k1.sigma_perp * k1.sigma_perp;
+    D1(2, 2) = k1.sigma_parallel * k1.sigma_parallel;
+    D2(0, 0) = k2.sigma_perp * k2.sigma_perp;
+    D2(1, 1) = k2.sigma_perp * k2.sigma_perp;
+    D2(2, 2) = k2.sigma_parallel * k2.sigma_parallel;
+    Eigen::Matrix3d S1 = k1.R * D1 * k1.R.transpose();
+    Eigen::Matrix3d S2 = k2.R * D2 * k2.R.transpose();
+    Eigen::Matrix3d Savg = 0.5 * (S1 + S2);
+
+    Eigen::Vector3d b1, b2;
+    Eigen::Vector3d a = (std::abs(u.z()) < 0.9) ? Eigen::Vector3d(0, 0, 1) : Eigen::Vector3d(0, 1, 0);
+    b1 = u.cross(a).normalized();
+    b2 = u.cross(b1).normalized();
+
+    Eigen::Matrix<double, 3, 2> B;
+    B.col(0) = b1; B.col(1) = b2;
+
+    Eigen::Matrix2d S_perp = B.transpose() * Savg * B;
+    // 稳定性：避免数值上不可逆
+    S_perp += 1e-12 * Eigen::Matrix2d::Identity();
+    Eigen::Matrix2d W_perp = S_perp.inverse(); // Σ_perp^{-1}
+
+    // --- anisotropic distance for tunnel ---
+    double d2 = 0.0;
+    if (insideSegment)
+    {
+        // only penalize perpendicular deviation -> elliptic cross-section
+        Eigen::Vector3d r = p - p_proj;
+        Eigen::Vector3d r_perp = r - (r.dot(u)) * u; // (I - uu^T)r, should already be perp
+        Eigen::Vector2d y;
+        y << r_perp.dot(b1), r_perp.dot(b2);
+
+        // Mahalanobis^2 in cross-section plane
+        d2 = y.transpose() * W_perp * y;
+
     }
+    else
+    {
+        // outside endpoints: use endpoint ellipsoid metric to avoid infinite extension
+        const GaussianKernel& ke = (tClamped <= 0.0) ? k1 : k2;
+        Eigen::Vector3d r = p - ke.center;
 
-    Eigen::Vector3d s = c1 + t * line;   // 线段最近点
-    Eigen::Vector3d d = p - s;           // 到中心线的最短向量
-    double r = d.norm();                 // 欧氏距离到中心线
+        // use 3D Mahalanobis^2; scale similarly
+        d2 = r.transpose() * ke.invSigma * r;
+        //d2 *= pow(mid_radius_factor, 5);
+    }
+    //mid_radius_factor越小， d2 越大，越细：相当于把逆协方差放大
+    d2 /= pow(mid_radius_factor, 3);
+    double tunnelMain = std::exp(-0.5 * d2);
 
-    // ----------------------------
-    // 2) 用“端点核的典型 iso 半径”推一个管道半径 R
-    //    mid_radius_factor 越大，R 越小 => 通道越细
-    // ----------------------------
-    // 取两个与轴线垂直的方向作为“典型截面方向”
-    Eigen::Vector3d axis = (len2 > 1e-12) ? (line / std::sqrt(len2)) : Eigen::Vector3d(1, 0, 0);
-
-    // 构造任意两个正交单位向量 u,v 组成垂直平面基
-    Eigen::Vector3d tmp = (std::abs(axis.x()) < 0.9) ? Eigen::Vector3d(1, 0, 0) : Eigen::Vector3d(0, 1, 0);
-    Eigen::Vector3d u = axis.cross(tmp).normalized();
-    Eigen::Vector3d v = axis.cross(u).normalized();
-
-    // 端点核在这两个方向上的 iso 半径，取平均作为“典型截面半径”
-    const double chi = -2.0 * std::log(iso_level_C);
-    Eigen::Matrix3d k1_m = 0.5 * (k1.invSigma + k1.invSigma.transpose());
-    Eigen::Matrix3d k2_m = 0.5 * (k2.invSigma + k2.invSigma.transpose());
-    double r1u = std::sqrt(chi / std::max((double)(u.transpose() * k1_m * u), 1e-12));
-    double r1v = std::sqrt(chi / std::max((double)(v.transpose() * k1_m * v), 1e-12));
-    double r2u = std::sqrt(chi / std::max((double)(u.transpose() * k2_m * u), 1e-12));
-    double r2v = std::sqrt(chi / std::max((double)(v.transpose() * k2_m * v), 1e-12));
-
-    double R1 = 0.5 * (r1u + r1v);
-    double R2 = 0.5 * (r2u + r2v);
-    double Ravg = 0.5 * (R1 + R2);
-
-    double R = mid_radius_factor * Ravg;               // factor 越大 => R 越小
-    R = std::max(R, 1e-8);                             // 防止除零
-
-    // ----------------------------
-    // 3) 管道场：保证 r=R 时恰好等于 iso_level_C
-    // ----------------------------
-    double quad_tube = chi * (r * r) / (R * R);
-    double tunnelMain = std::exp(-0.5 * quad_tube);
-
-    // ----------------------------
-    // 4) 两个 pore（仍用你的核函数）
-    // ----------------------------
+    // --- pores (already anisotropic if gaussian_fun uses invSigma) ---
     double pore1 = k1.gaussian_fun(p);
     double pore2 = k2.gaussian_fun(p);
 
-    // ----------------------------
-    // 5) 平滑“并集”融合：smooth-max 而不是相加
-    //    这样 iso 面更接近 union，不会被叠加抬高太多
-    // ----------------------------
-    double eps = 1e-4; // 可调：越小越接近 max，越大越平滑
-    
-    double pores = smooth_IntersecSDF(pore1, pore2, SmoothT);
-    double tubeValue = smooth_IntersecSDF(pores, tunnelMain, SmoothT);
-    //double tubeValue = tunnelMain + (pore1 + pore2);
-
+    double tubeValue = tunnelMain + pore1 + pore2;
+    //double pores = smooth_IntersecSDF(pore1, pore2, SmoothT);
+    //double tubeValue = smooth_IntersecSDF(pores, tunnelMain, SmoothT);
     return iso_level_C - tubeValue;
+
 }
 
 int ModelGenerator::generate_mst_tubes(std::vector<pair<int, int>> edge_con, int grid_num, int res, double iso, double gaus_iso, double smooth_t)
 {
     //单独保存高斯孔隙场SDF
     Eigen::VectorXd SDF_gaussian_tubes(grid_num);
+    Eigen::VectorXd SDF_only_tubes(grid_num);
     SDF_gau.resize(grid_num);
     SDF_out.resize(grid_num);
     double solid_count = 0;
@@ -2132,8 +2144,10 @@ int ModelGenerator::generate_mst_tubes(std::vector<pair<int, int>> edge_con, int
                 sdf_p = min(sdf_p, generate_tube2(p, Kernels[e.first], Kernels[e.second], gaus_iso, tube_radius));
             else 
                 sdf_p = min(sdf_p, generate_tube3(p, Kernels[e.first], Kernels[e.second], gaus_iso, tube_radius));
+                //sdf_p = min(sdf_p, generate_tube4(p, Kernels[e.first], Kernels[e.second], gaus_iso, tube_radius));
             //sdf_p = min(sdf_p, generate_tube(p, Kernels[e.from], Kernels[e.to], gauss_iso, tube_radius));
         }
+		SDF_only_tubes(idx) = sdf_p;
         SDF_gaussian_tubes(idx) = smooth_UnionSDF(SDF_gau(idx), sdf_p, 3 * smooth_t);
     }
 
@@ -2169,15 +2183,17 @@ int ModelGenerator::generate_mst_tubes(std::vector<pair<int, int>> edge_con, int
         view_model(V_out, F_out, "our final result");
         Eigen::MatrixXd V_g; //输出网格顶点
         Eigen::MatrixXi F_g; // 输出网格面片
-        MarchingCubes(SDF_gau, GV, res, res, res, iso, V_g, F_g);  //gaussian combined
+        MarchingCubes(SDF_gaussian_tubes, GV, res, res, res, iso, V_g, F_g);  //gaussian combined
         view_model(V_g, F_g, "gaussian field");
 
-        MarchingCubes(SDF_gaussian_tubes, GV, res, res, res, iso, V_t, F_t);  //gaussian combined with tubes
+        MarchingCubes(SDF_only_tubes, GV, res, res, res, iso, V_t, F_t);  //gaussian combined with tubes
         view_model(V_t, F_t, "gaussian with tubes field");
     }
        
-    if(compare_show)
+    if (compare_show)
+    {
         compare_msc(SDF_gau, res, grid_num, smooth_t);
+    }
 
 
     //view_three_models(V_out, F_out, V_t, F_t, V_t, F_t, Eigen::RowVector3d(1, 0, 0));
@@ -2214,22 +2230,24 @@ void ModelGenerator::compare_msc(Eigen::VectorXd SDF_gaussian, int res, int grid
         gaussian_centers.push_back(vk);
     }
     // 2. 初始化分析器
-    GaussianFieldMSC msc(res, res, res, min_b, max_b);
+    //GaussianFieldMSC msc(res, res, res, min_b, max_b);
+    //// 3. 计算连接
+    //// 返回的 adj 是一个邻接表，adj[i] 包含了与 gaussian_centers[i] 相连的点的索引
+    //auto adj = msc.ComputeConnectivity(SDF_gau_out, gaussian_centers);
+    //edge_con_msc.clear();
+    //for (int u = 0; u < adj.size(); ++u) {
+    //    for (int v : adj[u]) {
+    //        // 如果是无向图，加上 if (u < v) 判断以避免重复存储 (例如避免同时存入 1-2 和 2-1)
+    //        // 如果是有向图，去掉这个 if 即可
+    //        if (u < v) {
+    //            edge_con_msc.push_back({ u, v });
+    //        }
+    //    }
+    //}
 
-    // 3. 计算连接
-    // 返回的 adj 是一个邻接表，adj[i] 包含了与 gaussian_centers[i] 相连的点的索引
-    auto adj = msc.ComputeConnectivity(SDF_gau_out, gaussian_centers);
-    edge_con_msc.clear();
-    for (int u = 0; u < adj.size(); ++u) {
-        for (int v : adj[u]) {
-            // 如果是无向图，加上 if (u < v) 判断以避免重复存储 (例如避免同时存入 1-2 和 2-1)
-            // 如果是有向图，去掉这个 if 即可
-            if (u < v) {
-                edge_con_msc.push_back({ u, v });
-            }
-        }
-    }
-	cout << "edge_conn_new size: " << edge_con_msc.size() << "     vs   our: "<< Tube_edges.size()<< endl;
+    
+    edge_con_msc = MorseComplex::compare_msc(pore_centers, SDF_gau_out, res, grid_num);
+    cout << "edge_conn_new size: " << edge_con_msc.size() << "     vs   our: "<< Tube_edges.size()<< endl;
     //Eigen::MatrixXd V_g; //输出高斯场对应网格顶点
     //Eigen::MatrixXi F_g;
     //MarchingCubes(SDF_gaussian, GV, res, res, res, Isolevel, V_g, F_g);   //final result

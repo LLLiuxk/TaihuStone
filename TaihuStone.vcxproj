@@ -138,6 +138,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\globalPara.cpp" />
+    <ClCompile Include="src\MorseComplex.cpp" />
     <ClCompile Include="src\pathQuery.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\modelGen.cpp" />
@@ -149,6 +150,7 @@
     <ClInclude Include="src\FastNoiseLite.h" />
     <ClInclude Include="src\globalPara.h" />
     <ClInclude Include="src\modelGen.h" />
+    <ClInclude Include="src\MorseComplex.h" />
     <ClInclude Include="src\resultComp.h" />
     <ClInclude Include="src\selfSupVoxel.h" />
     <ClInclude Include="src\Tool.h" />

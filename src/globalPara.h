@@ -1,4 +1,4 @@
-#pragma on// 参数结构体
+#pragma once// 参数结构体
 #define NO_DEBUG false
 #include <vector>
 #include <string>
