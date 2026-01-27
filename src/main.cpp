@@ -32,6 +32,7 @@ int main(int argc, char* argv[])
     std::cout << "--- Current Parameters ---" << std::endl;
     std::cout << "Input File: " << input_file << std::endl;
     std::cout << "PoresNum: " << PoresNum << std::endl;
+    std::cout << "compare_show: " << compare_show << std::endl;
     std::cout << "--------------------------" << std::endl;
 
 

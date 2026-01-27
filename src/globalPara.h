@@ -25,7 +25,7 @@ extern double Sigma_min;
 extern double Sigma_max;
 extern double W4sig_max; //7.0
 extern double W4sig_min; // 42.0;
-extern double max_ratio;
+extern double Axis_max_ratio;
 
 
 extern double Gauss_level;
@@ -45,6 +45,7 @@ extern bool figure_show;
 extern bool compare_show;
 extern bool Direct_dis;
 extern bool Iso_kernel;  //使用iso还是椭球
+extern bool Handle_overlap;
 extern bool optimize_debug;
 extern bool Enable_noise;
 extern bool topo_optimize;

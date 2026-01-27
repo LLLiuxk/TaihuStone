@@ -142,9 +142,9 @@ void ModelGenerator::generateGaussianSDF()
     std::vector<Eigen::Vector3d> pore_centers;
     std::vector<double> pore_sdfs;
     std::vector<int> inside_indices;
-    //sample_interior_points(pore_centers, pore_sdfs, inside_indices, pores, gen);
+    sample_interior_points(pore_centers, pore_sdfs, inside_indices, pores, gen);
     //sample_interior_close(pore_centers, pore_sdfs, inside_indices, pores, gen);
-    sample_regular(pore_centers, pore_sdfs, inside_indices, 20);
+    //sample_regular(pore_centers, pore_sdfs, inside_indices, 20);
     //for (int i = 0; i < pore_centers.size(); i++)   std::cout << "i: " << i << "  " << pore_centers[i] << std::endl;
 
     generate_gaussians(pore_centers, pore_sdfs, gen);
@@ -154,11 +154,11 @@ void ModelGenerator::generateGaussianSDF()
         generate_gaussians(pore_centers, pore_sdfs, gen);*/
     
 
-    if (!Iso_kernel)
+    if (Handle_overlap)
     {
-        //double support_k = sqrt(-2 * log(Gauss_level / Amplitude_min));
-        //int hits = resolveOverlaps3D(Kernels);
-        //cout << "Total hits:" << hits << endl;
+        double support_k = sqrt(-2 * log(Gauss_level / Amplitude_min));
+        int hits = resolveOverlaps3D(Kernels);
+        cout << "Total hits:" << hits << endl;
     }
 
 	int kernel_num = Kernels.size();
@@ -191,11 +191,10 @@ void ModelGenerator::generateGaussianSDF()
     std::cout << "Before optimization, total score: " << finalTranslucency << " with "<< ori_edge_num <<" edges."<<endl;
 
 	//--------------optimize connection edges------------------------------
-
-    //vector<int> edge_improtance = cal_edge_usage(Paths, true);
-	// 输出每条边的重要性分数
-	//for (auto ei : edge_improtance) 
- //       cout << "edge_importance: " << ei << endl;
+     
+    //输出每条边的重要性分数
+    vector<int> edge_improtance = cal_edge_usage(Paths, true);
+	
     std::cout << "--------------------4. Optimizing the connection trees --------------------" << endl;
     int opt_times_once = 5;
 	int edge_max = Tube_edges.size()* 1.5;
@@ -224,6 +223,17 @@ void ModelGenerator::generateGaussianSDF()
     if (figure_show)
         vis_Kernels_Tubes(pore_centers, edge_con_final,"After optimization connection");
     
+    edge_con_final.clear();
+    vector<int> edge_improtance2 = cal_edge_usage(Paths, true);
+    for (int i=0;i< Tube_edges.size();i++)
+    {
+		if (edge_improtance2[i] > 0)
+            edge_con_final.push_back(make_pair(Tube_edges[i].from, Tube_edges[i].to));
+    }
+    if (figure_show)
+        vis_Kernels_Tubes(pore_centers, edge_con_final, "After optimization connection2");
+    new_trans_score = cal_total_translucency(Kernels, Adj_list);
+    //std::cout << "======================================After optimization " << iter_count << ", total score increases from " << last_trans_score << " to " << new_trans_score << " with edges to " << Tube_edges.size() << "======================================" << endl;
 
     std::cout << "--------------------5. Generate tubes between kernels based on optimized mst --------------------" << endl;
     //-----------------generate tubes------------------------------------------
@@ -508,7 +518,7 @@ void ModelGenerator::generate_gaussians(std::vector<Eigen::Vector3d> pore_center
     std::uniform_real_distribution<double> dist_sigma(sigma_min, sigma_max);
     std::uniform_real_distribution<double> uni01(0.0, 1.0);
     std::uniform_real_distribution<double> uni02pi(0.0, 2.0 * M_PI);
-    std::uniform_real_distribution<double> dist_scale(1.0, max_ratio);
+    std::uniform_real_distribution<double> dist_scale(1.0, Axis_max_ratio);
 
     cout << "sigma_min: " << sigma_min << "    sigma_max:" << sigma_max << endl;
     // 为每个空洞中心生成随机参数
@@ -519,7 +529,7 @@ void ModelGenerator::generate_gaussians(std::vector<Eigen::Vector3d> pore_center
         double u = uni01(gen);
         double v = uni02pi(gen);
 		double scale_ = dist_scale(gen);
-        std::cout << "i: " << i << "  " << sigma_val<<"  "<<amplitude_val << "  u:"<<u<<"  v:"<<v<<std::endl;
+        //std::cout << "i: " << i << "  " << sigma_val<<"  "<<amplitude_val << "  u:"<<u<<"  v:"<<v<<std::endl;
         GaussianKernel kernel(pore_centers[i], sigma_val, sigma_val * scale_, sigma_val, /*Eigen::Matrix3d::Identity()*/construct_R(u,v, 15.0 * M_PI / 180.0), amplitude_val, pore_sdfs[i]);
         Kernels.push_back(kernel);
         if (kernel.on_surface) surface_kernels.push_back(i);
@@ -1352,15 +1362,21 @@ vector<int> ModelGenerator::cal_edge_usage(std::vector<std::vector<int>> Paths, 
         }
     }
     //cout << "edge_count size: " << edge_count.size() << endl;
+    int no_use_num = 0;
     for (int ei = 0; ei < Tube_edges.size(); ei++) 
     {
         Edge e = Tube_edges[ei];
         auto edge = std::minmax(e.from, e.to);
         edge_usage_count.push_back(edge_count[edge]);
+        if (edge_count[edge] == 0)
+            no_use_num++;
         if(show_debug)
             cout << "Edge: " << ei <<"  from "<< e.from<<"  to "<<e.to <<"  is used "<< edge_count[edge] <<"  times"<<endl;
     }
-    
+    cout << no_use_num << " edges are not use for permeablity in total " << edge_usage_count.size()<<"edges"<< endl;
+    /*for (auto ei : edge_usage_count)
+        cout << "edge_usage_count: " << ei << endl;*/
+
     return edge_usage_count;
 }
 
@@ -1570,12 +1586,14 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
         while(kernel_translucency[i] < thres_tran && opt_count < opt_times_once && opt_count_total< opt_times_once * kernels_num)
         {
             opt_count++;
-            //std::cout << "===========================================================" << endl <<
-            //    "Kernel " << i << " with translucency: " << kernel_translucency[i] << " < " << thres_tran << endl;
+            if (debug_show)
+                std::cout << "===========================================================" << endl <<
+                    "Kernel " << i << " with translucency: " << kernel_translucency[i] << " < " << thres_tran << endl;
 
             if (add_end && replace_end)
             {
-                //cout << "Both Adding and Replacing END for Kernel " << i << "! Exit optimization for this kernel!" << endl;
+                if(debug_show)
+                    cout << "Both Adding and Replacing END for Kernel " << i << "! Exit optimization for this kernel!" << endl;
 				break;
             }
             if (curr_edge_num < edge_max_num && !add_end)  //没有到边数上限且新增边能增加score，则选择添加边
@@ -1622,22 +1640,31 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
                     curr_edge_num++;
                     opt_count_total++;
                     num_add++;
-                    //cout <<"Add edge from " << i << " to " << chosen_cand << "  increasing Kernel "<<i<<" 's score to "<< kernel_translucency[i] <<"  by: "<< delta_score_max_pair.first <<endl<<"Edge length: "<< chosen_e.length<<"   new edge num : " << curr_edge_num << endl << endl;
+                    if (standard_show)
+                    {
+                        cout << "Add edge from " << i << " to " << chosen_cand << "  increasing Kernel " << i << " 's score to " << kernel_translucency[i] << "  by: " << delta_score_max_pair.first << endl << "Edge length: " << chosen_e.length << "   new edge num : " << curr_edge_num << endl << endl;
+						show_path(Paths[i]);
+                        show_path(Paths[chosen_cand]);
+                    }
                 }
                 else
                 {
-                    //cout << "No useful candidate edge to add!" << endl;
+                    if (debug_show)
+                        cout << "No useful candidate edge to add!" << endl;
                     add_end = true;
                 }
             }
             else if(!replace_end) //到达边数上限，或者增加边无法提升得分，则选择替换边
             {
-                //if(curr_edge_num >= edge_max_num) 
-                //    cout << "Reach the edge LIMITATION, REPLACE the edge!" << endl;
-                //else if(add_end)
-                //    cout<< "Adding END, then REPLACE the edge!" << endl;
-
-                vector<int> edge_importance = cal_edge_usage(Paths, NO_DEBUG);
+                if (debug_show)
+                {
+                    if(curr_edge_num >= edge_max_num) 
+                        cout << "Reach the edge LIMITATION, REPLACE the edge!" << endl;
+                    else if(add_end)
+                        cout<< "Adding END, then REPLACE the edge!" << endl;
+                }
+                
+                vector<int> edge_importance = cal_edge_usage(Paths, true);
                 std::vector<std::pair<int, int>> sorted_edges;
                 sorted_edges.reserve(edge_importance.size());
                 for (int ei = 0; ei < edge_importance.size(); ++ei) {
@@ -2039,8 +2066,10 @@ double ModelGenerator::generate_tube2(Eigen::Vector3d& p, GaussianKernel& k1, Ga
     return iso_level_C - tubeValue;
 }
 
-double ModelGenerator::generate_tube3(Eigen::Vector3d& p, GaussianKernel& k1, GaussianKernel& k2, double iso_level_C, double mid_radius_factor)
+double ModelGenerator::generate_tube3(Eigen::Vector3d& p, int k1_index, int k2_index, vector<Eigen::Matrix3d> S_matrixs, double iso_level_C, double mid_radius_factor)
 {
+	GaussianKernel k1 = Kernels[k1_index];
+	GaussianKernel k2 = Kernels[k2_index];
     const Eigen::Vector3d& c1 = k1.center;
     const Eigen::Vector3d& c2 = k2.center;
 
@@ -2058,16 +2087,8 @@ double ModelGenerator::generate_tube3(Eigen::Vector3d& p, GaussianKernel& k1, Ga
 
     // --- build tube metric ---
     // average covariance -> project to plane normal to u
-    Eigen::Matrix3d D1 = Eigen::Matrix3d::Zero();
-    Eigen::Matrix3d D2 = Eigen::Matrix3d::Zero();
-    D1(0, 0) = k1.sigma_perp * k1.sigma_perp;
-    D1(1, 1) = k1.sigma_perp * k1.sigma_perp;
-    D1(2, 2) = k1.sigma_parallel * k1.sigma_parallel;
-    D2(0, 0) = k2.sigma_perp * k2.sigma_perp;
-    D2(1, 1) = k2.sigma_perp * k2.sigma_perp;
-    D2(2, 2) = k2.sigma_parallel * k2.sigma_parallel;
-    Eigen::Matrix3d S1 = k1.R * D1 * k1.R.transpose();
-    Eigen::Matrix3d S2 = k2.R * D2 * k2.R.transpose();
+    Eigen::Matrix3d S1 = S_matrixs[k1_index];
+    Eigen::Matrix3d S2 = S_matrixs[k2_index];
     Eigen::Matrix3d Savg = 0.5 * (S1 + S2);
 
     Eigen::Vector3d b1, b2;
@@ -2083,42 +2104,32 @@ double ModelGenerator::generate_tube3(Eigen::Vector3d& p, GaussianKernel& k1, Ga
     S_perp += 1e-12 * Eigen::Matrix2d::Identity();
     Eigen::Matrix2d W_perp = S_perp.inverse(); // Σ_perp^{-1}
 
-    // --- anisotropic distance for tunnel ---
-    double d2 = 0.0;
-    if (insideSegment)
-    {
-        // only penalize perpendicular deviation -> elliptic cross-section
-        Eigen::Vector3d r = p - p_proj;
-        Eigen::Vector3d r_perp = r - (r.dot(u)) * u; // (I - uu^T)r, should already be perp
-        Eigen::Vector2d y;
-        y << r_perp.dot(b1), r_perp.dot(b2);
 
-        // Mahalanobis^2 in cross-section plane
-        d2 = y.transpose() * W_perp * y;
 
-    }
-    else
-    {
-        // outside endpoints: use endpoint ellipsoid metric to avoid infinite extension
-        const GaussianKernel& ke = (tClamped <= 0.0) ? k1 : k2;
-        Eigen::Vector3d r = p - ke.center;
 
-        // use 3D Mahalanobis^2; scale similarly
-        d2 = r.transpose() * ke.invSigma * r;
-        //d2 *= pow(mid_radius_factor, 5);
-    }
+    double sigma2_par = u.transpose() * Savg * u;
+    double w_par = 1.0 / (sigma2_par + 1e-12);
+    Eigen::Vector3d r = p - p_proj;
+    // 直接投影到 (b1,b2) 平面即可，不必先算 r_perp
+    double y1 = r.dot(b1);
+    double y2 = r.dot(b2);
+    double delta = t - tClamped;
+    double d2_perp = W_perp(0, 0) * y1 * y1 + 2.0 * W_perp(0, 1) * y1 * y2 + W_perp(1, 1) * y2 * y2;
+    double d2 = d2_perp + w_par * (delta * delta);
     //mid_radius_factor越小， d2 越大，越细：相当于把逆协方差放大
-    d2 /= pow(mid_radius_factor, 3);
+    d2 /= std::pow(mid_radius_factor, 3);
+
     double tunnelMain = std::exp(-0.5 * d2);
 
     // --- pores (already anisotropic if gaussian_fun uses invSigma) ---
     double pore1 = k1.gaussian_fun(p);
     double pore2 = k2.gaussian_fun(p);
 
-    double tubeValue = tunnelMain + pore1 + pore2;
-    //double pores = smooth_IntersecSDF(pore1, pore2, SmoothT);
-    //double tubeValue = smooth_IntersecSDF(pores, tunnelMain, SmoothT);
+    double tubeValue = 0.7*tunnelMain + 0.3* (pore1 + pore2);
+    /*double pores = smooth_IntersecSDF(pore1, pore2, SmoothT);
+    double tubeValue = smooth_IntersecSDF(pores, tunnelMain, SmoothT);*/
     return iso_level_C - tubeValue;
+
 
 }
 
@@ -2132,6 +2143,19 @@ int ModelGenerator::generate_mst_tubes(std::vector<pair<int, int>> edge_con, int
     double solid_count = 0;
     double tube_radius = Tube_radius_factor;
 
+    vector<Eigen::Matrix3d> S_matrixs;
+    if (!Iso_kernel)
+    {
+        for (auto& k : Kernels) {
+            Eigen::Matrix3d D = Eigen::Matrix3d::Zero();
+            D(0, 0) = k.sigma_perp * k.sigma_perp;
+            D(1, 1) = k.sigma_perp * k.sigma_perp;
+            D(2, 2) = k.sigma_parallel * k.sigma_parallel;
+            Eigen::Matrix3d S = k.R * D * k.R.transpose();
+            S_matrixs.push_back(S);
+        }
+    }
+
 //#pragma omp parallel for 
     for (int idx = 0; idx < grid_num; ++idx) {
         Eigen::Vector3d p = GV.row(idx);
@@ -2143,7 +2167,7 @@ int ModelGenerator::generate_mst_tubes(std::vector<pair<int, int>> edge_con, int
             if(Iso_kernel)
                 sdf_p = min(sdf_p, generate_tube2(p, Kernels[e.first], Kernels[e.second], gaus_iso, tube_radius));
             else 
-                sdf_p = min(sdf_p, generate_tube3(p, Kernels[e.first], Kernels[e.second], gaus_iso, tube_radius));
+                sdf_p = min(sdf_p, generate_tube3(p, e.first, e.second, S_matrixs, gaus_iso, tube_radius));
                 //sdf_p = min(sdf_p, generate_tube4(p, Kernels[e.first], Kernels[e.second], gaus_iso, tube_radius));
             //sdf_p = min(sdf_p, generate_tube(p, Kernels[e.from], Kernels[e.to], gauss_iso, tube_radius));
         }
@@ -2184,14 +2208,15 @@ int ModelGenerator::generate_mst_tubes(std::vector<pair<int, int>> edge_con, int
         Eigen::MatrixXd V_g; //输出网格顶点
         Eigen::MatrixXi F_g; // 输出网格面片
         MarchingCubes(SDF_gaussian_tubes, GV, res, res, res, iso, V_g, F_g);  //gaussian combined
-        view_model(V_g, F_g, "gaussian field");
+        view_model(V_g, F_g, "gaussian field with tubes");
 
         MarchingCubes(SDF_only_tubes, GV, res, res, res, iso, V_t, F_t);  //gaussian combined with tubes
-        view_model(V_t, F_t, "gaussian with tubes field");
+        view_model(V_t, F_t, "Only tubes field");
     }
        
     if (compare_show)
     {
+        cout << "compare_show is true " << endl;
         compare_msc(SDF_gau, res, grid_num, smooth_t);
     }
 

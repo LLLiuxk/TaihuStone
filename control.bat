@@ -14,7 +14,7 @@ echo ==========================================
 
 :: 运行 para1
 echo [Task 1] Running with para file...
-%EXE_PATH% D:\VSprojects\TaihuStone\para\para2.txt
+%EXE_PATH% D:\VSprojects\TaihuStone\para\RockSetBr100.txt
 echo Task 1 Finished.
 echo.
 

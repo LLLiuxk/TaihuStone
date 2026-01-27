@@ -1,14 +1,14 @@
 #include "globalPara.h" 
 
-std::string input_file = "test_cube"; //"RockSetBr_rotated"; //RockSetBr  test_cube
-int Resolution = 100;
+std::string input_file = "RockSetBr_rotated"; //"RockSetBr_rotated"; //RockSetBr  test_cube
+int Resolution = 128;
 
 std::vector<double> Weights = { 0.8, 1.0, 1.2 };  //mst 分类系数权重：边界-内部，内部-内部，边界-边界
 std::vector<double> KT_weights = { 0.7, 0.1, 0.1, 0.1 };  //kernel translucency权重：角度、长度、内外分布、水平垂直
 double Isolevel = 0;
 double Gauss_level = 0.5;
 
-int PoresNum = 20;
+int PoresNum = 50;
 double surface_ratio = 0.5; //表面核占比
 
 int Min_degree = 5;
@@ -17,9 +17,9 @@ double Amplitude_min = 1.0;
 double Amplitude_max = 1.0;
 double Sigma_min = 0.015;
 double Sigma_max = 0.033;
-double W4sig_max = 5.0;
-double W4sig_min = 30.0; 
-double max_ratio = 1.8;
+double W4sig_max = 4.0;
+double W4sig_min = 25.0; 
+double Axis_max_ratio = 1.4;
 //250: 0.02, 0.04
 //150~200: 0.025, 0.045
 // 100: 0.033, 0.05
@@ -30,20 +30,21 @@ double max_ratio = 1.8;
 // w for max = 5.0     for min = 30
 
 double SmoothT = 15;    //控制平滑布尔的平滑区域大小, 越大，平滑效果越小，趋近于普通并集
-double Tube_radius_factor = 0.45; // 控制管道半径相对于高斯核半径的比例, mid_radius_factor越大，通道越粗
-double Safe_distance_ratio = 0.6;
+double Tube_radius_factor = 0.8; // 控制管道半径相对于高斯核半径的比例, mid_radius_factor越大，通道越粗
+double Safe_distance_ratio = 0.7;
 
 double Trans_thres = 0.8;  //kernel translucency threshold 
-double Adj_dis_thres = 0.4;
-bool debug_show = false;
-bool standard_show = false;
+double Adj_dis_thres = 0.3;
+bool debug_show = true;
+bool standard_show = true;
 bool figure_show = true;
-bool compare_show = true;
+bool compare_show = false;
 
 bool Iso_kernel = false;
+bool Handle_overlap = false;
 bool Direct_dis = false;
 
-bool optimize_debug = false;
+bool optimize_debug = true;
 bool Enable_noise = false;
 bool topo_optimize = false;
 bool dynamic_change_para = true;
@@ -105,6 +106,9 @@ bool loadParameters(const std::string& filename) {
                 else if (key == "Amplitude_max") Amplitude_max = std::stod(valStr);
                 else if (key == "Sigma_min") Sigma_min = std::stod(valStr);
                 else if (key == "Sigma_max") Sigma_max = std::stod(valStr);
+                else if (key == "W4sig_max ") W4sig_max = std::stod(valStr);
+                else if (key == "W4sig_min ") W4sig_min = std::stod(valStr);
+                else if (key == "Axis_max_ratio ") Axis_max_ratio = std::stod(valStr);
                 else if (key == "SmoothT") SmoothT = std::stod(valStr);
                 else if (key == "Tube_radius_factor") Tube_radius_factor = std::stod(valStr);
                 else if (key == "Safe_distance_ratio") Safe_distance_ratio = std::stod(valStr);
@@ -113,10 +117,13 @@ bool loadParameters(const std::string& filename) {
                 else if (key == "debug_show") debug_show = (valStr == "true" || valStr == "1");
                 else if (key == "standard_show") standard_show = (valStr == "true" || valStr == "1");
                 else if (key == "figure_show") figure_show = (valStr == "true" || valStr == "1");
+                else if (key == "compare_show ") compare_show = (valStr == "true" || valStr == "1");
                 else if (key == "Iso_kernel") Iso_kernel = (valStr == "true" || valStr == "1");
+                else if (key == "Handle_overlap ") Handle_overlap = (valStr == "true" || valStr == "1");
                 else if (key == "Direct_dis") Direct_dis = (valStr == "true" || valStr == "1");
                 else if (key == "optimize_debug") optimize_debug = (valStr == "true" || valStr == "1");
                 else if (key == "Enable_noise") Enable_noise = (valStr == "true" || valStr == "1");
+                else if (key == "topo_optimize ") topo_optimize = (valStr == "true" || valStr == "1");
                 else if (key == "dynamic_change_para") dynamic_change_para = (valStr == "true" || valStr == "1");
             }
             catch (...) {

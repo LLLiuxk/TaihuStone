@@ -1,0 +1,44 @@
+input_file = RockSetBr_rotated
+Resolution = 128
+
+# 数组用逗号分隔
+Weights = 0.8, 1.0, 1.2
+KT_weights = 0.7, 0.1, 0.1, 0.1
+
+Isolevel = 0
+Gauss_level = 0.5
+
+PoresNum = 100
+surface_ratio = 0.5
+Min_degree = 5
+
+Amplitude_min = 1.0
+Amplitude_max = 1.0
+Sigma_min = 0.015
+Sigma_max = 0.033
+
+W4sig_max = 5.0;
+W4sig_min = 30.0; 
+Axis_max_ratio = 1.8;
+
+
+SmoothT = 15
+Tube_radius_factor = 0.45
+Safe_distance_ratio = 0.7
+
+Trans_thres = 0.8
+Adj_dis_thres = 0.4
+
+#布尔值可以使用 true/false 或者 1/0
+debug_show = false
+standard_show = false
+figure_show = false
+compare_show = false
+Iso_kernel = false
+Handle_overlap = false
+Direct_dis = false
+
+optimize_debug = true
+Enable_noise = false
+topo_optimize = true
+dynamic_change_para = true
