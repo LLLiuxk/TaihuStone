@@ -131,6 +131,7 @@ public:
     std::vector<Edge>  pores_connection_mbdst(const std::vector<GaussianKernel>& gau, int Dmax = 7);
     std::vector<Edge>  pores_connection_mst(const std::vector<GaussianKernel>& gau);
     std::vector<std::vector<int>> construct_adj_list(std::vector<Edge> edges_list, int kernel_num);
+    std::vector<std::vector<int>> construct_adj_list(std::vector<pair<int, int>> edges_list, int kernel_num);
     std::vector<std::vector<int>> get_unused_edge_adj(AdjacencyList Adj_list, double dis_thres);
     double cal_path_graph_length(std::vector<int> path_);
 

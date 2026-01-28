@@ -164,8 +164,8 @@ void ModelGenerator::generateGaussianSDF()
 	int kernel_num = Kernels.size();
     int degree_limit = (kernel_num - 1) / max(1, (int)(kernel_num - surface_kernels.size()));
 
-    degree_limit = max(degree_limit, Min_degree);
-    Tube_edges = pores_connection_mbdst(Kernels, degree_limit);
+    Max_degree = max(degree_limit, Max_degree);
+    Tube_edges = pores_connection_mbdst(Kernels, Max_degree);
     edge_con_mbdst.clear();
     for (auto e : Tube_edges) edge_con_mbdst.push_back(make_pair(e.from, e.to));
 
@@ -232,7 +232,8 @@ void ModelGenerator::generateGaussianSDF()
     }
     if (figure_show)
         vis_Kernels_Tubes(pore_centers, edge_con_final, "After optimization connection2");
-    new_trans_score = cal_total_translucency(Kernels, Adj_list);
+    AdjacencyList Adj_list2 = construct_adj_list(Tube_edges, kernel_num);
+    new_trans_score = cal_total_translucency(Kernels, Adj_list2);
     //std::cout << "======================================After optimization " << iter_count << ", total score increases from " << last_trans_score << " to " << new_trans_score << " with edges to " << Tube_edges.size() << "======================================" << endl;
 
     std::cout << "--------------------5. Generate tubes between kernels based on optimized mst --------------------" << endl;
@@ -779,6 +780,19 @@ std::vector<std::vector<int>> ModelGenerator::construct_adj_list(std::vector<Edg
         }
     }
 	return adj_list;
+}
+
+std::vector<std::vector<int>> ModelGenerator::construct_adj_list(std::vector<pair<int, int>> edges_list, int kernel_num)
+{
+    std::vector<std::vector<int>> adj_list(kernel_num);
+    for (const auto& edge : edges_list) {
+        // 由于最小生成树是无向图，一条边代表双向连接, 需要将 `to` 添加到 `from` 的邻居列表，同时将 `from` 添加到 `to` 的邻居列表。
+        if (edge.from < kernel_num && edge.to < kernel_num) {
+            adj_list[edge.from].push_back(edge.to);
+            adj_list[edge.to].push_back(edge.from);
+        }
+    }
+    return adj_list;
 }
 
 std::vector<std::vector<int>> ModelGenerator::get_unused_edge_adj(AdjacencyList Adj_list, double dis_thres)
@@ -1596,7 +1610,7 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
                     cout << "Both Adding and Replacing END for Kernel " << i << "! Exit optimization for this kernel!" << endl;
 				break;
             }
-            if (curr_edge_num < edge_max_num && !add_end)  //没有到边数上限且新增边能增加score，则选择添加边
+            if (curr_edge_num < edge_max_num && !add_end/* && Adj_list[i].size() < Min_degree+1*/)  //没有到边数上限且新增边能增加score，则选择添加边
             {
                 double max_delta_score = 0;
                 int chosen_cand = -1;

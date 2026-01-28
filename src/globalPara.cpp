@@ -11,7 +11,7 @@ double Gauss_level = 0.5;
 int PoresNum = 50;
 double surface_ratio = 0.5; //表面核占比
 
-int Min_degree = 5;
+int Max_degree = 5;
 
 double Amplitude_min = 1.0;
 double Amplitude_max = 1.0;
@@ -101,7 +101,7 @@ bool loadParameters(const std::string& filename) {
                 else if (key == "Gauss_level") Gauss_level = std::stod(valStr);
                 else if (key == "PoresNum") PoresNum = std::stoi(valStr);
                 else if (key == "surface_ratio") surface_ratio = std::stod(valStr);
-                else if (key == "Min_degree") Min_degree = std::stoi(valStr);
+                else if (key == "Max_degree") Max_degree = std::stoi(valStr);
                 else if (key == "Amplitude_min") Amplitude_min = std::stod(valStr);
                 else if (key == "Amplitude_max") Amplitude_max = std::stod(valStr);
                 else if (key == "Sigma_min") Sigma_min = std::stod(valStr);
