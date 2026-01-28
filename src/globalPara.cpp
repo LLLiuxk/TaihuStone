@@ -4,11 +4,11 @@ std::string input_file = "RockSetBr_rotated"; //"RockSetBr_rotated"; //RockSetBr
 int Resolution = 128;
 
 std::vector<double> Weights = { 0.8, 1.0, 1.2 };  //mst 分类系数权重：边界-内部，内部-内部，边界-边界
-std::vector<double> KT_weights = { 0.7, 0.1, 0.1, 0.1 };  //kernel translucency权重：角度、长度、内外分布、水平垂直
+std::vector<double> KT_weights = { 0.6, 0.1, 0.1, 0.2 };  //kernel translucency权重：角度、长度、内外分布、水平垂直
 double Isolevel = 0;
 double Gauss_level = 0.5;
 
-int PoresNum = 50;
+int PoresNum = 80;
 double surface_ratio = 0.5; //表面核占比
 
 int Max_degree = 5;

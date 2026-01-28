@@ -223,18 +223,27 @@ void ModelGenerator::generateGaussianSDF()
     if (figure_show)
         vis_Kernels_Tubes(pore_centers, edge_con_final,"After optimization connection");
     
-    edge_con_final.clear();
-    vector<int> edge_improtance2 = cal_edge_usage(Paths, true);
-    for (int i=0;i< Tube_edges.size();i++)
-    {
-		if (edge_improtance2[i] > 0)
-            edge_con_final.push_back(make_pair(Tube_edges[i].from, Tube_edges[i].to));
-    }
-    if (figure_show)
-        vis_Kernels_Tubes(pore_centers, edge_con_final, "After optimization connection2");
-    AdjacencyList Adj_list2 = construct_adj_list(Tube_edges, kernel_num);
-    new_trans_score = cal_total_translucency(Kernels, Adj_list2);
-    //std::cout << "======================================After optimization " << iter_count << ", total score increases from " << last_trans_score << " to " << new_trans_score << " with edges to " << Tube_edges.size() << "======================================" << endl;
+  //  edge_con_final.clear();
+  //  vector<int> edge_improtance2 = cal_edge_usage(Paths, true);
+  //  for (int i=0;i< Tube_edges.size();i++)
+  //  {
+		//if (edge_improtance2[i] > 0)
+  //          edge_con_final.push_back(make_pair(Tube_edges[i].from, Tube_edges[i].to));
+  //  }
+  //  if (figure_show)
+  //      vis_Kernels_Tubes(pore_centers, edge_con_final, "After optimization connection2");
+  //  AdjacencyList Adj_list2 = construct_adj_list(edge_con_final, kernel_num);
+  //  for (int ad = 0; ad < Adj_list2.size();ad++)
+  //  {
+  //      cout << "Degree of each point: " << Adj_list[ad].size() <<"  vs  "<< Adj_list2[ad].size()<< endl;
+  //  }
+  //  //new_trans_score = cal_total_translucency(Kernels, Adj_list2);
+  //  double new_trans_score2 = 0.0;
+  //  for (int path_index = 0; path_index < Paths.size(); path_index++)
+  //  {
+  //      new_trans_score2 += calculate_path_translucency(Paths[path_index], false);
+  //  }
+  //  std::cout << "======================================After reduction, total score increases from to " << new_trans_score2 / Kernels.size() << " with edges to " << Tube_edges.size() << "======================================" << endl;
 
     std::cout << "--------------------5. Generate tubes between kernels based on optimized mst --------------------" << endl;
     //-----------------generate tubes------------------------------------------
@@ -787,9 +796,9 @@ std::vector<std::vector<int>> ModelGenerator::construct_adj_list(std::vector<pai
     std::vector<std::vector<int>> adj_list(kernel_num);
     for (const auto& edge : edges_list) {
         // 由于最小生成树是无向图，一条边代表双向连接, 需要将 `to` 添加到 `from` 的邻居列表，同时将 `from` 添加到 `to` 的邻居列表。
-        if (edge.from < kernel_num && edge.to < kernel_num) {
-            adj_list[edge.from].push_back(edge.to);
-            adj_list[edge.to].push_back(edge.from);
+        if (edge.first < kernel_num && edge.second < kernel_num) {
+            adj_list[edge.first].push_back(edge.second);
+            adj_list[edge.second].push_back(edge.first);
         }
     }
     return adj_list;
@@ -1210,7 +1219,8 @@ double ModelGenerator::cal_kernel_translucency(int p_index, int & max_s1, int & 
     PathQuery p_bfs(kernel_num, adj, p_index);
     if (!p_bfs.isConnected)  //不连通，直接跳过
     {
-        //cout << "有一条为空说明不再连通" << endl;
+        if(debug_show)
+            cout << "有一条为空说明不再连通" << endl;
         return 0.0;
     }
 	//if (adj[p_index].size() < 2 && (!Kernels[p_index].on_surface))    //内部点且只有一条连接边，无法形成路径，直接返回0

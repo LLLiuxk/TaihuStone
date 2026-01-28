@@ -532,7 +532,7 @@ void vis_Kernels_Tubes(std::vector<Eigen::Vector3d>& points, std::vector<pair<in
     viewer.data().line_width = lineWidth;
 
     // Launch the viewer
-    viewer.launch(false, win_name);
+    viewer.launch(false, win_name + to_string(connections.size()));
 }
 
 
