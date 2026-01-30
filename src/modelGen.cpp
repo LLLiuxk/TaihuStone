@@ -247,9 +247,15 @@ void ModelGenerator::generateGaussianSDF()
 
     std::cout << "--------------------5. Generate tubes between kernels based on optimized mst --------------------" << endl;
     //-----------------generate tubes------------------------------------------
+    auto start_time = std::chrono::high_resolution_clock::now();
+
     double solid_count = generate_mst_tubes(edge_con_final, grid_num, resolution, Isolevel, Gauss_level, SmoothT);
     initPorosity = 1.0 - solid_count / model_solid_num;
     std::cout << "Porosity: " << initPorosity * 100 << "%" << "    --------:" << solid_count << "   " << model_solid_num << std::endl;
+
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+    std::cout << "generate_mst_tubes completed in " << duration.count() / 1000.0 << " s" << std::endl;
 
     //output save
     VoxelGrid grids = SDFtoVoxel(SDF_out, bb_min, bb_max, resolution, resolution, resolution);
@@ -1397,7 +1403,7 @@ vector<int> ModelGenerator::cal_edge_usage(std::vector<std::vector<int>> Paths, 
         if(show_debug)
             cout << "Edge: " << ei <<"  from "<< e.from<<"  to "<<e.to <<"  is used "<< edge_count[edge] <<"  times"<<endl;
     }
-    cout << no_use_num << " edges are not use for permeablity in total " << edge_usage_count.size()<<"edges"<< endl;
+    cout << no_use_num << " edges are not used for permeablity in total " << edge_usage_count.size()<<" edges"<< endl;
     /*for (auto ei : edge_usage_count)
         cout << "edge_usage_count: " << ei << endl;*/
 
@@ -1688,7 +1694,7 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
                         cout<< "Adding END, then REPLACE the edge!" << endl;
                 }
                 
-                vector<int> edge_importance = cal_edge_usage(Paths, true);
+                vector<int> edge_importance = cal_edge_usage(Paths, debug_show);
                 std::vector<std::pair<int, int>> sorted_edges;
                 sorted_edges.reserve(edge_importance.size());
                 for (int ei = 0; ei < edge_importance.size(); ++ei) {
@@ -2090,7 +2096,7 @@ double ModelGenerator::generate_tube2(Eigen::Vector3d& p, GaussianKernel& k1, Ga
     return iso_level_C - tubeValue;
 }
 
-double ModelGenerator::generate_tube3(Eigen::Vector3d& p, int k1_index, int k2_index, vector<Eigen::Matrix3d> S_matrixs, double iso_level_C, double mid_radius_factor)
+double ModelGenerator::generate_tube3(Eigen::Vector3d& p, int k1_index, int k2_index, vector<Eigen::Matrix3d>& S_matrixs, Eigen::Matrix2d W_perp, double iso_level_C, double mid_radius_factor)
 {
 	GaussianKernel k1 = Kernels[k1_index];
 	GaussianKernel k2 = Kernels[k2_index];
@@ -2107,8 +2113,6 @@ double ModelGenerator::generate_tube3(Eigen::Vector3d& p, int k1_index, int k2_i
     double tClamped = std::min(std::max(t, 0.0), L);
     Eigen::Vector3d p_proj = c1 + tClamped * u;
 
-    bool insideSegment = (tClamped > 0.0 && tClamped < L);
-
     // --- build tube metric ---
     // average covariance -> project to plane normal to u
     Eigen::Matrix3d S1 = S_matrixs[k1_index];
@@ -2119,17 +2123,6 @@ double ModelGenerator::generate_tube3(Eigen::Vector3d& p, int k1_index, int k2_i
     Eigen::Vector3d a = (std::abs(u.z()) < 0.9) ? Eigen::Vector3d(0, 0, 1) : Eigen::Vector3d(0, 1, 0);
     b1 = u.cross(a).normalized();
     b2 = u.cross(b1).normalized();
-
-    Eigen::Matrix<double, 3, 2> B;
-    B.col(0) = b1; B.col(1) = b2;
-
-    Eigen::Matrix2d S_perp = B.transpose() * Savg * B;
-    // 稳定性：避免数值上不可逆
-    S_perp += 1e-12 * Eigen::Matrix2d::Identity();
-    Eigen::Matrix2d W_perp = S_perp.inverse(); // Σ_perp^{-1}
-
-
-
 
     double sigma2_par = u.transpose() * Savg * u;
     double w_par = 1.0 / (sigma2_par + 1e-12);
@@ -2168,19 +2161,15 @@ int ModelGenerator::generate_mst_tubes(std::vector<pair<int, int>> edge_con, int
     double tube_radius = Tube_radius_factor;
 
     vector<Eigen::Matrix3d> S_matrixs;
+    int k_num = Kernels.size();
+    std::vector<std::vector<Eigen::Matrix2d>> W_perp_matrixs;// (k_num, std::vector<Eigen::Matrix2d>(k_num));
     if (!Iso_kernel)
     {
-        for (auto& k : Kernels) {
-            Eigen::Matrix3d D = Eigen::Matrix3d::Zero();
-            D(0, 0) = k.sigma_perp * k.sigma_perp;
-            D(1, 1) = k.sigma_perp * k.sigma_perp;
-            D(2, 2) = k.sigma_parallel * k.sigma_parallel;
-            Eigen::Matrix3d S = k.R * D * k.R.transpose();
-            S_matrixs.push_back(S);
-        }
+        calculate_tube_matrixs(S_matrixs, W_perp_matrixs);
     }
+    
 
-//#pragma omp parallel for 
+#pragma omp parallel for 
     for (int idx = 0; idx < grid_num; ++idx) {
         Eigen::Vector3d p = GV.row(idx);
         //gaussian kernel
@@ -2191,7 +2180,7 @@ int ModelGenerator::generate_mst_tubes(std::vector<pair<int, int>> edge_con, int
             if(Iso_kernel)
                 sdf_p = min(sdf_p, generate_tube2(p, Kernels[e.first], Kernels[e.second], gaus_iso, tube_radius));
             else 
-                sdf_p = min(sdf_p, generate_tube3(p, e.first, e.second, S_matrixs, gaus_iso, tube_radius));
+                sdf_p = min(sdf_p, generate_tube3(p, e.first, e.second, S_matrixs, W_perp_matrixs[e.first][e.second],  gaus_iso, tube_radius));
                 //sdf_p = min(sdf_p, generate_tube4(p, Kernels[e.first], Kernels[e.second], gaus_iso, tube_radius));
             //sdf_p = min(sdf_p, generate_tube(p, Kernels[e.from], Kernels[e.to], gauss_iso, tube_radius));
         }
@@ -2226,7 +2215,7 @@ int ModelGenerator::generate_mst_tubes(std::vector<pair<int, int>> edge_con, int
     MarchingCubes(SDF_out, GV, res, res, res, iso, V_out, F_out);   //final result
 
 
-    if (figure_show)
+    if (figure_show)//figure_show
     {
         view_model(V_out, F_out, "our final result");
         Eigen::MatrixXd V_g; //输出网格顶点
@@ -2252,6 +2241,48 @@ int ModelGenerator::generate_mst_tubes(std::vector<pair<int, int>> edge_con, int
     return solid_count;
 }
 
+void ModelGenerator:: calculate_tube_matrixs(vector<Eigen::Matrix3d>& S_matrixs, std::vector<std::vector<Eigen::Matrix2d>>& W_perp_matrixs)
+{
+    int k_num = Kernels.size();
+    for (auto& k : Kernels) {
+        Eigen::Matrix3d D = Eigen::Matrix3d::Zero();
+        D(0, 0) = k.sigma_perp * k.sigma_perp;
+        D(1, 1) = k.sigma_perp * k.sigma_perp;
+        D(2, 2) = k.sigma_parallel * k.sigma_parallel;
+        Eigen::Matrix3d S = k.R * D * k.R.transpose();
+        S_matrixs.push_back(S);
+    }
+    std::vector<std::vector<Eigen::Matrix2d>> W_matrixs(k_num, std::vector<Eigen::Matrix2d>(k_num));
+    for (int k1 = 0; k1 < k_num; k1++) {
+        for (int k2 = 0; k2 < k_num; k2++)
+        {
+            if (k1 == k2) continue;
+            Eigen::Vector3d c1 = Kernels[k1].center;
+            Eigen::Vector3d c2 = Kernels[k2].center;
+            Eigen::Vector3d d = c2 - c1;
+            double L = d.norm();
+            Eigen::Vector3d u = d / L;
+
+            Eigen::Vector3d b1, b2;
+            Eigen::Vector3d a = (std::abs(u.z()) < 0.9) ? Eigen::Vector3d(0, 0, 1) : Eigen::Vector3d(0, 1, 0);
+            b1 = u.cross(a).normalized();
+            b2 = u.cross(b1).normalized();
+            Eigen::Matrix<double, 3, 2> B;
+            B.col(0) = b1; B.col(1) = b2;
+
+            Eigen::Matrix3d S1 = S_matrixs[k1];
+            Eigen::Matrix3d S2 = S_matrixs[k2];
+            Eigen::Matrix3d Savg = 0.5 * (S1 + S2);
+
+            Eigen::Matrix2d S_perp = B.transpose() * Savg * B;
+            // 稳定性：避免数值上不可逆
+            S_perp += 1e-12 * Eigen::Matrix2d::Identity();
+            Eigen::Matrix2d W_perp = S_perp.inverse(); // Σ_perp^{-1}
+            W_matrixs[k1][k2] = W_perp;
+        }
+    }
+	W_perp_matrixs = W_matrixs;
+}
 
 void ModelGenerator::compare_msc(Eigen::VectorXd SDF_gaussian, int res, int grid_num, double smooth_t)
 {

@@ -8,8 +8,8 @@ std::vector<double> KT_weights = { 0.6, 0.1, 0.1, 0.2 };  //kernel translucency»
 double Isolevel = 0;
 double Gauss_level = 0.5;
 
-int PoresNum = 80;
-double surface_ratio = 0.5; //±Ì√Ê∫À’º±»
+int PoresNum = 60;
+double surface_ratio = 0.3; //±Ì√Ê∫À’º±»
 
 int Max_degree = 5;
 
@@ -17,7 +17,7 @@ double Amplitude_min = 1.0;
 double Amplitude_max = 1.0;
 double Sigma_min = 0.015;
 double Sigma_max = 0.033;
-double W4sig_max = 4.0;
+double W4sig_max = 3.0;
 double W4sig_min = 25.0; 
 double Axis_max_ratio = 1.4;
 //250: 0.02, 0.04
@@ -35,9 +35,9 @@ double Safe_distance_ratio = 0.7;
 
 double Trans_thres = 0.8;  //kernel translucency threshold 
 double Adj_dis_thres = 0.3;
-bool debug_show = true;
-bool standard_show = true;
-bool figure_show = true;
+bool debug_show = false;
+bool standard_show = false;
+bool figure_show = false;
 bool compare_show = false;
 
 bool Iso_kernel = false;
@@ -46,7 +46,7 @@ bool Direct_dis = false;
 
 bool optimize_debug = true;
 bool Enable_noise = false;
-bool topo_optimize = false;
+bool topo_optimize = true;
 bool dynamic_change_para = true;
 
 std::string trim(const std::string& str) {
