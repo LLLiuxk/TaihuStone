@@ -106,6 +106,7 @@ void ModelGenerator::model_porous_structure()
 {
     //std::cout << "Model A loaded successfully." << std::endl;
     scale_factor = Mesh2SDF(V_ini, F_ini, GV, SDF_ini, bb_min, bb_max);
+    cout << "scale_factor: " << scale_factor << endl;
     //Vector3d point = GV.row(10010);
     //cout << "point index: " << find_nearest_grid(point) << endl;
     generateGaussianSDF();
@@ -220,8 +221,7 @@ void ModelGenerator::generateGaussianSDF()
     finalTranslucency = new_trans_score; 
     edge_con_final.clear();
     for (auto e : Tube_edges) edge_con_final.push_back(make_pair(e.from, e.to));
-    if (figure_show)
-        vis_Kernels_Tubes(pore_centers, edge_con_final,"After optimization connection");
+
     
   //  edge_con_final.clear();
   //  vector<int> edge_improtance2 = cal_edge_usage(Paths, true);
@@ -252,6 +252,16 @@ void ModelGenerator::generateGaussianSDF()
     double solid_count = generate_mst_tubes(edge_con_final, grid_num, resolution, Isolevel, Gauss_level, SmoothT);
     initPorosity = 1.0 - solid_count / model_solid_num;
     std::cout << "Porosity: " << initPorosity * 100 << "%" << "    --------:" << solid_count << "   " << model_solid_num << std::endl;
+
+    if (figure_show)
+    {
+        //vis_Kernels_Tubes(pore_centers, edge_con_final, "After optimization connection");
+        Eigen::MatrixXd V_o; //输出网格顶点
+        Eigen::MatrixXi F_o; // 输出网格面片
+        igl::read_triangle_mesh("D:/VSprojects/TaihuStone/result/final/namaqualand_60_opt/namaqualand_final.stl", V_o, F_o);
+        vis_KerLine_model(V_o, F_o, pore_centers, edge_con_final, true, "After optimization connection");
+    }
+        
 
     auto end_time = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
@@ -484,20 +494,20 @@ void ModelGenerator::sample_regular(std::vector<Eigen::Vector3d>& pore_centers, 
         return;
     }
 
-    for (int z = pores; z < Resolution; z=z+ pores) {
-        for (int y = pores; y < Resolution; y=y+ pores) {
-            for (int x = pores; x < Resolution; x=x+ pores) {
-				int chosen_idx = x + y * Resolution + z * Resolution * Resolution;
-                Eigen::Vector3d candidate_center = GV.row(chosen_idx).transpose();
-                if (SDF(chosen_idx) < Isolevel)
-                {
-                    pore_centers.push_back(candidate_center);
-                    pore_sdfs.push_back(SDF(chosen_idx));
-                }
-            }
-        }
-    }
-   /* int x = 45, y = 45, z = 45;
+    //for (int z = pores; z < Resolution; z=z+ pores) {
+    //    for (int y = pores; y < Resolution; y=y+ pores) {
+    //        for (int x = pores; x < Resolution; x=x+ pores) {
+				//int chosen_idx = x + y * Resolution + z * Resolution * Resolution;
+    //            Eigen::Vector3d candidate_center = GV.row(chosen_idx).transpose();
+    //            if (SDF(chosen_idx) < Isolevel)
+    //            {
+    //                pore_centers.push_back(candidate_center);
+    //                pore_sdfs.push_back(SDF(chosen_idx));
+    //            }
+    //        }
+    //    }
+    //}
+    int x = 90, y = 90, z = 90;
     int chosen_idx = x + y * Resolution + z * Resolution * Resolution;
     Eigen::Vector3d candidate_center = GV.row(chosen_idx).transpose();
     if (SDF(chosen_idx) < Isolevel)
@@ -505,14 +515,14 @@ void ModelGenerator::sample_regular(std::vector<Eigen::Vector3d>& pore_centers, 
         pore_centers.push_back(candidate_center);
         pore_sdfs.push_back(SDF(chosen_idx));
     }
-    x += 8; y += 8; z += 8;
+    x += 30; y += 0; z += 0;
     chosen_idx = x + y * Resolution + z * Resolution * Resolution;
     candidate_center = GV.row(chosen_idx).transpose();
     if (SDF(chosen_idx) < Isolevel)
     {
         pore_centers.push_back(candidate_center);
         pore_sdfs.push_back(SDF(chosen_idx));
-    }*/
+    }
 
     std::cout << "Generate " << pore_centers.size() << " close kernels" << std::endl;
 }
@@ -2178,14 +2188,14 @@ int ModelGenerator::generate_mst_tubes(std::vector<pair<int, int>> edge_con, int
         double sdf_p = 1000.0;
         for (auto& e : edge_con) {
             if(Iso_kernel)
-                sdf_p = min(sdf_p, generate_tube2(p, Kernels[e.first], Kernels[e.second], gaus_iso, tube_radius));
+                sdf_p = smooth_UnionSDF(sdf_p, generate_tube2(p, Kernels[e.first], Kernels[e.second], gaus_iso, tube_radius), 2 * smooth_t);
             else 
-                sdf_p = min(sdf_p, generate_tube3(p, e.first, e.second, S_matrixs, W_perp_matrixs[e.first][e.second],  gaus_iso, tube_radius));
+                sdf_p = smooth_UnionSDF(sdf_p, generate_tube3(p, e.first, e.second, S_matrixs, W_perp_matrixs[e.first][e.second],  gaus_iso, tube_radius), 2 * smooth_t);
                 //sdf_p = min(sdf_p, generate_tube4(p, Kernels[e.first], Kernels[e.second], gaus_iso, tube_radius));
             //sdf_p = min(sdf_p, generate_tube(p, Kernels[e.from], Kernels[e.to], gauss_iso, tube_radius));
         }
 		SDF_only_tubes(idx) = sdf_p;
-        SDF_gaussian_tubes(idx) = smooth_UnionSDF(SDF_gau(idx), sdf_p, 3 * smooth_t);
+        SDF_gaussian_tubes(idx) = smooth_UnionSDF(SDF_gau(idx), sdf_p, 2 * smooth_t);
     }
 
     if (Enable_noise)
@@ -2222,6 +2232,18 @@ int ModelGenerator::generate_mst_tubes(std::vector<pair<int, int>> edge_con, int
         Eigen::MatrixXi F_g; // 输出网格面片
         MarchingCubes(SDF_gaussian_tubes, GV, res, res, res, iso, V_g, F_g);  //gaussian combined
         view_model(V_g, F_g, "gaussian field with tubes");
+
+        //out tubes
+        vector<double> sdfout;
+        string npy_filename = "D:/VSprojects/TaihuStone/src/sdf_out_tube.npy";
+        string vti_filename = "D:/VSprojects/TaihuStone/src/sdf_out_tube.vti";
+        string stl_filename = "D:/VSprojects/TaihuStone/src/sdf_out_tube.stl";
+        for (auto so : SDF_gaussian_tubes)
+            sdfout.push_back(so);
+        saveVoxelGridAsNPY(sdfout, resolution, npy_filename);
+        saveSDFtoVTI(vti_filename, SDF_gaussian_tubes, res, res, res);
+        saveMesh(stl_filename, V_g, F_g);
+
 
         MarchingCubes(SDF_only_tubes, GV, res, res, res, iso, V_t, F_t);  //gaussian combined with tubes
         view_model(V_t, F_t, "Only tubes field");

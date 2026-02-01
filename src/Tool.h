@@ -68,7 +68,7 @@ double Mesh2SDF(Eigen::MatrixXd& V, Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Eig
 bool saveMesh(std::string filename, Eigen::MatrixXd V, Eigen::MatrixXi F);
 
 // SDF平滑并集。k越大，平滑效果越小，趋近于普通并集
-double smooth_UnionSDF(double sdf1, double sdf2, double k);
+double smooth_UnionSDF(double sdf1, double sdf2, double k = SmoothT);
 
 // SDF平滑交集
 double smooth_IntersecSDF(double sdf1, double sdf2, double k);
@@ -86,6 +86,9 @@ void MarchingCubes(Eigen::VectorXd& S, Eigen::MatrixXd& GV, int nx, int ny, int 
 void view_model(Eigen::MatrixXd V1, Eigen::MatrixXi F1, std::string win_name="View one model", bool show_line = false );
 void view_two_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V2, Eigen::MatrixXi F2, Eigen::RowVector3d shift = RowVector3d(0.0, 0.0, 0.0), std::string win_name = "Two models");
 void view_three_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V2, Eigen::MatrixXi F2, Eigen::MatrixXd V3, Eigen::MatrixXi F3, Eigen::RowVector3d shift = RowVector3d(0.0, 0.0, 0.0), std::string win_name= "Three models");
+void vis_Kernels_Tubes(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, std::string win_name = "vis_Kernels_Tubes");
+void vis_KerLine_model(Eigen::MatrixXd V1, Eigen::MatrixXi F1, std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, bool show_line = false, std::string win_name = "vis_Kernels_Tubes");
+
 
 int  single_component(Eigen::MatrixXd V, Eigen::MatrixXi F);
 
@@ -106,8 +109,6 @@ bool align_models_with_pca(const std::string& model1_path, const std::string& mo
 //show_result 
 void show_path(std::vector<int> path);
 
-
-void vis_Kernels_Tubes(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, std::string win_name="vis_Kernels_Tubes");
 
 //kinds of check
 void geometry_analyzer(Eigen::VectorXd SDF, int resolution, double thres_degree, int& overhang_count, int& floating_count, std::vector<uint8_t>& overhang_mask, std::vector<uint8_t>& floating_mask);

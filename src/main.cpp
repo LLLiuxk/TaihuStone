@@ -33,6 +33,8 @@ int main(int argc, char* argv[])
     std::cout << "Input File: " << input_file << std::endl;
     std::cout << "PoresNum: " << PoresNum << std::endl;
     std::cout << "compare_show: " << compare_show << std::endl;
+    std::cout << "topo_optimize: " << topo_optimize << std::endl;
+    std::cout << "figure_show: " << figure_show << std::endl;
     std::cout << "--------------------------" << std::endl;
 
 
