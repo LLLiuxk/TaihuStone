@@ -1,6 +1,17 @@
 #include "Tool.h"
 
-
+vector<RowVector3d> colors = { RowVector3d(0.90, 0.62, 0.0), //orange
+    RowVector3d(0.95, 0.7, 0.30), //light orange
+    RowVector3d(0.0, 0.44, 0.70),  //blue
+    RowVector3d(0.14, 0.24, 0.52),  //drak blue
+    RowVector3d(0.8, 0.33, 0.20),  //muted red
+    RowVector3d(0.8, 0.1, 0.1),  //red
+    RowVector3d(0.0, 0.44, 0.70),  // dark gray
+    RowVector3d(0.0, 0.62, 0.45),  //drak green
+    RowVector3d(0.8, 0.47, 0.65), //pink red
+    RowVector3d(0.84, 0.37, 0.0), //brick red
+    RowVector3d(0.94, 0.89, 0.26)  //yellow
+};
 
 
 double Mesh2SDF(Eigen::MatrixXd& V,  Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Eigen::VectorXd& SDF, Eigen::Vector3d& bb_min, Eigen::Vector3d& bb_max)
@@ -141,7 +152,7 @@ void view_model(Eigen::MatrixXd V1, Eigen::MatrixXi F1, std::string win_name, bo
     Eigen::Quaternionf q =
         Eigen::AngleAxisf(-90.0f * deg2rad, Eigen::Vector3f::UnitX()) *
         Eigen::AngleAxisf(0.0f * deg2rad, Eigen::Vector3f::UnitY()) *
-        Eigen::AngleAxisf(108.0f * deg2rad, Eigen::Vector3f::UnitZ());
+        Eigen::AngleAxisf(128.0f * deg2rad, Eigen::Vector3f::UnitZ());
     viewer.core().trackball_angle = q;
 
 
@@ -155,19 +166,32 @@ void view_two_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V2,
     viewer.core().background_color.setConstant(1.0f); // White background
 
     viewer.data().set_mesh(V1, F1);
-    viewer.data().show_lines = false;   // 不显示网格线
+    //viewer.data().show_lines = false;   // 不显示网格线
+    viewer.data().show_lines = true;   // 不显示网格线
+    viewer.data().show_faces = false;   // 不显示三角面
+    viewer.data().set_colors(Eigen::RowVector3d(0.8, 0.8, 0.8));
+    viewer.data().shininess = 500.0;
     //viewer.data().set_colors(Eigen::RowVector3d(0.8, 0.7, 0.2)); // 设置一个漂亮的蓝色
 
     int id2 = viewer.append_mesh();
-    Eigen::MatrixXd V_shifted = V2;
-    V_shifted.rowwise() += shift;  // 向右移动 1 个单位
+    viewer.data(id2).set_mesh(V2, F2);
+    //viewer.data(id3).set_colors(Eigen::RowVector3d(0.4, 0.4, 0.2));
+    viewer.data(id2).show_lines = false;   // 不显示网格线
 
-    viewer.data(id2).set_mesh(V_shifted, F2);
-    viewer.data(id2).set_colors(Eigen::RowVector3d(0.8, 0.1, 0.1));
-
+    //viewer.data(id2).set_colors(Eigen::RowVector3d(0.95, 0.7, 0.30));
+    viewer.data(id2).set_colors(Eigen::RowVector3d(0.18, 0.67, 0.97));
+    viewer.data(id2).shininess = 2000.0;
     // 添加辅助点 (高斯核的中心)，设置为红色
    // viewer.data().add_points(kernel_points, Eigen::RowVector3d(1, 0, 0));
-    viewer.data().point_size = 10; // 让点更显眼
+    //viewer.data().point_size = 10; // 让点更显眼
+
+    float deg2rad = float(M_PI) / 180.0f;
+    Eigen::Quaternionf q =
+        Eigen::AngleAxisf(-90.0f * deg2rad, Eigen::Vector3f::UnitX()) *
+        Eigen::AngleAxisf(0.0f * deg2rad, Eigen::Vector3f::UnitY()) *
+        Eigen::AngleAxisf(128.0f * deg2rad, Eigen::Vector3f::UnitZ());
+    viewer.core().trackball_angle = q;
+
     viewer.launch(false, win_name);
 }
 
@@ -477,18 +501,7 @@ void vis_Kernels_Tubes(std::vector<Eigen::Vector3d>& points, std::vector<pair<in
     const double sphereRadius = 0.01;
     const double lineWidth = 5;
     const int  sphereSubdiv = 3;
-    vector<RowVector3d> colors = { RowVector3d(0.90, 0.62, 0.0), //orange
-        RowVector3d(0.95, 0.7, 0.30), //light orange
-        RowVector3d(0.0, 0.44, 0.70),  //blue
-        RowVector3d(0.14, 0.24, 0.52),  //drak blue
-        RowVector3d(0.8, 0.33, 0.20),  //muted red
-        RowVector3d(0.8, 0.1, 0.1),  //red
-        RowVector3d(0.0, 0.44, 0.70),  // dark gray
-        RowVector3d(0.0, 0.62, 0.45),  //drak green
-        RowVector3d(0.8, 0.47, 0.65), //pink red
-        RowVector3d(0.84, 0.37, 0.0), //brick red
-        RowVector3d(0.94, 0.89, 0.26)  //yellow
-    };
+
     // ---- Color palette ----
     const RowVector3d sphereColor = colors[5]; // muted red
     const RowVector3d lineColor= colors[1]; // dark gray
@@ -548,12 +561,99 @@ void vis_Kernels_Tubes(std::vector<Eigen::Vector3d>& points, std::vector<pair<in
     Eigen::Quaternionf q =
         Eigen::AngleAxisf(-90.0f * deg2rad, Eigen::Vector3f::UnitX()) *
         Eigen::AngleAxisf(0.0f * deg2rad, Eigen::Vector3f::UnitY()) *
-        Eigen::AngleAxisf(80.0f * deg2rad, Eigen::Vector3f::UnitZ());
+        Eigen::AngleAxisf(128.0f * deg2rad, Eigen::Vector3f::UnitZ());
     viewer.core().trackball_angle = q;
 
     // Launch the viewer
     viewer.launch(false, win_name + to_string(connections.size()));
 }
+
+void vis_compare_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, std::vector<int> mask, std::string win_name)
+{
+    double sphereRadius = 0.01;
+    double lineWidth = 5;
+    int  sphereSubdiv = 3;
+
+    // ---- Color palette ----
+    const RowVector3d sphereColor = colors[5]; // muted red
+    const RowVector3d lineColor = colors[1]; // 
+    const RowVector3d lineColor1 = colors[2]; // 
+    const RowVector3d lineColor2 = colors[7]; // 
+    //const RowVector3d sphereColor(0.75, 0.33, 0.20); // muted red
+    //const RowVector3d lineColor(0.20, 0.20, 0.20); // dark gray
+
+    igl::opengl::glfw::Viewer viewer;
+    viewer.core().background_color.setConstant(1.0f); // White background
+
+    MatrixXd V_unit;
+    MatrixXi F_unit;
+    igl::icosahedron(V_unit, F_unit);
+    for (int i = 0; i < sphereSubdiv; ++i)
+        igl::loop(V_unit, F_unit, V_unit, F_unit);
+
+    for (int i = 0; i < V_unit.rows(); ++i)
+        V_unit.row(i).normalize(); // project to unit sphere
+    V_unit *= sphereRadius;
+
+    int Nv = V_unit.rows();
+    int Nf = F_unit.rows();
+    int Np = points.size();
+    MatrixXd V_all(Np * Nv, 3);
+    MatrixXi F_all(Np * Nf, 3);
+
+    for (int i = 0; i < Np; ++i)
+    {
+        V_all.block(i * Nv, 0, Nv, 3) =
+            V_unit.rowwise() + points[i].transpose();
+
+        F_all.block(i * Nf, 0,
+            Nf, 3) =
+            F_unit.array() + i * Nv;
+    }
+
+    viewer.data().set_mesh(V_all, F_all);
+    viewer.data().set_colors(sphereColor);
+    viewer.data().show_lines = false;
+    viewer.data().shininess = 200.0;
+
+    // Draw lines based on the connections
+    Eigen::MatrixXd P1(connections.size(), 3);
+    Eigen::MatrixXd P2(connections.size(), 3);
+    Eigen::MatrixXd C(connections.size(), 3);
+    for (int i = 0; i < connections.size(); ++i) {
+        P1.row(i) = points[connections[i].first].transpose();
+        P2.row(i) = points[connections[i].second].transpose();
+
+        if (mask[i] == 0) {
+            C.row(i) = lineColor;
+        }
+        else if (mask[i] == 1) {
+            C.row(i) = lineColor1;
+        }
+        else if (mask[i] == 2)
+        {
+            C.row(i) = lineColor2;
+        }
+     }
+    viewer.data().add_edges(P1, P2, C);
+
+    // Set line width
+    viewer.data().line_width = lineWidth;
+
+    //viewer.core().align_camera_center(V1, F1);
+
+    // ===精确设置视角===
+    float deg2rad = float(M_PI) / 180.0f;
+    Eigen::Quaternionf q =
+        Eigen::AngleAxisf(-90.0f * deg2rad, Eigen::Vector3f::UnitX()) *
+        Eigen::AngleAxisf(0.0f * deg2rad, Eigen::Vector3f::UnitY()) *
+        Eigen::AngleAxisf(128.0f * deg2rad, Eigen::Vector3f::UnitZ());
+    viewer.core().trackball_angle = q;
+
+    // Launch the viewer
+    viewer.launch(false, win_name + to_string(connections.size()));
+}
+
 
 void vis_KerLine_model(Eigen::MatrixXd V1, Eigen::MatrixXi F1, std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, bool show_line, std::string win_name)
 {
@@ -900,23 +1000,18 @@ void  saveSDFtoVTI(const std::string filename, Eigen::VectorXd& sdf, int nx, int
     std::cout << "Saved VTI: " << filename << std::endl;
 }
 
-void saveSDFtoVOI(const std::string filename, Eigen::VectorXd& sdf, int nx, int ny, int nz) {
-    std::ofstream out(filename);
-    if (!out) return;
+void saveSDFtoNPY(std::string filename, Eigen::VectorXd& sdf, int res) {
 
-    out << nx << ", " << ny << ", " << nz << "\n";
+    std::vector<double> voxel_grid;
+    for (auto sdf_ : sdf)
+        voxel_grid.push_back(sdf_);
 
-    Eigen::VectorXd rho_tilde = sdf;
-    int n_vars = nx * ny * nz;
-    for (int i = 0; i < n_vars; ++i) {
-        out << rho_tilde(i) << " ";
-        if (i != 0 && i % 20 == 0) out << "\n";
-    }
+    saveVoxelGridAsNPY(voxel_grid, res, filename);
 
-    std::cout << "Saved RAW sdf: " << filename << std::endl;
 }
+
 // 保存体素网格为NPY格式
-void saveVoxelGridAsNPY(std::vector<double>& voxel_grid, int res, std::string& filename) 
+void saveVoxelGridAsNPY(std::vector<double>& voxel_grid, int res, std::string filename) 
 {
     std::ofstream file(filename, std::ios::binary);
     if (!file.is_open()) {
@@ -1185,4 +1280,36 @@ double sigma_value(double v, double n, double w, double iso)
 {
     double k = 4.0 / 3 * M_PI * pow(-2 * log(iso), 1.5);
     return cbrt(v / (k * n * w));
+}
+
+vector<vector<int>> compare_edges(const vector<pair<int, int>>& ini, const vector<pair<int, int>> & final)
+{
+    vector<vector<int>> mask;
+    vector<int> mask1(ini.size(), 1);   // 默认全部标记为删除
+    vector<int> mask2(final.size(), 2); // 默认全部标记为新增
+
+    // 统计 final 中各边出现的次数
+    map<pair<int, int>, vector<int>> final_map;
+    for (int i = 0; i < final.size(); ++i) {
+        final_map[final[i]].push_back(i);
+    }
+
+    // 遍历 ini，寻找匹配项
+    for (int i = 0; i < ini.size(); ++i) {
+        auto it = final_map.find(ini[i]);
+        if (it != final_map.end() && !it->second.empty()) {
+            // 找到匹配：说明这条边“没动”
+            mask1[i] = 0;
+
+            // 取出 final 中的索引并标记为 0
+            int final_idx = it->second.back();
+            mask2[final_idx] = 0;
+
+            // 消耗掉这个索引（处理重复边的情况）
+            it->second.pop_back();
+        }
+    }
+    mask.push_back(mask1);
+    mask.push_back(mask2);
+    return mask;
 }

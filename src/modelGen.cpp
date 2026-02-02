@@ -106,7 +106,7 @@ void ModelGenerator::model_porous_structure()
 {
     //std::cout << "Model A loaded successfully." << std::endl;
     scale_factor = Mesh2SDF(V_ini, F_ini, GV, SDF_ini, bb_min, bb_max);
-    cout << "scale_factor: " << scale_factor << endl;
+    saveSDFtoNPY("D:\\VSprojects\\TaihuStone\\src\\origin_model.npy", SDF_ini, resolution);
     //Vector3d point = GV.row(10010);
     //cout << "point index: " << find_nearest_grid(point) << endl;
     generateGaussianSDF();
@@ -148,12 +148,12 @@ void ModelGenerator::generateGaussianSDF()
     //sample_regular(pore_centers, pore_sdfs, inside_indices, 20);
     //for (int i = 0; i < pore_centers.size(); i++)   std::cout << "i: " << i << "  " << pore_centers[i] << std::endl;
 
-    generate_gaussians(pore_centers, pore_sdfs, gen);
-    /*if(Iso_kernel)
-        generate_gaussians_iso(pore_centers, pore_sdfs, gen);
-    else 
-        generate_gaussians(pore_centers, pore_sdfs, gen);*/
-    
+    if (figure_show)
+    {
+        vis_KerLine_model(V_ini, F_ini, pore_centers, edge_con_final, true, "After optimization connection");
+    }
+	//---------------------generate gaussians------------------------
+    generate_gaussians(pore_centers, pore_sdfs, gen);    
 
     if (Handle_overlap)
     {
@@ -255,11 +255,18 @@ void ModelGenerator::generateGaussianSDF()
 
     if (figure_show)
     {
-        //vis_Kernels_Tubes(pore_centers, edge_con_final, "After optimization connection");
+        std::vector<std::vector<int>> mask = compare_edges(edge_con_mbdst, edge_con_final);
+        vis_compare_cons(pore_centers, edge_con_mbdst, mask[0], "compare_lines");
+        vis_compare_cons(pore_centers, edge_con_final, mask[1], "compare_lines");
+        vis_KerLine_model(V_ini, F_ini, pore_centers, edge_con_mbdst, true, "Ini tubes");
+        vis_Kernels_Tubes(pore_centers, edge_con_final, "After optimization connection, Tubes:");
+        vis_KerLine_model(V_t, F_t, pore_centers, edge_con_final, true, "Tubes with points");
+        igl::write_triangle_mesh("C:/Users/Liuxk/OneDrive/Recent/new_work/TaihuStone/figures/namaqualand_tubes.stl", V_t, F_t);
         Eigen::MatrixXd V_o; //输出网格顶点
         Eigen::MatrixXi F_o; // 输出网格面片
         igl::read_triangle_mesh("D:/VSprojects/TaihuStone/result/final/namaqualand_60_opt/namaqualand_final.stl", V_o, F_o);
         vis_KerLine_model(V_o, F_o, pore_centers, edge_con_final, true, "After optimization connection");
+        view_two_models(V_out, F_out, V_t, F_t);
     }
         
 
@@ -2230,19 +2237,19 @@ int ModelGenerator::generate_mst_tubes(std::vector<pair<int, int>> edge_con, int
         view_model(V_out, F_out, "our final result");
         Eigen::MatrixXd V_g; //输出网格顶点
         Eigen::MatrixXi F_g; // 输出网格面片
-        MarchingCubes(SDF_gaussian_tubes, GV, res, res, res, iso, V_g, F_g);  //gaussian combined
-        view_model(V_g, F_g, "gaussian field with tubes");
+        MarchingCubes(SDF_gaussian_tubes, GV, res, res, res, iso, V_t, F_t);  //gaussian combined
+        view_model(V_t, F_t, "gaussian field with tubes");
 
         //out tubes
-        vector<double> sdfout;
-        string npy_filename = "D:/VSprojects/TaihuStone/src/sdf_out_tube.npy";
-        string vti_filename = "D:/VSprojects/TaihuStone/src/sdf_out_tube.vti";
-        string stl_filename = "D:/VSprojects/TaihuStone/src/sdf_out_tube.stl";
-        for (auto so : SDF_gaussian_tubes)
-            sdfout.push_back(so);
-        saveVoxelGridAsNPY(sdfout, resolution, npy_filename);
-        saveSDFtoVTI(vti_filename, SDF_gaussian_tubes, res, res, res);
-        saveMesh(stl_filename, V_g, F_g);
+        //vector<double> sdfout;
+        //string npy_filename = "D:/VSprojects/TaihuStone/src/sdf_out_tube.npy";
+        //string vti_filename = "D:/VSprojects/TaihuStone/src/sdf_out_tube.vti";
+        //string stl_filename = "D:/VSprojects/TaihuStone/src/sdf_out_tube.stl";
+        //for (auto so : SDF_gaussian_tubes)
+        //    sdfout.push_back(so);
+        //saveVoxelGridAsNPY(sdfout, resolution, npy_filename);
+        //saveSDFtoVTI(vti_filename, SDF_gaussian_tubes, res, res, res);
+        //saveMesh(stl_filename, V_g, F_g);
 
 
         MarchingCubes(SDF_only_tubes, GV, res, res, res, iso, V_t, F_t);  //gaussian combined with tubes

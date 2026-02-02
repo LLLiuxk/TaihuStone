@@ -36,6 +36,8 @@ using namespace Eigen;
 static FastNoiseLite g_kernel_noise;
 static FastNoiseLite g_field_noise;
 
+extern vector<RowVector3d> colors;
+
 //static void init_noise()
 //{
 //    static bool initialized = false;
@@ -88,7 +90,7 @@ void view_two_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V2,
 void view_three_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V2, Eigen::MatrixXi F2, Eigen::MatrixXd V3, Eigen::MatrixXi F3, Eigen::RowVector3d shift = RowVector3d(0.0, 0.0, 0.0), std::string win_name= "Three models");
 void vis_Kernels_Tubes(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, std::string win_name = "vis_Kernels_Tubes");
 void vis_KerLine_model(Eigen::MatrixXd V1, Eigen::MatrixXi F1, std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, bool show_line = false, std::string win_name = "vis_Kernels_Tubes");
-
+void vis_compare_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, std::vector<int> mask, std::string win_name = "compare_lines");
 
 int  single_component(Eigen::MatrixXd V, Eigen::MatrixXi F);
 
@@ -129,9 +131,9 @@ void saveVoxelToRaw(std::string filename, VoxelGrid& grid);
 void saveVoxelToVTK(std::string filename, VoxelGrid& grid);
 
 void saveSDFtoVTI(const std::string filename, Eigen::VectorXd& sdf, int nx, int ny, int nz);
-void saveSDFtoVOI(const std::string filename, Eigen::VectorXd& sdf, int nx, int ny, int nz);
+void saveSDFtoNPY(std::string filename, Eigen::VectorXd& sdf, int res);
 
-void saveVoxelGridAsNPY(std::vector<double>& voxel_grid, int res, std::string& filename);
+void saveVoxelGridAsNPY(std::vector<double>& voxel_grid, int res, std::string filename);
 bool readNPYtoVoxel(const std::string& filename, std::vector<double>& voxel_grid, int& res);
 
 void writeAdjacencyListToFile(const std::vector<std::vector<int>>& adjList, const std::string& filename);
@@ -179,3 +181,6 @@ static inline bool isFiniteMat(const Eigen::Matrix3d& m) {
     for (int r = 0; r < 3; r++) for (int c = 0; c < 3; c++) if (!std::isfinite(m(r, c))) return false;
     return true;
 }
+
+
+vector<vector<int>> compare_edges(const vector<pair<int, int>>& ini, const vector<pair<int, int>> & final);

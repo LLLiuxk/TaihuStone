@@ -1,15 +1,15 @@
 #include "globalPara.h" 
 
-std::string input_file = "RockSetBr_rotated"; //"RockSetBr_rotated"; //RockSetBr  test_cube
-int Resolution = 200;
+std::string input_file = "namaqualand"; //"RockSetBr_rotated"; //RockSetBr  test_cube
+int Resolution = 128;
 
 std::vector<double> Weights = { 0.8, 1.0, 1.2 };  //mst 分类系数权重：边界-内部，内部-内部，边界-边界
 std::vector<double> KT_weights = { 0.6, 0.1, 0.1, 0.2 };  //kernel translucency权重：角度、长度、内外分布、水平垂直
 double Isolevel = 0;
 double Gauss_level = 0.5;
 
-int PoresNum = 50;
-double surface_ratio = 0.3; //表面核占比
+int PoresNum = 60;
+double surface_ratio = 0.55; //表面核占比
 
 int Max_degree = 5;
 
@@ -19,7 +19,7 @@ double Sigma_min = 0.015;
 double Sigma_max = 0.033;
 double W4sig_max = 3.0;
 double W4sig_min = 25.0; 
-double Axis_max_ratio = 1.6;
+double Axis_max_ratio = 1.7;
 //250: 0.02, 0.04
 //150~200: 0.025, 0.045
 // 100: 0.033, 0.05
@@ -33,7 +33,7 @@ double SmoothT = 15;    //控制平滑布尔的平滑区域大小, 越大，平滑效果越小，趋近于
 double Tube_radius_factor = 0.7; // 控制管道半径相对于高斯核半径的比例, mid_radius_factor越大，通道越粗
 double Safe_distance_ratio = 0.7;
 
-double Trans_thres = 0.8;  //kernel translucency threshold 
+double Trans_thres = 0.88;  //kernel translucency threshold 
 double Adj_dis_thres = 0.3;
 bool debug_show = false;
 bool standard_show = false;
@@ -44,10 +44,10 @@ bool Iso_kernel = false;
 bool Handle_overlap = false;
 bool Direct_dis = false;
 
-bool optimize_debug = false;
+bool optimize_debug = true;
 bool Enable_noise = false;
 bool topo_optimize = false;
-bool dynamic_change_para = false;
+bool dynamic_change_para = true;
 
 std::string trim(const std::string& str) {
     size_t first = str.find_first_not_of(" \t\r\n");
