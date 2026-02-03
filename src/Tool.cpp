@@ -1,16 +1,18 @@
 #include "Tool.h"
 
 vector<RowVector3d> colors = { RowVector3d(0.90, 0.62, 0.0), //orange
-    RowVector3d(0.95, 0.7, 0.30), //light orange
-    RowVector3d(0.0, 0.44, 0.70),  //blue
+    RowVector3d(0.9, 0.75, 0.40), //light orange
+    RowVector3d(0.2, 0.44, 0.90),  //blue
     RowVector3d(0.14, 0.24, 0.52),  //drak blue
     RowVector3d(0.8, 0.33, 0.20),  //muted red
     RowVector3d(0.8, 0.1, 0.1),  //red
-    RowVector3d(0.0, 0.44, 0.70),  // dark gray
+    RowVector3d(0.80, 0.80, 0.80),  // dark gray
+    RowVector3d(0.3, 0.68, 0.45),  //drak green
     RowVector3d(0.0, 0.62, 0.45),  //drak green
     RowVector3d(0.8, 0.47, 0.65), //pink red
     RowVector3d(0.84, 0.37, 0.0), //brick red
-    RowVector3d(0.94, 0.89, 0.26)  //yellow
+    RowVector3d(0.94, 0.89, 0.26),  //yellow
+    RowVector3d(0.90, 0.80, 0.60)  //yellow
 };
 
 
@@ -503,8 +505,8 @@ void vis_Kernels_Tubes(std::vector<Eigen::Vector3d>& points, std::vector<pair<in
     const int  sphereSubdiv = 3;
 
     // ---- Color palette ----
-    const RowVector3d sphereColor = colors[5]; // muted red
-    const RowVector3d lineColor= colors[1]; // dark gray
+    const RowVector3d sphereColor = colors[12]; // muted red
+    const RowVector3d lineColor= colors[6]; // dark gray
     //const RowVector3d sphereColor(0.75, 0.33, 0.20); // muted red
     //const RowVector3d lineColor(0.20, 0.20, 0.20); // dark gray
 
@@ -652,6 +654,188 @@ void vis_compare_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int
 
     // Launch the viewer
     viewer.launch(false, win_name + to_string(connections.size()));
+}
+
+void vis_opt_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, std::vector<int> mask, std::string win_name)
+{
+    double sphereRadius = 0.01;
+    double lineWidth = 7;
+    int  sphereSubdiv = 3;
+
+    // ---- Color palette ----
+    const RowVector3d sphereColor = colors[12]; // muted red
+    const RowVector3d sphereColor2 = colors[10]; // muted red
+    const RowVector3d lineColor = colors[6]; //colors[1]; //  orange: origin
+    const RowVector3d lineColor1 = colors[5]; // red: replace -
+    const RowVector3d lineColor2 = colors[2]; // blue : replace +
+    const RowVector3d lineColor3 = colors[7]; // green : add
+    //const RowVector3d sphereColor(0.75, 0.33, 0.20); // muted red
+    //const RowVector3d lineColor(0.20, 0.20, 0.20); // dark gray
+
+    igl::opengl::glfw::Viewer viewer;
+    viewer.core().background_color.setConstant(1.0f); // White background
+
+    MatrixXd V_unit;
+    MatrixXi F_unit;
+    igl::icosahedron(V_unit, F_unit);
+    for (int i = 0; i < sphereSubdiv; ++i)
+        igl::loop(V_unit, F_unit, V_unit, F_unit);
+
+    for (int i = 0; i < V_unit.rows(); ++i)
+        V_unit.row(i).normalize(); // project to unit sphere
+    V_unit *= sphereRadius;
+
+    int Nv = V_unit.rows();
+    int Nf = F_unit.rows();
+    int Np = points.size();
+    MatrixXd V_all(Np * Nv, 3);
+    MatrixXi F_all(Np * Nf, 3);
+
+    for (int i = 0; i < Np; ++i)
+    {
+        V_all.block(i * Nv, 0, Nv, 3) =
+            V_unit.rowwise() + points[i].transpose();
+
+        F_all.block(i * Nf, 0,
+            Nf, 3) =
+            F_unit.array() + i * Nv;
+    }
+
+    // Draw lines based on the connections
+    int show_num = 59; // connections.size()
+    Eigen::MatrixXd P1(show_num, 3);
+    Eigen::MatrixXd P2(show_num, 3);
+    //Eigen::MatrixXd C(show_num, 3);
+    int skip = 0;
+    for (int i = 0; i < show_num; i++) {
+        if (mask[i] == 1 && skip == 0)
+        {
+            skip++;
+            P1.row(i) = points[connections[i].first].transpose();
+            P2.row(i) = points[connections[i].first].transpose();
+        }
+        else
+        {
+            P1.row(i) = points[connections[i].first].transpose();
+            P2.row(i) = points[connections[i].second].transpose();
+        }
+    }
+
+
+    vector<int> draw_index;
+    int chosen_type = 1;
+    for (int i = 0; i < mask.size(); i++)
+    {
+        if (mask[i] == chosen_type)
+        {
+            draw_index.push_back(i);
+            chosen_type++;
+            if (chosen_type == 3)
+                break;
+        }
+    }
+
+    //找到要绘制的点
+    int draw_one = 0;
+    if(connections[draw_index[0]].first == connections[draw_index[1]].first || connections[draw_index[0]].first == connections[draw_index[1]].second)
+        draw_one = connections[draw_index[0]].first;
+    else
+        draw_one = connections[draw_index[0]].second;
+
+    int highlight_id = draw_one;
+    MatrixXd V_high = V_unit*1.5;
+    V_high.rowwise() += points[highlight_id].transpose();
+
+    viewer.data().set_mesh(V_high, F_unit);
+    viewer.data().set_colors(sphereColor2); // 红色
+    viewer.data().show_lines = false;
+    viewer.data().shininess = 2000.0;
+    //viewer.core().align_camera_center(V_all, F_all);
+    viewer.data().add_edges(P1, P2, lineColor);
+    // Set line width
+    viewer.data().line_width = lineWidth;
+
+    for (int i = show_num + 1; i < connections.size(); i++)
+    {
+        //cout << i<<" connections: " << connections[i].first << "   " << connections[i].second << endl;
+        if(connections[i].first == draw_one || connections[i].second == draw_one)
+			draw_index.push_back(i);
+    }
+    int ano_num = draw_index.size();
+    Eigen::MatrixXd P3(ano_num, 3);
+    Eigen::MatrixXd P4(ano_num, 3);
+    Eigen::MatrixXd C(ano_num, 3);
+    for (int i = 0; i < draw_index.size(); i++) {
+        //if (mask[i] == 3) continue;
+        //cout << "connections[draw_index[i]] " << connections[draw_index[i]].first << "   " << connections[draw_index[i]].second << endl;
+        P3.row(i) = points[connections[draw_index[i]].first].transpose();
+        P4.row(i) = points[connections[draw_index[i]].second].transpose();
+
+        if (i == 0) {
+            C.row(i) = lineColor1;
+        }
+        else if (i == 1) {
+            C.row(i) = lineColor2;
+        }
+        else 
+        {
+            C.row(i) = lineColor3;
+        }
+    }
+    
+    int id2 = viewer.append_mesh();
+    viewer.data(id2).add_edges(P3, P4, C);
+
+    // Set line width
+    viewer.data(id2).line_width = 2* lineWidth;
+
+    viewer.data(id2).set_mesh(V_all, F_all);
+    viewer.data(id2).set_colors(sphereColor);
+    viewer.data(id2).show_lines = false;
+    viewer.data(id2).shininess = 200.0;
+
+
+    //viewer.core().align_camera_center(V1, F1);
+
+    // ===精确设置视角===
+    float deg2rad = float(M_PI) / 180.0f;
+    Eigen::Quaternionf q =
+        Eigen::AngleAxisf(-90.0f * deg2rad, Eigen::Vector3f::UnitX()) *
+        Eigen::AngleAxisf(0.0f * deg2rad, Eigen::Vector3f::UnitY()) *
+        Eigen::AngleAxisf(128.0f * deg2rad, Eigen::Vector3f::UnitZ());
+    viewer.core().trackball_angle = q;
+
+    // Launch the viewer
+    viewer.launch(false, win_name + to_string(connections.size()));
+
+    //int show_num = 59; // connections.size()
+    //Eigen::MatrixXd P1(show_num, 3);
+    //Eigen::MatrixXd P2(show_num, 3);
+    //Eigen::MatrixXd C(show_num, 3);
+    //for (int i = 0; i < show_num; i++) {
+    //    //if (mask[i] == 3) continue;
+    //    P1.row(i) = points[connections[i].first].transpose();
+    //    P2.row(i) = points[connections[i].second].transpose();
+
+    //    if (mask[i] == 0) {
+    //        C.row(i) = lineColor;
+    //    }
+    //    else if (mask[i] == 1) {
+    //        C.row(i) = lineColor1;
+    //    }
+    //    else if (mask[i] == 2)
+    //    {
+    //        C.row(i) = lineColor2;
+    //    }
+    //    else if (mask[i] == 3)
+    //    {
+    //        C.row(i) = lineColor3;
+    //    }
+    //}
+    //viewer.data().add_edges(P1, P2, C);
+
+    //// Set line width
+    //viewer.data().line_width = lineWidth;
 }
 
 
@@ -983,10 +1167,14 @@ void  saveSDFtoVTI(const std::string filename, Eigen::VectorXd& sdf, int nx, int
     out << "        <DataArray type=\"Float32\" Name=\"Density\" format=\"ascii\">\n";
 
 	Eigen::VectorXd rho_tilde = sdf;
+    
 	int n_vars = nx * ny * nz;
     for (int i = 0; i < n_vars; ++i) {
-        out << (float)rho_tilde(i) << " ";
+        float rho = smoothHeaviside(rho_tilde(i), 0.1);
+        out << rho << " ";
         if (i % 20 == 0) out << "\n";
+        /*out << (float)rho_tilde(i) << " ";
+        if (i % 20 == 0) out << "\n";*/
     }
 
     out << "\n        </DataArray>\n";
@@ -1311,5 +1499,61 @@ vector<vector<int>> compare_edges(const vector<pair<int, int>>& ini, const vecto
     }
     mask.push_back(mask1);
     mask.push_back(mask2);
+    int del_num = 0, add_num = 0;
+    for (auto m1 : mask1)
+        if (m1 == 1) del_num++;
+    for (auto m2 : mask2)
+        if (m2 == 2) add_num++;
+    cout << "delete num : " << del_num << "   add num:" << add_num << endl;
+
     return mask;
+}
+
+vector<int> compare_edges2(const vector<pair<int, int>>& ini, const vector<pair<int, int>> & final, vector<pair<int, int>>& edge_con_total, std::vector<int> rep_vec)
+{
+    edge_con_total.clear();
+    vector<int> mask(ini.size(), 0);
+    edge_con_total = ini;
+    std::sort(rep_vec.begin(), rep_vec.end());
+    for (auto rv : rep_vec)
+    {
+		mask[rv] = 1;
+		edge_con_total.push_back(final[rv]);
+        mask.push_back(2);
+    }
+    for (int i = ini.size(); i < final.size(); i++)
+    {
+		edge_con_total.push_back(final[i]);
+        mask.push_back(3);
+    }
+
+
+	//cout << "edge_con_total size:" << edge_con_total.size() << "   "<<mask.size()<<endl;
+ //   for(int i = 0; i < edge_con_total.size(); i++)
+	//	cout << edge_con_total[i].first << "  " << edge_con_total[i].second << "    "<<mask[i]<<endl;
+ //   for (int i = 0; i < final.size(); i++)
+ //   {
+ //       cout << "num " << i << ": " << final[i].first << "  " << final[i].second << "                       ";
+ //       if (i < ini.size())
+ //           cout << ini[i].first << "  " << ini[i].second << endl;
+ //       else
+ //           cout << "default" << endl;
+ //   }
+    return mask;
+
+}
+
+
+
+
+int cal_max_degree(std::vector<std::vector<int>> Adj_list)
+{
+    int max_degree = 0;
+    for (const auto& neighbors : Adj_list) {
+        int degree = neighbors.size();
+        if (degree > max_degree) {
+            max_degree = degree;
+        }
+    }
+	return max_degree;
 }

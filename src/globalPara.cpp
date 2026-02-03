@@ -35,7 +35,7 @@ double Safe_distance_ratio = 0.7;
 
 double Trans_thres = 0.88;  //kernel translucency threshold 
 double Adj_dis_thres = 0.3;
-bool debug_show = false;
+bool debug_show = true;
 bool standard_show = false;
 bool figure_show = true;
 bool compare_show = false;

@@ -91,6 +91,7 @@ void view_three_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V
 void vis_Kernels_Tubes(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, std::string win_name = "vis_Kernels_Tubes");
 void vis_KerLine_model(Eigen::MatrixXd V1, Eigen::MatrixXi F1, std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, bool show_line = false, std::string win_name = "vis_Kernels_Tubes");
 void vis_compare_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, std::vector<int> mask, std::string win_name = "compare_lines");
+void vis_opt_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, std::vector<int> mask, std::string win_name = "compare_lines");
 
 int  single_component(Eigen::MatrixXd V, Eigen::MatrixXi F);
 
@@ -184,3 +185,7 @@ static inline bool isFiniteMat(const Eigen::Matrix3d& m) {
 
 
 vector<vector<int>> compare_edges(const vector<pair<int, int>>& ini, const vector<pair<int, int>> & final);
+vector<int> compare_edges2(const vector<pair<int, int>>& ini, const vector<pair<int, int>> & final, vector<pair<int, int>> &edge_con_total, vector<int> rep_vec);
+
+
+int cal_max_degree(std::vector<std::vector<int>> Adj_list);

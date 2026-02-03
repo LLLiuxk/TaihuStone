@@ -106,7 +106,8 @@ void ModelGenerator::model_porous_structure()
 {
     //std::cout << "Model A loaded successfully." << std::endl;
     scale_factor = Mesh2SDF(V_ini, F_ini, GV, SDF_ini, bb_min, bb_max);
-    saveSDFtoNPY("D:\\VSprojects\\TaihuStone\\src\\origin_model.npy", SDF_ini, resolution);
+    //saveSDFtoNPY("D:\\VSprojects\\TaihuStone\\src\\origin_model.npy", SDF_ini, resolution);
+    saveSDFtoVTI("D:\\VSprojects\\TaihuStone\\src\\origin_model.VTI", SDF_ini, resolution, resolution, resolution);
     //Vector3d point = GV.row(10010);
     //cout << "point index: " << find_nearest_grid(point) << endl;
     generateGaussianSDF();
@@ -181,6 +182,7 @@ void ModelGenerator::generateGaussianSDF()
     }
 	// 构建邻接表
     Adj_list = construct_adj_list(Tube_edges, kernel_num);
+    cout << "MaxDegree: " << cal_max_degree(Adj_list) << endl;
     Unused_adj_list = get_unused_edge_adj(Adj_list, Adj_dis_thres);
     vector<int> leafs_index = all_leafs_mst(Tube_edges);
     vector<int> inner_leafs = check_inner_leafs(leafs_index);
@@ -198,8 +200,8 @@ void ModelGenerator::generateGaussianSDF()
 	
     std::cout << "--------------------4. Optimizing the connection trees --------------------" << endl;
     int opt_times_once = 5;
-	int edge_max = Tube_edges.size()* 1.5;
-    int iter_times = 10;
+	int edge_max = Tube_edges.size()* 2.0;
+    int iter_times = 5;
     double delta_score_t = 1000.0;
     double new_trans_score = finalTranslucency;
     
@@ -207,15 +209,33 @@ void ModelGenerator::generateGaussianSDF()
     {
         //optimize_mst2(opt_times_once, edge_max, false,  NO_DEBUG);
 		int iter_count = 0;
-        while (iter_count< iter_times && delta_score_t > 1e-2)
+        while (iter_count< iter_times && delta_score_t > 5e-3)
         {
             std::cout << "-------------  The " << iter_count++<< " iterations start, the edge limition is:"<< edge_max<<"... ------------ - "<< endl;
-            optimize_mst(opt_times_once, edge_max, NO_DEBUG);
+            vector<int> rep_vec;
+            optimize_mst(opt_times_once, edge_max, rep_vec, NO_DEBUG);
             double last_trans_score = new_trans_score;
             new_trans_score = cal_total_translucency(Kernels, Adj_list);
             std::cout << "======================================After optimization " << iter_count << ", total score increases from " << last_trans_score << " to " << new_trans_score << " with edges to " << Tube_edges.size() << "======================================" << endl;
+            cout << "MaxDegree: " << cal_max_degree(Adj_list) << endl;
             delta_score_t = new_trans_score - last_trans_score;
             edge_max += edge_max * 0.1;
+            if (new_trans_score < Trans_thres)
+                Max_degree++;
+
+            if (figure_show)
+            {
+                /*cout<< "rep_vec .size()" << rep_vec.size() << endl;
+                edge_con_final.clear();
+                for (auto e : Tube_edges) edge_con_final.push_back(make_pair(e.from, e.to));
+                for(auto rv: rep_vec)
+					cout << "Replace (" << edge_con_mbdst[rv].first << " " << edge_con_mbdst[rv].second << ")  to (" << edge_con_final[rv].first << " " << edge_con_final[rv].second << ")" << endl;
+                std::vector<pair<int, int>> edge_con_total;
+                std::vector<int> mask = compare_edges2(edge_con_mbdst, edge_con_final, edge_con_total, rep_vec);
+                vis_opt_cons(pore_centers, edge_con_total, mask, "compare_lines");*/
+                //vis_compare_cons(pore_centers, edge_con_mbdst, mask[0], "compare_lines");
+                //vis_compare_cons(pore_centers, edge_con_final, mask[1], "compare_lines");
+            }
         }
     }
     finalTranslucency = new_trans_score; 
@@ -268,7 +288,7 @@ void ModelGenerator::generateGaussianSDF()
         vis_KerLine_model(V_o, F_o, pore_centers, edge_con_final, true, "After optimization connection");
         view_two_models(V_out, F_out, V_t, F_t);
     }
-        
+    saveSDFtoVTI("D:\\VSprojects\\TaihuStone\\src\\origin_model2.VTI", SDF_out, resolution, resolution, resolution);
 
     auto end_time = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
@@ -1489,6 +1509,8 @@ bool ModelGenerator::replace_edges(int p_index, int replace_e, std::vector<Edge>
 
     for (int candidate_p : unused_adj_new[p_index])
     {
+        if (adj_new[candidate_p].size() >= Max_degree + 1)
+            continue;
         double dist = distance(Kernels[p_index].center, Kernels[candidate_p].center);
         double dist_w = dist * calculate_edge_weight(Kernels[p_index], Kernels[candidate_p]);
         Edge cand_edge = { p_index, candidate_p, dist, dist_w };
@@ -1537,7 +1559,7 @@ bool ModelGenerator::replace_edges(int p_index, int replace_e, std::vector<Edge>
 }
 
 
-void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
+void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, vector<int>& rep_vec, bool debug)
 {
     double thres_tran = Trans_thres;
     int kernels_num = Kernels.size();
@@ -1625,6 +1647,7 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
             if (kernel_translucency[i] >= thres_tran)
             {
                 Paths[i] = max_path;
+                max_paths_kernel[i] = make_pair(start, end);
             }
         }
 		//接下来是循环优化
@@ -1643,8 +1666,9 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
                     cout << "Both Adding and Replacing END for Kernel " << i << "! Exit optimization for this kernel!" << endl;
 				break;
             }
-            if (curr_edge_num < edge_max_num && !add_end/* && Adj_list[i].size() < Min_degree+1*/)  //没有到边数上限且新增边能增加score，则选择添加边
+            if (curr_edge_num < edge_max_num && !add_end && Adj_list[i].size() < Max_degree+1)  //没有到边数上限且新增边能增加score，则选择添加边
             {
+                cout << "Adding - Max_degree + 1: " << Adj_list[i].size()<<" vs "<<Max_degree + 1 << endl;
                 double max_delta_score = 0;
                 int chosen_cand = -1;
                 Edge chosen_e;
@@ -1653,6 +1677,8 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
 
                 for (int candidate_p : Unused_adj_list[i])
                 {
+                    if (Adj_list[candidate_p].size() >= Max_degree + 1)
+                        continue;
                     double dist = distance(Kernels[i].center, Kernels[candidate_p].center);
                     double dist_w = dist * calculate_edge_weight(Kernels[i], Kernels[candidate_p]);
                     Edge cand_edge = { i, candidate_p, dist, dist_w };
@@ -1687,11 +1713,11 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
                     curr_edge_num++;
                     opt_count_total++;
                     num_add++;
-                    if (standard_show)
+                    if (debug_show)
                     {
                         cout << "Add edge from " << i << " to " << chosen_cand << "  increasing Kernel " << i << " 's score to " << kernel_translucency[i] << "  by: " << delta_score_max_pair.first << endl << "Edge length: " << chosen_e.length << "   new edge num : " << curr_edge_num << endl << endl;
-						show_path(Paths[i]);
-                        show_path(Paths[chosen_cand]);
+						//show_path(Paths[i]);
+                        //show_path(Paths[chosen_cand]);
                     }
                 }
                 else
@@ -1703,15 +1729,18 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
             }
             else if(!replace_end) //到达边数上限，或者增加边无法提升得分，则选择替换边
             {
+                cout << "Replace - Max_degree + 1: " << Adj_list[i].size() << " vs " << Max_degree + 1 << endl;
                 if (debug_show)
                 {
                     if(curr_edge_num >= edge_max_num) 
                         cout << "Reach the edge LIMITATION, REPLACE the edge!" << endl;
                     else if(add_end)
                         cout<< "Adding END, then REPLACE the edge!" << endl;
+                    else if (Adj_list[i].size() >=  Max_degree + 1)
+                        cout << "Reach single LIMITATION, then REPLACE the edge!" << endl;
                 }
                 
-                vector<int> edge_importance = cal_edge_usage(Paths, debug_show);
+                vector<int> edge_importance = cal_edge_usage(Paths, NO_DEBUG);
                 std::vector<std::pair<int, int>> sorted_edges;
                 sorted_edges.reserve(edge_importance.size());
                 for (int ei = 0; ei < edge_importance.size(); ++ei) {
@@ -1750,7 +1779,7 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
                         //尝试替换这条边
                         //Edge removed_edge = Tube_edges[replace_i];
                         //cout << "Optimization Kernel "<<i << ": Edge "<< replace_e <<"("<< Tube_edges[replace_e].from<<", "<< Tube_edges[replace_e].to<<") with usage count : " << sorted_e.second <<" will be replaced ... " << endl;
-                        if (Adj_list[i].size() < 2) //虽然替换，但是只有一条连接边，无法替换
+                        if (Adj_list[i].size() < 2 ) //虽然替换，但是只有一条连接边，无法替换
                         {
                             //cout << "improve the edge limitation" << endl;
                             edge_max_num++;
@@ -1761,6 +1790,7 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, bool debug)
                             opt_count_total++;
 							num_replace++;
                             //cout << "The num of " << num_replace << " edges have beed repalced!" << endl << endl;
+                            rep_vec.push_back(replace_e);
                             rep_get = true;
                             break; //成功替换，跳出循环
 						}
