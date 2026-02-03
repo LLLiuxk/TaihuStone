@@ -538,7 +538,7 @@ void vis_Kernels_Tubes(std::vector<Eigen::Vector3d>& points, std::vector<pair<in
             Nf, 3) =
             F_unit.array() + i * Nv;
     }
-
+	saveMesh("D:/VSprojects/TaihuStone/result/vis_kernels_tubes/" + win_name + ".stl", V_all, F_all);
     viewer.data().set_mesh(V_all, F_all);
     viewer.data().set_colors(sphereColor);
     viewer.data().show_lines = false;
