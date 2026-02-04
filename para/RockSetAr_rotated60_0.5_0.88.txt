@@ -10,15 +10,15 @@ Gauss_level = 0.5
 
 PoresNum = 60
 surface_ratio = 0.5
-Min_degree = 5
+Max_degree = 5
 
 Amplitude_min = 1.0
 Amplitude_max = 1.0
 Sigma_min = 0.015
 Sigma_max = 0.033
 
-W4sig_max = 3.0;
-W4sig_min = 25.0; 
+W4sig_max = 4.0;
+W4sig_min = 30.0; 
 Axis_max_ratio = 1.6;
 
 

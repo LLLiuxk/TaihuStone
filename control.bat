@@ -14,7 +14,7 @@ echo ==========================================
 
 :: 运行 para1
 echo [Task 1] Running with para file...
-%EXE_PATH% D:\VSprojects\TaihuStone\result\final\namaqualand_60_opt\namaqualand60_0.5_0.88.txt
+%EXE_PATH% D:\VSprojects\TaihuStone\para\RockSetBr_rotated60_0.5_0.88.txt
 :: %EXE_PATH% D:\VSprojects\TaihuStone\para\Block_Island80_0.5_0.9.txt
 echo Task 1 Finished.
 echo.

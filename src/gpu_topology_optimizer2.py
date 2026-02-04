@@ -3,8 +3,7 @@ GPU加速的拓扑优化实现
 使用CuPy和PyTorch进行GPU加速计算
 根据overhang_constraints.tex文档实现
 """
-import argparse  # <--- 1. 引入参数解析库
-import sys
+
 import numpy as np
 import os
 import torch
@@ -52,9 +51,8 @@ class GPUMMAOptimizer:
             constraint_grad = dfdx.t().mm(weights.view(-1, 1)).view_as(step)
             # 增加惩罚力度：如果违反严重，加大约束梯度的权重
             # 显著增加惩罚系数以强制满足约束
-            # 再次回调惩罚力度，接近"很好"的状态
-            penalty_factor = 2000.0 + 20000.0 * torch.max(viol).item()
-            #penalty_factor = 220.0 + 2200.0 * torch.max(viol).item()
+            # 使用非常激进的惩罚因子，确保自支撑约束优于细节保留
+            penalty_factor = 5000.0 + 50000.0 * torch.max(viol).item()
             step -= penalty_factor * constraint_grad
         # 限制每步移动
         step = torch.clamp(step, -self.move_limit, self.move_limit)
@@ -66,18 +64,17 @@ class GPUMMAOptimizer:
 class GPUTopologyOptimizer:
     """GPU加速的拓扑优化器（支持大模型）"""
     
-    #def __init__(self, print_direction=[0, 0, 1], filter_radius=3.5, device='cuda', use_chunking=False):
-    def __init__(self, print_direction=[0, 0, 1], filter_radius=3, device='cuda', use_chunking=False):
+    def __init__(self, print_direction=[0, 0, 1], filter_radius=2.0, device='cuda', use_chunking=False):
         self.device = device
         self.use_chunking = use_chunking
         self.chunk_size = 64 if use_chunking else None
         self.print_direction = torch.tensor(print_direction, dtype=torch.float32, device=device)
         self.print_direction = self.print_direction / torch.norm(self.print_direction)
-        self.filter_radius = filter_radius
+        self.filter_radius = filter_radius # 半径2.0: 平衡细节与支撑连续性
         
         # 优化参数 - 进一步调整以避免棋盘格模式
         self.beta_init = 1.0      # 初始值
-        self.beta_max = 15.0      # 降低最大值，避免过度锐化, pre:12
+        self.beta_max = 16.0      # 适度提高 beta 以获得清晰边缘
         self.alpha_init = 1.0     
         self.alpha_max = 20.0     
         self.theta_crit = np.pi/4 
@@ -215,14 +212,15 @@ class GPUTopologyOptimizer:
         # 1. 密度滤波 (卷积)
         x_batch = x.unsqueeze(0).unsqueeze(0)
         padding = self.filter_kernel.shape[-1] // 2
+        
         # 使用 replicate 填充以避免边界处的密度下降
         x_padded = F.pad(x_batch, (padding, padding, padding, padding, padding, padding), mode='replicate')
         # pad mode='replicate' 意味着边界值向外复制，
         # 例如 [1, 1, 0] -> [1, 1, 1, 0, 0] (如果padding=1, 右边复制0? 不，右边复制最右边的值0，左边复制1)
-        # 如果内部是 [1, ..., 1]，那么填充后全是1，卷积结果也是1。此处使用 valid 卷积 (padding=0)，因为已经手动填充了
+        # 如果内部是 [1, ..., 1]，那么填充后全是1，卷积结果也是1。
+        # 此处使用 valid 卷积 (padding=0)，因为已经手动填充了
         rho_filtered = F.conv3d(x_padded, self.filter_kernel, padding=0)
         rho_filtered = rho_filtered.squeeze(0).squeeze(0)
-    
         
         # 2. Heaviside投影
         # 使用传入的 beta 或默认值
@@ -271,7 +269,7 @@ class GPUTopologyOptimizer:
         """对 bbox 以 margin 做各向同性扩展并裁剪到 shape 内。"""
         (sx, sy, sz) = shape
         (x0, x1), (y0, y1), (z0, z1) = bbox
-
+        
         # 确定主打印方向，不扩展底板方向的 Margin，防止底部悬空
         # 假设打印方向为轴正向，且 AM filter 总是从 index 0 开始生长
         abs_dir = torch.abs(self.print_direction)
@@ -324,11 +322,10 @@ class GPUTopologyOptimizer:
         # 而不仅仅是降低密度
         penalty_value = F.relu(constraint_value)
         
-        # 用密度加权，只在有材料的地方施加约束
-        # 使用平方项增加对大违反的惩罚力度 (Quadratic Penalty)
-        # 这样对大的违反会有更大的梯度，迫使优化器优先解决严重区域
-        #phi_ov = (penalty_value ** 2) * rho_tilde
+        # 使用线性项，对小违反也保持敏感，避免二次项在零附近的平坦区导致对微小倒刺不敏感
+        # 增强局部梯度反馈：系数越高，不仅总约束值变大，对单个体素的梯度也能压倒 Dice Loss 的收益
         phi_ov = penalty_value * rho_tilde * 50.0  # 再次增强系数，确保在细节保留权重提高时仍能切除倒刺
+        
         # --- 底部基座保护 ---
         # 使用传入的 base_mask 屏蔽底面约束
         if base_mask is not None:
@@ -532,8 +529,8 @@ class GPUTopologyOptimizer:
         union = torch.sum(rho_printed) + torch.sum(target_structure) + 1e-6
         # 我们要最小化 Loss，所以用 1 - Dice
         # 放大 Dice 权重使其梯度在数值上可观
-        #dice_weight = 100000.0 
-        dice_weight = 80000.0 
+        # 降低权重，以便约束罚函数能够更容易地压倒它，移除不自支撑的细节
+        dice_weight = 50000.0 # 恢复权重以保留表面纹理，依赖强约束来去除倒刺
         loss_dice = (1.0 - (2.0 * intersection / union)) * dice_weight
         
         # B. Weighted MSE (像素级强度匹配)
@@ -543,8 +540,7 @@ class GPUTopologyOptimizer:
         # 使用 sum 而不是 mean，保持与其他项量级一致
         loss_mse = torch.sum(weights * (diff**2))
 
-        #f0 = loss_dice + loss_mse
-          # C. Total Variation (TV) Regularization - 抑制棋盘格而不模糊边缘
+        # C. Total Variation (TV) Regularization - 抑制棋盘格而不模糊边缘
         # TV = sum(|grad_x| + |grad_y| + |grad_z|)
         # 这种正则化偏好分块常数解(Piecewise Constant)，能保留锐利边缘，同时去除高频振荡
         rho_p = rho_printed
@@ -592,7 +588,7 @@ class GPUTopologyOptimizer:
         
         return f0.item(), df0dx, G_ov, dg_ov, G_hg, dg_hg
     
-    def optimize(self, initial_x, target, output_dir, max_iter=50, use_roi=False):
+    def optimize(self, initial_x, target, max_iter=50, use_roi=False):
         """GPU主优化循环（支持大模型）
 
         说明:
@@ -644,7 +640,7 @@ class GPUTopologyOptimizer:
             if use_roi:
                 self._export_stl_from_density(
                     target_gpu.cpu().numpy(),
-                    output_dir + "/original_target.stl",
+                    "original_target.stl",
                     level=0.5,
                     step_size=1,
                     origin=roi_origin,
@@ -652,7 +648,7 @@ class GPUTopologyOptimizer:
             else:
                 self._export_stl_from_density(
                     target_gpu.cpu().numpy(),
-                    output_dir + "original_target.stl",
+                    "original_target.stl",
                     level=0.5,
                     step_size=1,
                 )
@@ -676,13 +672,16 @@ class GPUTopologyOptimizer:
 
         # 导出设置
         save_intermediate = True
-        save_every = 5
-        out_dir = "D:\\VSprojects\\TaihuStone\\limitstl\\iter_outputs"
+        save_every = 1
+        out_dir = "iter_outputs"
         os.makedirs(out_dir, exist_ok=True)
 
         # 内存管理
         if self.device == 'cuda':
             torch.cuda.empty_cache()
+
+        # 初始化 x_prev 用于计算变化率
+        x_prev = x.clone()
 
         for iteration in range(max_iter):
             start_time = time.time()
@@ -710,22 +709,21 @@ class GPUTopologyOptimizer:
                     continue
                 raise
 
-            print(f"Obj: {f0:.6f}  Cons_overhang: {G_ov:.6f}")
-            #print(f"悬挑约束: {G_ov:.6f} (目标: ≤0)")
-            #print(f"悬挂约束: 已禁用")
+            print(f"目标函数: {f0:.6f}")
+            print(f"悬挑约束: {G_ov:.6f} (目标: ≤0)")
+            print(f"悬挂约束: 已禁用")
 
             # MMA 更新 - 无显式约束
             # 动态调整移动限制：前期大步长加速生长，后期小步长精细化
-            # 初始 0.15，衰减至 0.05，保持一定的搜索能力
-            current_move_limit = max(0.005, 0.15 * (0.99 ** iteration))
+            # 初始 0.15，衰减至 0.001，允许更精细的收敛
+            current_move_limit = max(0.001, 0.15 * (0.99 ** iteration))
             self.mma.move_limit = current_move_limit
             
             # 显式约束传递给 MMA
             # G_ov 是 total unprintable volume。
             # 引入容差 (Tolerance)，允许少量不可打印体积 (例如边缘效应)
-            # 容差值设为 400 体素 (约占总体积 0.2%)，避免过度牺牲目标函数
-            # now :10
-            constraint_tolerance = 10.0
+            # 容差值设为 1.0 体素，极其严格，要求完全自支撑
+            constraint_tolerance = 1.0
             scale_factor = 100.0
             
             # 构造约束向量: (G_ov - tolerance) / scale <= 0
@@ -747,7 +745,7 @@ class GPUTopologyOptimizer:
             # 自适应阻尼：如果发生剧烈震荡（体素数量跳变），强制回退并减小步长
             # 这里简单地平滑步长，通过动量项减少高频震荡
             if iteration > 0:
-                momentum = 0.5  # 增加动量系数以增强稳定性
+                momentum = 0.5  # 降低动量系数，允许更快的响应 (原0.8会导致有效步长变为1/5)
                 # 将新计算的x与上一次的x进行平均，抑制跳变
                 x_new = (1 - momentum) * x_new + momentum * x_flat
 
@@ -755,7 +753,7 @@ class GPUTopologyOptimizer:
             # 这比目标函数变化更能反映收敛状态
             x_new_reshaped = x_new.view_as(x)
             max_density_change = torch.max(torch.abs(x_new_reshaped - x)).item()
-
+            
             x = x_new_reshaped # 更新 x
 
             # [已移除] 增强的平滑处理以减少棋盘格模式
@@ -774,8 +772,8 @@ class GPUTopologyOptimizer:
                 'max_change': max_density_change,
                 'time': iter_time
             })
-            
             print(f"迭代时间: {iter_time:.2f}s | 最大密度变化: {max_density_change:.6f}")
+
             if save_intermediate and (iteration % save_every == 0):
                 base = os.path.join(out_dir, f"iter_{iteration:03d}")
                 # [已禁用] 只保存STL，不再保存NPY以节省空间
@@ -815,12 +813,13 @@ class GPUTopologyOptimizer:
                     print(f"保存中间STL失败: {_e}")
 
             # 收敛与连续化调整
-            # 使用与MMA更新中一致的容差 (约400体素)
-            constraint_tol = 10.0 
+            # 使用与MMA更新中一致的容差 (约1体素)
+            constraint_tol = 1.0 
             constraints_satisfied = (G_ov <= constraint_tol)
             
             # 1. 密度场收敛判定 (最重要)
             # 如果设计变量不再发生显著变化，说明已经找到了(局部)极值
+            # 降低收敛阈值以允许在强约束下的缓慢优化
             is_density_converged = (max_density_change < 0.001)
             
             # 2. 目标函数平稳判定
@@ -835,18 +834,18 @@ class GPUTopologyOptimizer:
 
             if is_density_converged:
                 if constraints_satisfied:
-                    print(f"收敛: 密度变化极小 ({max_density_change:.6f}) 且 满足悬挑约束 ({G_ov:.1f} <= {constraint_tol})")
+                    print(f"✅ 收敛: 密度变化极小 ({max_density_change:.6f}) 且 满足悬挑约束 ({G_ov:.1f} <= {constraint_tol})")
                     break
                 else:
-                    print(f"密度已收敛 ({max_density_change:.6f}) 但未满足约束 ({G_ov:.1f} > {constraint_tol})。")
+                    print(f"⚠️ 密度已收敛 ({max_density_change:.6f}) 但未满足约束 ({G_ov:.1f} > {constraint_tol})。")
                     # 如果已经非常收敛但约束不满足，可能是参数问题，与其空转不如停止或调整beta
                     # 这里如果是多次连续收敛但违反约束，则强制停止
                     if iteration > 50 and all(h['max_change'] < 0.001 for h in history[-10:]):
-                         print("无法进一步满足约束，强制停止优化。")
+                         print("❌ 无法进一步满足约束 (已停滞)，强制停止优化。")
                          break
 
             if not constraints_satisfied:
-                # 减缓 beta 增长速度，每 10 次迭代更新一次，且增长倍率降低，给予更多收敛时间
+                # 减缓 beta 增长速度
                 if iteration > 0 and iteration % 10 == 0:
                     old_beta, old_alpha = beta, alpha
                     beta = min(self.beta_max, beta * 1.2)
@@ -856,7 +855,7 @@ class GPUTopologyOptimizer:
             else:
                 # 约束满足情况下，如果目标函数也非常稳定，也可以停止
                 if is_objective_stable and iteration > 20: 
-                    print("悬挑约束满足且目标函数稳定")
+                    print("✅ 悬挑约束满足且目标函数稳定")
                     break
 
             if (iteration % 5 == 0) and (self.device == 'cuda'):
@@ -877,9 +876,9 @@ class GPUTopologyOptimizer:
         field = np.asarray(density, dtype=np.float32)
         # 快速检查是否有足够体素超过阈值
         solid_voxels = int(np.count_nonzero(field >= level))
-        #print(f"[导出] level={level}，体素>=level数量: {solid_voxels}")
+        print(f"[导出] level={level}，体素>=level数量: {solid_voxels}")
         if solid_voxels < 50:
-            print("Too less voxels, skip generating STL")
+            print("[导出] 体素过少，跳过 STL 生成")
             return
         try:
             # 自动闭合网格：在四周填充一圈 0，强迫边界处生成封闭面
@@ -894,47 +893,19 @@ class GPUTopologyOptimizer:
             # 修正坐标：由于 padding 导致原点偏移了 (1,1,1)，需要减回去
             verts = verts - pad_width
             
-            
-            # ==========================================================
-            # 关键修正 A：轴顺序调整 (解决角度问题)
-            # ==========================================================
-            # 目前 verts 是 (z, y, x) 顺序 (对应 numpy 的 axis 0, 1, 2)
-            # STL 需要 (x, y, z)
-            # 所以我们需要交换第 0 列和第 2 列
-        
-            #verts = verts[:, [2, 1, 0]]
-            #res = density.shape[0]
-            #voxel_size = 1.0 / (res - 1)
-
-            # 2. 处理缩放逻辑
-            #if voxel_size is not None:
-                # 【修改点1】修正缩进，使其包含在 if voxel_size is not None 内部
-                # 【修改点2】使用 np.isscalar 增强兼容性（防止 numpy float 类型报错）
-                #if np.isscalar(voxel_size) or isinstance(voxel_size, (int, float)):
-                 #   scale = np.array([voxel_size, voxel_size, voxel_size])
-                #else:
-                 #   scale = np.array(voxel_size) # 假设输入是 (sx, sy, sz)
-                
-                # 【修改点3】千万不要忘了应用缩放！
-                #verts = verts * scale
-
-            # 核心修正：如果C++里是居中的，那么体素网格的左下角起点应该是 -0.5
-           # start_point = (-0.5, -0.5, -0.5)
-            #origin = start_point
-
             if origin is not None:
                 ox, oy, oz = origin
                 verts = verts + np.array([ox, oy, oz], dtype=verts.dtype)
             if len(verts) == 0 or len(faces) == 0:
-                print("Illegal mesh, skip!")
+                print("[导出] 未生成有效网格，跳过")
                 return
             mesh = trimesh.Trimesh(vertices=verts, faces=faces, process=False)
             # 修复法向问题：翻转法向以指向外部
-            # mesh.invert()
+            mesh.invert()
             mesh.export(stl_path)
-            print(f"Intermediate STL: {stl_path}，V={len(verts)}, F={len(faces)}")
+            print(f"[导出] 中间 STL: {stl_path}，V={len(verts)}, F={len(faces)}")
         except Exception as e:
-            print(f"Write STL failed!: {e}")
+            print(f"[导出] STL失败: {e}")
     
     def finite_difference_check(self, x_numpy, target_numpy, n_checks=50, h=1e-4, beta=None, alpha=None):
         """对 G_ov 和 G_hg 做有限差分校验（中心差分），比较解析梯度（自动求导）和数值梯度。
@@ -1142,35 +1113,9 @@ class GPUTopologyOptimizer:
 
 def main():
     """主函数"""
-    #读参数
-    parser = argparse.ArgumentParser(description='GPU拓扑优化器')
-    
-    # 接收输入文件路径 (绝对路径)
-    parser.add_argument('--input', type=str, required=True, 
-                        help='Input voxel(.npy) path')
-    
-    # 接收输出文件前缀 (绝对路径，例如 D:/res/result)
-    parser.add_argument('--output', type=str, required=True, 
-                        help='Output voxel(.npy) path')
-    
-    args = parser.parse_args()
-
     print("GPU加速拓扑优化器")
     print("="*60)
-    print(f"Input: {args.input}")
-    print(f"Output: {args.output}")
-
-    if not os.path.exists(args.input):
-        print(f"错误: 找不到输入文件 -> {args.input}")
-        sys.exit(1)
-           
-    output_dir = os.path.dirname(args.output)
-    if output_dir and not os.path.exists(output_dir):
-        print(f"提示: 输出目录不存在，正在创建 -> {output_dir}")
-        os.makedirs(output_dir, exist_ok=True)
-
-    print(f"output_dir: {output_dir}")
-
+    
     if not torch.cuda.is_available():
         print("警告: CUDA不可用，将使用CPU")
         device = 'cpu'
@@ -1180,9 +1125,8 @@ def main():
         device = 'cuda'
     
     # 加载输入
-    #input_file = "voxelized_model.npy"
-    #voxels = np.load(input_file)
-    voxels = np.load(args.input)
+    input_file = "voxelized_model.npy"
+    voxels = np.load(input_file)
     print(f"加载模型: {voxels.shape}")
     
     # 不降采样，使用原始精度
@@ -1213,22 +1157,22 @@ def main():
     
     # GPU优化
     start_time = time.time()
+    # 切换为 Z 轴打印方向 [0, 0, 1]
     optimizer = GPUTopologyOptimizer(
         print_direction=[1, 0, 0], 
         device=device, 
         use_chunking=use_chunking
     )
     
-
     #加默认迭代次数，确保硬约束下有足够收敛时间
     max_iter = 500
-
+    
     # 默认不使用ROI裁剪，保持与baseline坐标对齐
-    optimized_x, history = optimizer.optimize(initial_x, target, output_dir, max_iter=max_iter, use_roi=True)
+    optimized_x, history = optimizer.optimize(initial_x, target, max_iter=max_iter, use_roi=True)
     total_time = time.time() - start_time
     
     # 保存结果
-    optimizer.save_results(optimized_x, output_dir + "/gpu_topology_optimized")
+    optimizer.save_results(optimized_x, "gpu_topology_optimized")
     
     print(f"\nGPU拓扑优化完成!")
     print(f"总时间: {total_time:.2f}s")

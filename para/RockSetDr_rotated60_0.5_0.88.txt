@@ -17,8 +17,8 @@ Amplitude_max = 1.0
 Sigma_min = 0.015
 Sigma_max = 0.033
 
-W4sig_max = 3.0;
-W4sig_min = 25.0; 
+W4sig_max = 4.0;
+W4sig_min = 30.0; 
 Axis_max_ratio = 1.6;
 
 
