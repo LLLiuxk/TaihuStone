@@ -1,6 +1,6 @@
 #include "globalPara.h" 
 
-std::string input_file = "namaqualand"; //"RockSetBr_rotated"; //RockSetBr  test_cube
+std::string input_file = "RockSetBr_rotated"; //"RockSetBr_rotated"; //RockSetBr  test_cube
 int Resolution = 128;
 
 std::vector<double> Weights = { 0.8, 1.0, 1.2 };  //mst 分类系数权重：边界-内部，内部-内部，边界-边界
@@ -35,9 +35,9 @@ double Safe_distance_ratio = 0.7;
 
 double Trans_thres = 0.88;  //kernel translucency threshold 
 double Adj_dis_thres = 0.3;
-bool debug_show = true;
+bool debug_show = false;
 bool standard_show = false;
-bool figure_show = true;
+bool figure_show = false;
 bool compare_show = false;
 
 bool Iso_kernel = false;
@@ -46,7 +46,7 @@ bool Direct_dis = false;
 
 bool optimize_debug = true;
 bool Enable_noise = false;
-bool topo_optimize = false;
+bool topo_optimize = true;
 bool dynamic_change_para = true;
 
 std::string trim(const std::string& str) {

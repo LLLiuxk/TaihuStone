@@ -53,8 +53,7 @@ class GPUMMAOptimizer:
             # 增加惩罚力度：如果违反严重，加大约束梯度的权重
             # 显著增加惩罚系数以强制满足约束
             # 再次回调惩罚力度，接近"很好"的状态
-            penalty_factor = 2000.0 + 20000.0 * torch.max(viol).item()
-            #penalty_factor = 220.0 + 2200.0 * torch.max(viol).item()
+            penalty_factor = 220.0 + 2200.0 * torch.max(viol).item()
             step -= penalty_factor * constraint_grad
         # 限制每步移动
         step = torch.clamp(step, -self.move_limit, self.move_limit)
@@ -66,8 +65,7 @@ class GPUMMAOptimizer:
 class GPUTopologyOptimizer:
     """GPU加速的拓扑优化器（支持大模型）"""
     
-    #def __init__(self, print_direction=[0, 0, 1], filter_radius=3.5, device='cuda', use_chunking=False):
-    def __init__(self, print_direction=[0, 0, 1], filter_radius=3, device='cuda', use_chunking=False):
+    def __init__(self, print_direction=[0, 0, 1], filter_radius=3.5, device='cuda', use_chunking=False):
         self.device = device
         self.use_chunking = use_chunking
         self.chunk_size = 64 if use_chunking else None
@@ -77,7 +75,7 @@ class GPUTopologyOptimizer:
         
         # 优化参数 - 进一步调整以避免棋盘格模式
         self.beta_init = 1.0      # 初始值
-        self.beta_max = 15.0      # 降低最大值，避免过度锐化, pre:12
+        self.beta_max = 12.0      # 降低最大值，避免过度锐化
         self.alpha_init = 1.0     
         self.alpha_max = 20.0     
         self.theta_crit = np.pi/4 
@@ -327,8 +325,8 @@ class GPUTopologyOptimizer:
         # 用密度加权，只在有材料的地方施加约束
         # 使用平方项增加对大违反的惩罚力度 (Quadratic Penalty)
         # 这样对大的违反会有更大的梯度，迫使优化器优先解决严重区域
-        #phi_ov = (penalty_value ** 2) * rho_tilde
-        phi_ov = penalty_value * rho_tilde * 50.0  # 再次增强系数，确保在细节保留权重提高时仍能切除倒刺
+        phi_ov = (penalty_value ** 2) * rho_tilde
+        
         # --- 底部基座保护 ---
         # 使用传入的 base_mask 屏蔽底面约束
         if base_mask is not None:
@@ -532,8 +530,7 @@ class GPUTopologyOptimizer:
         union = torch.sum(rho_printed) + torch.sum(target_structure) + 1e-6
         # 我们要最小化 Loss，所以用 1 - Dice
         # 放大 Dice 权重使其梯度在数值上可观
-        #dice_weight = 100000.0 
-        dice_weight = 80000.0 
+        dice_weight = 100000.0 
         loss_dice = (1.0 - (2.0 * intersection / union)) * dice_weight
         
         # B. Weighted MSE (像素级强度匹配)
@@ -543,22 +540,7 @@ class GPUTopologyOptimizer:
         # 使用 sum 而不是 mean，保持与其他项量级一致
         loss_mse = torch.sum(weights * (diff**2))
 
-        #f0 = loss_dice + loss_mse
-          # C. Total Variation (TV) Regularization - 抑制棋盘格而不模糊边缘
-        # TV = sum(|grad_x| + |grad_y| + |grad_z|)
-        # 这种正则化偏好分块常数解(Piecewise Constant)，能保留锐利边缘，同时去除高频振荡
-        rho_p = rho_printed
-        dx = torch.abs(rho_p[1:,:,:] - rho_p[:-1,:,:])
-        dy = torch.abs(rho_p[:,1:,:] - rho_p[:,:-1,:])
-        dz = torch.abs(rho_p[:,:,1:] - rho_p[:,:,:-1])
-        tv_loss = torch.sum(dx) + torch.sum(dy) + torch.sum(dz)
-        
-        # 权重设置：TV 不需要太大，只需足够抑制高频噪声
-        # 降低 TV 权重以允许合法的表面纹理存在
-        tv_weight = 0.1 
-        loss_tv = tv_weight * tv_loss
-
-        f0 = loss_dice + loss_mse + loss_tv
+        f0 = loss_dice + loss_mse
         
         # 计算显式悬挑约束值用于监控（不参与梯度计算）
         # 真正的约束是通过 AM 滤波器隐式实现的
@@ -724,8 +706,7 @@ class GPUTopologyOptimizer:
             # G_ov 是 total unprintable volume。
             # 引入容差 (Tolerance)，允许少量不可打印体积 (例如边缘效应)
             # 容差值设为 400 体素 (约占总体积 0.2%)，避免过度牺牲目标函数
-            # now :10
-            constraint_tolerance = 10.0
+            constraint_tolerance = 400.0
             scale_factor = 100.0
             
             # 构造约束向量: (G_ov - tolerance) / scale <= 0
@@ -747,7 +728,7 @@ class GPUTopologyOptimizer:
             # 自适应阻尼：如果发生剧烈震荡（体素数量跳变），强制回退并减小步长
             # 这里简单地平滑步长，通过动量项减少高频震荡
             if iteration > 0:
-                momentum = 0.5  # 增加动量系数以增强稳定性
+                momentum = 0.8  # 增加动量系数以增强稳定性
                 # 将新计算的x与上一次的x进行平均，抑制跳变
                 x_new = (1 - momentum) * x_new + momentum * x_flat
 
@@ -816,12 +797,12 @@ class GPUTopologyOptimizer:
 
             # 收敛与连续化调整
             # 使用与MMA更新中一致的容差 (约400体素)
-            constraint_tol = 10.0 
+            constraint_tol = 400.0 
             constraints_satisfied = (G_ov <= constraint_tol)
             
             # 1. 密度场收敛判定 (最重要)
             # 如果设计变量不再发生显著变化，说明已经找到了(局部)极值
-            is_density_converged = (max_density_change < 0.001)
+            is_density_converged = (max_density_change < 0.005)
             
             # 2. 目标函数平稳判定
             is_objective_stable = False
@@ -841,7 +822,7 @@ class GPUTopologyOptimizer:
                     print(f"密度已收敛 ({max_density_change:.6f}) 但未满足约束 ({G_ov:.1f} > {constraint_tol})。")
                     # 如果已经非常收敛但约束不满足，可能是参数问题，与其空转不如停止或调整beta
                     # 这里如果是多次连续收敛但违反约束，则强制停止
-                    if iteration > 50 and all(h['max_change'] < 0.001 for h in history[-10:]):
+                    if iteration > 20 and all(h['max_change'] < 0.005 for h in history[-3:]):
                          print("无法进一步满足约束，强制停止优化。")
                          break
 
@@ -901,27 +882,27 @@ class GPUTopologyOptimizer:
             # 目前 verts 是 (z, y, x) 顺序 (对应 numpy 的 axis 0, 1, 2)
             # STL 需要 (x, y, z)
             # 所以我们需要交换第 0 列和第 2 列
+            verts = verts[:, [2, 1, 0]]
         
-            #verts = verts[:, [2, 1, 0]]
-            #res = density.shape[0]
-            #voxel_size = 1.0 / (res - 1)
+            res = density.shape[0]
+            voxel_size = 1.0 / (res - 1)
 
             # 2. 处理缩放逻辑
-            #if voxel_size is not None:
+            if voxel_size is not None:
                 # 【修改点1】修正缩进，使其包含在 if voxel_size is not None 内部
                 # 【修改点2】使用 np.isscalar 增强兼容性（防止 numpy float 类型报错）
-                #if np.isscalar(voxel_size) or isinstance(voxel_size, (int, float)):
-                 #   scale = np.array([voxel_size, voxel_size, voxel_size])
-                #else:
-                 #   scale = np.array(voxel_size) # 假设输入是 (sx, sy, sz)
+                if np.isscalar(voxel_size) or isinstance(voxel_size, (int, float)):
+                    scale = np.array([voxel_size, voxel_size, voxel_size])
+                else:
+                    scale = np.array(voxel_size) # 假设输入是 (sx, sy, sz)
                 
                 # 【修改点3】千万不要忘了应用缩放！
-                #verts = verts * scale
+                verts = verts * scale
 
             # 核心修正：如果C++里是居中的，那么体素网格的左下角起点应该是 -0.5
-           # start_point = (-0.5, -0.5, -0.5)
-            #origin = start_point
+            start_point = (-0.5, -0.5, -0.5)
 
+            origin = start_point
             if origin is not None:
                 ox, oy, oz = origin
                 verts = verts + np.array([ox, oy, oz], dtype=verts.dtype)
