@@ -201,3 +201,119 @@ SupportCheckResult check_result_voxel(VoxelGrid& grid, double densityThreshold)
      
     return result;
 }
+
+
+int removeFloatingSDF(Eigen::VectorXd& SDF, int nx, int ny, int nz, double smooth_radius, int& eliminate_num)
+{
+    int N = nx * ny * nz;
+    std::vector<int> comp_id(N, -1);
+    std::vector<int> comp_size;
+    int cid = 0;
+
+    std::vector<Eigen::Vector3i> stack, nbrs;
+
+    // ===== 1. 连通部件分析（SDF <= 0）=====
+    for (int z = 0; z < nz; ++z)
+        for (int y = 0; y < ny; ++y)
+            for (int x = 0; x < nx; ++x)
+            {
+                int id = x + nx * (y + ny * z); //idx(x, y, z, g);
+                if (SDF[id] <= 0 && comp_id[id] == -1)
+                {
+                    int count = 0;
+                    stack.clear();
+                    stack.emplace_back(x, y, z);
+                    comp_id[id] = cid;
+
+                    while (!stack.empty())
+                    {
+                        auto p = stack.back();
+                        stack.pop_back();
+                        ++count;
+
+                        getNeighbors26(p.x(), p.y(), p.z(), nx, ny, nz, nbrs);
+                        for (auto& q : nbrs)
+                        {
+                            int qid = q.x() + nx * (q.y() + ny * q.z());
+                            if (SDF[qid] <= 0 && comp_id[qid] == -1)
+                            {
+                                comp_id[qid] = cid;
+                                stack.push_back(q);
+                            }
+                        }
+                    }
+                    comp_size.push_back(count);
+                    cid++;
+                }
+            }
+
+    // ===== 2. 找最大部件 =====
+    int main_comp = 0;
+    for (int i = 1; i < cid; ++i)
+        if (comp_size[i] > comp_size[main_comp])
+            main_comp = i;
+
+    // ===== 3. 预收集主结构体素 =====
+    std::vector<int> main_voxels;
+    for (int i = 0; i < N; ++i)
+        if (comp_id[i] == main_comp)
+            main_voxels.push_back(i);
+
+    // ===== 4. 平滑消除孤岛 =====
+    int modified = 0;
+    int removed_components = cid - 1;
+
+    for (int i = 0; i < N; ++i)
+    {
+        if (comp_id[i] >= 0 && comp_id[i] != main_comp)
+        {
+            // 最近主结构体素距离（粗暴 O(N)，你之后可换 KD-tree）
+            double min_d2 = 1e30;
+
+            int z = i / (nx * ny);
+            int y = (i - z * nx * ny) / nx;
+            int x = i % nx;
+
+            for (int j : main_voxels)
+            {
+                int mz = j / (nx * ny);
+                int my = (j - mz * nx * ny) / nx;
+                int mx = j % nx;
+
+                double dx = (x - mx);
+                double dy = (y - my);
+                double dz = (z - mz);
+                min_d2 = std::min(min_d2, dx * dx + dy * dy + dz * dz);
+            }
+
+            double d = std::sqrt(min_d2);
+            double t = std::min(d / smooth_radius, 1.0);
+
+            // smoothstep 推回正值
+            double s = t * t * (3 - 2 * t);
+            SDF[i] = s * std::abs(SDF[i]);
+
+            modified++;
+        }
+    }
+    eliminate_num = modified;
+    return removed_components;
+}
+
+void getNeighbors26(int x, int y, int z, int nx, int ny, int nz, std::vector<Eigen::Vector3i>& nbrs)
+{
+    nbrs.clear();
+    for (int dx = -1; dx <= 1; ++dx)
+        for (int dy = -1; dy <= 1; ++dy)
+            for (int dz = -1; dz <= 1; ++dz)
+            {
+                if (dx == 0 && dy == 0 && dz == 0) continue;
+                int nx_ = x + dx, ny_ = y + dy, nz_ = z + dz;
+                if (nx_ >= 0 && nx_ < nx &&
+                    ny_ >= 0 && ny_ < ny &&
+                    nz_ >= 0 && nz_ < nz)
+                {
+                    nbrs.emplace_back(nx_, ny_, nz_);
+                }
+            }
+}

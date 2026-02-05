@@ -706,7 +706,7 @@ class GPUTopologyOptimizer:
             # G_ov 是 total unprintable volume。
             # 引入容差 (Tolerance)，允许少量不可打印体积 (例如边缘效应)
             # 容差值设为 400 体素 (约占总体积 0.2%)，避免过度牺牲目标函数
-            constraint_tolerance = 100.0
+            constraint_tolerance = 400.0
             scale_factor = 100.0
             
             # 构造约束向量: (G_ov - tolerance) / scale <= 0
@@ -797,7 +797,7 @@ class GPUTopologyOptimizer:
 
             # 收敛与连续化调整
             # 使用与MMA更新中一致的容差 (约400体素)
-            constraint_tol = 100.0 
+            constraint_tol = 400.0 
             constraints_satisfied = (G_ov <= constraint_tol)
             
             # 1. 密度场收敛判定 (最重要)

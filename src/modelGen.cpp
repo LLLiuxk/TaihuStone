@@ -267,7 +267,6 @@ void ModelGenerator::generateGaussianSDF()
 
     std::cout << "--------------------5. Generate tubes between kernels based on optimized mst --------------------" << endl;
     //-----------------generate tubes------------------------------------------
-    auto start_time = std::chrono::high_resolution_clock::now();
 
     double solid_count = generate_mst_tubes(edge_con_final, grid_num, resolution, Isolevel, Gauss_level, SmoothT);
     initPorosity = 1.0 - solid_count / model_solid_num;
@@ -287,12 +286,8 @@ void ModelGenerator::generateGaussianSDF()
         igl::read_triangle_mesh("D:/VSprojects/TaihuStone/result/final/namaqualand_60_opt/namaqualand_final.stl", V_o, F_o);
         vis_KerLine_model(V_o, F_o, pore_centers, edge_con_final, true, "After optimization connection");
         view_two_models(V_out, F_out, V_t, F_t);
+        //saveSDFtoVTI("D:\\VSprojects\\TaihuStone\\src\\origin_model2.VTI", SDF_out, resolution, resolution, resolution);
     }
-    saveSDFtoVTI("D:\\VSprojects\\TaihuStone\\src\\origin_model2.VTI", SDF_out, resolution, resolution, resolution);
-
-    auto end_time = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-    std::cout << "generate_mst_tubes completed in " << duration.count() / 1000.0 << " s" << std::endl;
 
     //output save
     VoxelGrid grids = SDFtoVoxel(SDF_out, bb_min, bb_max, resolution, resolution, resolution);
@@ -412,7 +407,7 @@ void ModelGenerator::sample_interior_points(std::vector<Eigen::Vector3d>& pore_c
                     continue;
         }
         //cout << chosen_idx << "    " << chosen_idx / (Resolution * Resolution) << "   " << base_layer + 15 << endl;
-        if (chosen_idx / (Resolution * Resolution) < base_layer + 8)
+        if (chosen_idx / (Resolution * Resolution) < base_layer + 15)
         {
             //cout << chosen_idx << "    " << chosen_idx / (Resolution * Resolution) << "   " << base_layer + 8 << endl;
             continue;
@@ -438,7 +433,7 @@ void ModelGenerator::sample_interior_points(std::vector<Eigen::Vector3d>& pore_c
                 cout << "pore_sdfs: " << SDF(chosen_idx) << endl;
         }
     }
-    cout << "base layer: "<< base_layer<<"   sample layer: "<< base_layer + 8 << endl;
+    cout << "base layer: "<< base_layer<<"   sample layer: "<< base_layer + 15 << endl;
     std::cout << "Generate " << pore_centers.size() << " kernels   " << all_sam_num<<" , include "<< surface_p <<" sp with safe_dis: "<< Safe_distance_ratio << std::endl;
 }
 
@@ -1668,7 +1663,7 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, vector<int>&
             }
             if (curr_edge_num < edge_max_num && !add_end && Adj_list[i].size() < Max_degree+1)  //没有到边数上限且新增边能增加score，则选择添加边
             {
-                cout << "Adding - Max_degree + 1: " << Adj_list[i].size()<<" vs "<<Max_degree + 1 << endl;
+                //cout << "Adding - Max_degree + 1: " << Adj_list[i].size()<<" vs "<<Max_degree + 1 << endl;
                 double max_delta_score = 0;
                 int chosen_cand = -1;
                 Edge chosen_e;
@@ -1729,9 +1724,9 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, vector<int>&
             }
             else if(!replace_end) //到达边数上限，或者增加边无法提升得分，则选择替换边
             {
-                cout << "Replace - Max_degree + 1: " << Adj_list[i].size() << " vs " << Max_degree + 1 << endl;
                 if (debug_show)
                 {
+                    cout << "Replace - Max_degree + 1: " << Adj_list[i].size() << " vs " << Max_degree + 1 << endl;
                     if(curr_edge_num >= edge_max_num) 
                         cout << "Reach the edge LIMITATION, REPLACE the edge!" << endl;
                     else if(add_end)
@@ -2258,6 +2253,11 @@ int ModelGenerator::generate_mst_tubes(std::vector<pair<int, int>> edge_con, int
     }
     //std::cout << "成功在仿生形状内放置 " << void_centers.size() << " 个空洞点" << std::endl;
 
+    //filter island
+    int eliminate_num = 0;
+    int eli_parts = removeFloatingSDF(SDF_out, res, res, res, 2, eliminate_num);
+    cout << "ELIMINATE islands num : " << eli_parts << " for total units num :" << eliminate_num << endl;
+   
     // Marching Cubes
     MarchingCubes(SDF_out, GV, res, res, res, iso, V_out, F_out);   //final result
 
@@ -2274,12 +2274,12 @@ int ModelGenerator::generate_mst_tubes(std::vector<pair<int, int>> edge_con, int
         //vector<double> sdfout;
         //string npy_filename = "D:/VSprojects/TaihuStone/src/sdf_out_tube.npy";
         //string vti_filename = "D:/VSprojects/TaihuStone/src/sdf_out_tube.vti";
-        //string stl_filename = "D:/VSprojects/TaihuStone/src/sdf_out_tube.stl";
+        string stl_filename = "D:/VSprojects/TaihuStone/src/sdf_out_tube.stl";
         //for (auto so : SDF_gaussian_tubes)
         //    sdfout.push_back(so);
         //saveVoxelGridAsNPY(sdfout, resolution, npy_filename);
         //saveSDFtoVTI(vti_filename, SDF_gaussian_tubes, res, res, res);
-        //saveMesh(stl_filename, V_g, F_g);
+        saveMesh(stl_filename, V_t, F_t);
 
 
         MarchingCubes(SDF_only_tubes, GV, res, res, res, iso, V_t, F_t);  //gaussian combined with tubes

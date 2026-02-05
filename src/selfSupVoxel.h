@@ -70,3 +70,9 @@ SupportCheckResult checkSupportVoxel(VoxelGrid& grid, double densityThreshold = 
 int findBaseLayer(const VoxelGrid& grid, double densityThreshold);
 
 SupportCheckResult checkFloatingVoxel(VoxelGrid& grid, double densityThreshold = 0.5);
+
+
+
+int removeFloatingSDF(Eigen::VectorXd& SDF, int nx, int ny, int nz, double smooth_radius, int& eliminate_num);
+
+void getNeighbors26(int x, int y, int z, int nx, int ny, int nz, std::vector<Eigen::Vector3i>& nbrs);

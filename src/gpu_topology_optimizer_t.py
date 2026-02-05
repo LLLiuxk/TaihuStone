@@ -894,6 +894,34 @@ class GPUTopologyOptimizer:
             # 修正坐标：由于 padding 导致原点偏移了 (1,1,1)，需要减回去
             verts = verts - pad_width
             
+                        
+            # ==========================================================
+            # 关键修正 A：轴顺序调整 (解决角度问题)
+            # ==========================================================
+            # 目前 verts 是 (z, y, x) 顺序 (对应 numpy 的 axis 0, 1, 2)
+            # STL 需要 (x, y, z)
+            # 所以我们需要交换第 0 列和第 2 列
+            verts = verts[:, [2, 1, 0]]
+        
+            res = density.shape[0]
+            voxel_size = 1.0 / (res - 1)
+
+            # 2. 处理缩放逻辑
+            if voxel_size is not None:
+                # 【修改点1】修正缩进，使其包含在 if voxel_size is not None 内部
+                # 【修改点2】使用 np.isscalar 增强兼容性（防止 numpy float 类型报错）
+                if np.isscalar(voxel_size) or isinstance(voxel_size, (int, float)):
+                    scale = np.array([voxel_size, voxel_size, voxel_size])
+                else:
+                    scale = np.array(voxel_size) # 假设输入是 (sx, sy, sz)
+                
+                # 【修改点3】千万不要忘了应用缩放！
+                verts = verts * scale
+
+            # 核心修正：如果C++里是居中的，那么体素网格的左下角起点应该是 -0.5
+            start_point = (-0.5, -0.5, -0.5)
+
+            origin = start_point
             if origin is not None:
                 ox, oy, oz = origin
                 verts = verts + np.array([ox, oy, oz], dtype=verts.dtype)

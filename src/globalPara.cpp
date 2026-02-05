@@ -19,7 +19,7 @@ double Sigma_min = 0.015;
 double Sigma_max = 0.033;
 double W4sig_max = 3.0;
 double W4sig_min = 25.0; 
-double Axis_max_ratio = 1.7;
+double Axis_max_ratio = 1.8;
 //250: 0.02, 0.04
 //150~200: 0.025, 0.045
 // 100: 0.033, 0.05
@@ -30,18 +30,18 @@ double Axis_max_ratio = 1.7;
 // w for max = 5.0     for min = 30
 
 double SmoothT = 15;    //控制平滑布尔的平滑区域大小, 越大，平滑效果越小，趋近于普通并集
-double Tube_radius_factor = 0.7; // 控制管道半径相对于高斯核半径的比例, mid_radius_factor越大，通道越粗
-double Safe_distance_ratio = 0.7;
+double Tube_radius_factor = 0.8; // 控制管道半径相对于高斯核半径的比例, mid_radius_factor越大，通道越粗
+double Safe_distance_ratio = 0.8;
 
 double Trans_thres = 0.88;  //kernel translucency threshold 
-double Adj_dis_thres = 0.3;
+double Adj_dis_thres = 0.4;
 bool debug_show = false;
 bool standard_show = false;
 bool figure_show = false;
 bool compare_show = false;
 
 bool Iso_kernel = false;
-bool Handle_overlap = false;
+bool Handle_overlap = true;
 bool Direct_dis = false;
 
 bool optimize_debug = true;
