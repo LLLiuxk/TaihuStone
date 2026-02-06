@@ -107,9 +107,21 @@ void ModelGenerator::model_porous_structure()
     //std::cout << "Model A loaded successfully." << std::endl;
     scale_factor = Mesh2SDF(V_ini, F_ini, GV, SDF_ini, bb_min, bb_max);
     //saveSDFtoNPY("D:\\VSprojects\\TaihuStone\\src\\origin_model.npy", SDF_ini, resolution);
-    saveSDFtoVTI("D:\\VSprojects\\TaihuStone\\src\\origin_model.VTI", SDF_ini, resolution, resolution, resolution);
+    //saveSDFtoVTI("D:\\VSprojects\\TaihuStone\\src\\origin_model.VTI", SDF_ini, resolution, resolution, resolution);
     //Vector3d point = GV.row(10010);
     //cout << "point index: " << find_nearest_grid(point) << endl;
+    std::string outputPrefix = "D:/VSprojects/TaihuStone/result/" + input_file + "_" + std::to_string(PoresNum) + "_" + to_string_pre(Trans_thres) + "_opt/";
+
+    if (std::filesystem::exists(outputPrefix)) {
+        std::cout << "Directory already exists: " << outputPrefix << std::endl;
+    }
+    else {
+        // create_directories 会递归创建路径（例如父目录不存在也会一并创建）
+        if (!std::filesystem::create_directories(outputPrefix))
+            std::cerr << "Failed to create directory: " << outputPrefix << std::endl;
+    }
+    saveParameters(outputPrefix + generateFilename());
+
     generateGaussianSDF();
 
     if(topo_optimize)
@@ -209,7 +221,7 @@ void ModelGenerator::generateGaussianSDF()
     {
         //optimize_mst2(opt_times_once, edge_max, false,  NO_DEBUG);
 		int iter_count = 0;
-        while (iter_count< iter_times && delta_score_t > 5e-3)
+        while (iter_count< iter_times && delta_score_t > 1e-2)
         {
             std::cout << "-------------  The " << iter_count++<< " iterations start, the edge limition is:"<< edge_max<<"... ------------ - "<< endl;
             vector<int> rep_vec;
@@ -225,14 +237,14 @@ void ModelGenerator::generateGaussianSDF()
 
             if (figure_show)
             {
-                /*cout<< "rep_vec .size()" << rep_vec.size() << endl;
+                cout<< "rep_vec .size()" << rep_vec.size() << endl;
                 edge_con_final.clear();
                 for (auto e : Tube_edges) edge_con_final.push_back(make_pair(e.from, e.to));
                 for(auto rv: rep_vec)
 					cout << "Replace (" << edge_con_mbdst[rv].first << " " << edge_con_mbdst[rv].second << ")  to (" << edge_con_final[rv].first << " " << edge_con_final[rv].second << ")" << endl;
                 std::vector<pair<int, int>> edge_con_total;
                 std::vector<int> mask = compare_edges2(edge_con_mbdst, edge_con_final, edge_con_total, rep_vec);
-                vis_opt_cons(pore_centers, edge_con_total, mask, "compare_lines");*/
+                vis_opt_cons(pore_centers, edge_con_total, mask, "compare_lines");
                 //vis_compare_cons(pore_centers, edge_con_mbdst, mask[0], "compare_lines");
                 //vis_compare_cons(pore_centers, edge_con_final, mask[1], "compare_lines");
             }
@@ -293,17 +305,7 @@ void ModelGenerator::generateGaussianSDF()
     VoxelGrid grids = SDFtoVoxel(SDF_out, bb_min, bb_max, resolution, resolution, resolution);
     SupportCheckResult scr = check_result_voxel(grids, 0.5);
 
-    std::string outputPrefix = "D:/VSprojects/TaihuStone/result/" + input_file + "_" + std::to_string(PoresNum) + "_opt/";
-
-    if (std::filesystem::exists(outputPrefix)) {
-        std::cout << "Directory already exists: " << outputPrefix << std::endl;
-    }
-    else {
-        // create_directories 会递归创建路径（例如父目录不存在也会一并创建）
-        if (!std::filesystem::create_directories(outputPrefix))
-            std::cerr << "Failed to create directory: " << outputPrefix << std::endl;
-    }
-
+    std::string outputPrefix = "D:/VSprojects/TaihuStone/result/" + input_file + "_" + std::to_string(PoresNum) + "_" + to_string_pre(Trans_thres) + "_opt/";
     std::string npy_filename = outputPrefix + input_file + "_voxelized_model_" + std::to_string(PoresNum)+"_" + std::to_string(resolution) + "^3" + ".npy";
     saveVoxelGridAsNPY(grids.rho, resolution, npy_filename);
     std::string filename = outputPrefix + input_file;
@@ -327,7 +329,7 @@ void ModelGenerator::generateGaussianSDF()
 void ModelGenerator::supportFreeOpt()
 {
 
-    std::string outputPrefix = "D:/VSprojects/TaihuStone/result/" + input_file + "_" + std::to_string(PoresNum) + "_opt/";
+    std::string outputPrefix = "D:/VSprojects/TaihuStone/result/" + input_file + "_" + std::to_string(PoresNum) + "_" + to_string_pre(Trans_thres) + "_opt/";
     std::string npy_filename = outputPrefix + input_file + "_voxelized_model_" + std::to_string(PoresNum) + "_" + std::to_string(resolution) + "^3" + ".npy";
 
     optimize_model_py(npy_filename, outputPrefix);
@@ -407,7 +409,7 @@ void ModelGenerator::sample_interior_points(std::vector<Eigen::Vector3d>& pore_c
                     continue;
         }
         //cout << chosen_idx << "    " << chosen_idx / (Resolution * Resolution) << "   " << base_layer + 15 << endl;
-        if (chosen_idx / (Resolution * Resolution) < base_layer + 15)
+        if (chosen_idx / (Resolution * Resolution) < base_layer + BaseLayer)
         {
             //cout << chosen_idx << "    " << chosen_idx / (Resolution * Resolution) << "   " << base_layer + 8 << endl;
             continue;
@@ -433,8 +435,39 @@ void ModelGenerator::sample_interior_points(std::vector<Eigen::Vector3d>& pore_c
                 cout << "pore_sdfs: " << SDF(chosen_idx) << endl;
         }
     }
-    cout << "base layer: "<< base_layer<<"   sample layer: "<< base_layer + 15 << endl;
+    cout << "base layer: "<< base_layer<<"   sample layer: "<< base_layer + BaseLayer << endl;
     std::cout << "Generate " << pore_centers.size() << " kernels   " << all_sam_num<<" , include "<< surface_p <<" sp with safe_dis: "<< Safe_distance_ratio << std::endl;
+
+    const double sphereRadius = 0.01;
+    const int  sphereSubdiv = 3;
+    MatrixXd V_unit;
+    MatrixXi F_unit;
+    igl::icosahedron(V_unit, F_unit);
+    for (int i = 0; i < sphereSubdiv; ++i)
+        igl::loop(V_unit, F_unit, V_unit, F_unit);
+
+    for (int i = 0; i < V_unit.rows(); ++i)
+        V_unit.row(i).normalize(); // project to unit sphere
+    V_unit *= sphereRadius;
+
+    int Nv = V_unit.rows();
+    int Nf = F_unit.rows();
+    int Np = pore_centers.size();
+    MatrixXd V_all(Np * Nv, 3);
+    MatrixXi F_all(Np * Nf, 3);
+
+    for (int i = 0; i < Np; ++i)
+    {
+        V_all.block(i * Nv, 0, Nv, 3) =
+            V_unit.rowwise() + pore_centers[i].transpose();
+
+        F_all.block(i * Nf, 0,
+            Nf, 3) =
+            F_unit.array() + i * Nv;
+    }
+    std::string outputPrefix = "D:/VSprojects/TaihuStone/result/" + input_file + "_" + std::to_string(PoresNum) + "_opt/";
+    saveMesh(outputPrefix + "kernels.stl", V_all, F_all);
+
 }
 
 void ModelGenerator::sample_interior_close(std::vector<Eigen::Vector3d>& pore_centers, std::vector<double>& pore_sdfs, std::vector<int>& inside_indices, int pores, std::mt19937& gen)
@@ -1504,8 +1537,8 @@ bool ModelGenerator::replace_edges(int p_index, int replace_e, std::vector<Edge>
 
     for (int candidate_p : unused_adj_new[p_index])
     {
-        if (adj_new[candidate_p].size() >= Max_degree + 1)
-            continue;
+        //if (adj_new[candidate_p].size() >= Max_degree + 1)
+        //    continue;
         double dist = distance(Kernels[p_index].center, Kernels[candidate_p].center);
         double dist_w = dist * calculate_edge_weight(Kernels[p_index], Kernels[candidate_p]);
         Edge cand_edge = { p_index, candidate_p, dist, dist_w };
@@ -1661,7 +1694,7 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, vector<int>&
                     cout << "Both Adding and Replacing END for Kernel " << i << "! Exit optimization for this kernel!" << endl;
 				break;
             }
-            if (curr_edge_num < edge_max_num && !add_end && Adj_list[i].size() < Max_degree+1)  //没有到边数上限且新增边能增加score，则选择添加边
+            if (curr_edge_num < edge_max_num && !add_end /*&& Adj_list[i].size() < Max_degree+1*/)  //没有到边数上限且新增边能增加score，则选择添加边
             {
                 //cout << "Adding - Max_degree + 1: " << Adj_list[i].size()<<" vs "<<Max_degree + 1 << endl;
                 double max_delta_score = 0;
@@ -1672,8 +1705,8 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, vector<int>&
 
                 for (int candidate_p : Unused_adj_list[i])
                 {
-                    if (Adj_list[candidate_p].size() >= Max_degree + 1)
-                        continue;
+                    //if (Adj_list[candidate_p].size() >= Max_degree + 1)
+                    //    continue;
                     double dist = distance(Kernels[i].center, Kernels[candidate_p].center);
                     double dist_w = dist * calculate_edge_weight(Kernels[i], Kernels[candidate_p]);
                     Edge cand_edge = { i, candidate_p, dist, dist_w };
@@ -2274,13 +2307,13 @@ int ModelGenerator::generate_mst_tubes(std::vector<pair<int, int>> edge_con, int
         //vector<double> sdfout;
         //string npy_filename = "D:/VSprojects/TaihuStone/src/sdf_out_tube.npy";
         //string vti_filename = "D:/VSprojects/TaihuStone/src/sdf_out_tube.vti";
-        string stl_filename = "D:/VSprojects/TaihuStone/src/sdf_out_tube.stl";
         //for (auto so : SDF_gaussian_tubes)
         //    sdfout.push_back(so);
         //saveVoxelGridAsNPY(sdfout, resolution, npy_filename);
         //saveSDFtoVTI(vti_filename, SDF_gaussian_tubes, res, res, res);
+        string stl_filename = "D:/VSprojects/TaihuStone/src/sdf_out_tube.stl";
+        cout << "saveMesh to " << stl_filename << endl;
         saveMesh(stl_filename, V_t, F_t);
-
 
         MarchingCubes(SDF_only_tubes, GV, res, res, res, iso, V_t, F_t);  //gaussian combined with tubes
         view_model(V_t, F_t, "Only tubes field");

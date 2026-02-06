@@ -26,7 +26,7 @@ extern double Sigma_max;
 extern double W4sig_max; //7.0
 extern double W4sig_min; // 42.0;
 extern double Axis_max_ratio;
-
+extern double BaseLayer;
 
 extern double Gauss_level;
 
@@ -58,3 +58,11 @@ std::string trim(const std::string& str);
 std::vector<double> parseVector(std::string valStr);
 
 bool loadParameters(const std::string& filename);
+
+void writeVector(std::ofstream& ofs, const std::string& name, const std::vector<double>& vec);
+
+void saveParameters(const std::string& filename);
+
+inline int b2i(bool v) { return v ? 1 : 0; }
+
+std::string generateFilename();

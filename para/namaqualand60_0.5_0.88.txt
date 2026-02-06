@@ -32,7 +32,7 @@ Adj_dis_thres = 0.3
 #布尔值可以使用 true/false 或者 1/0
 debug_show = false
 standard_show = false
-figure_show = false
+figure_show = true
 compare_show = false
 Iso_kernel = false
 Handle_overlap = false

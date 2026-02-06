@@ -538,7 +538,8 @@ void vis_Kernels_Tubes(std::vector<Eigen::Vector3d>& points, std::vector<pair<in
             Nf, 3) =
             F_unit.array() + i * Nv;
     }
-	saveMesh("D:/VSprojects/TaihuStone/result/vis_kernels_tubes/" + win_name + ".stl", V_all, F_all);
+ //   std::string outputPrefix = "D:/VSprojects/TaihuStone/result/" + input_file + "_" + std::to_string(PoresNum) + "_opt/";
+	//saveMesh(outputPrefix + "kernels.stl", V_all, F_all);
     viewer.data().set_mesh(V_all, F_all);
     viewer.data().set_colors(sphereColor);
     viewer.data().show_lines = false;
@@ -844,18 +845,6 @@ void vis_KerLine_model(Eigen::MatrixXd V1, Eigen::MatrixXi F1, std::vector<Eigen
     const double sphereRadius = 0.01;
     const double lineWidth = 5;
     const int  sphereSubdiv = 3;
-    vector<RowVector3d> colors = { RowVector3d(0.90, 0.62, 0.0), //orange
-        RowVector3d(0.95, 0.7, 0.30), //light orange
-        RowVector3d(0.0, 0.44, 0.70),  //blue
-        RowVector3d(0.14, 0.24, 0.52),  //drak blue
-        RowVector3d(0.8, 0.33, 0.20),  //muted red
-        RowVector3d(0.8, 0.1, 0.1),  //red
-        RowVector3d(0.0, 0.44, 0.70),  // dark gray
-        RowVector3d(0.0, 0.62, 0.45),  //drak green
-        RowVector3d(0.8, 0.47, 0.65), //pink red
-        RowVector3d(0.84, 0.37, 0.0), //brick red
-        RowVector3d(0.94, 0.89, 0.26)  //yellow
-    };
     // ---- Color palette ----
     const RowVector3d sphereColor = colors[5]; // muted red
     const RowVector3d lineColor = colors[1]; // dark gray

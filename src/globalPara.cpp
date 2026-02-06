@@ -1,6 +1,6 @@
 #include "globalPara.h" 
 
-std::string input_file = "RockSetBr_rotated"; //"RockSetBr_rotated"; //RockSetBr  test_cube
+std::string input_file = "namaqualand"; //"RockSetBr_rotated"; //RockSetBr  test_cube
 int Resolution = 128;
 
 std::vector<double> Weights = { 0.8, 1.0, 1.2 };  //mst 分类系数权重：边界-内部，内部-内部，边界-边界
@@ -9,7 +9,7 @@ double Isolevel = 0;
 double Gauss_level = 0.5;
 
 int PoresNum = 60;
-double surface_ratio = 0.55; //表面核占比
+double surface_ratio = 0.6; //表面核占比
 
 int Max_degree = 5;
 
@@ -17,9 +17,11 @@ double Amplitude_min = 1.0;
 double Amplitude_max = 1.0;
 double Sigma_min = 0.015;
 double Sigma_max = 0.033;
-double W4sig_max = 3.0;
-double W4sig_min = 25.0; 
-double Axis_max_ratio = 1.8;
+double W4sig_max = 4.0;
+double W4sig_min = 30.0; 
+double Axis_max_ratio = 1.7;
+
+double BaseLayer = 8; // 15  for Ceramic clay printing
 //250: 0.02, 0.04
 //150~200: 0.025, 0.045
 // 100: 0.033, 0.05
@@ -31,19 +33,19 @@ double Axis_max_ratio = 1.8;
 
 double SmoothT = 15;    //控制平滑布尔的平滑区域大小, 越大，平滑效果越小，趋近于普通并集
 double Tube_radius_factor = 0.8; // 控制管道半径相对于高斯核半径的比例, mid_radius_factor越大，通道越粗
-double Safe_distance_ratio = 0.8;
+double Safe_distance_ratio = 0.7;
 
 double Trans_thres = 0.88;  //kernel translucency threshold 
-double Adj_dis_thres = 0.4;
+double Adj_dis_thres = 0.3;
 bool debug_show = false;
 bool standard_show = false;
 bool figure_show = false;
 bool compare_show = false;
 
 bool Iso_kernel = false;
-bool Handle_overlap = true;
 bool Direct_dis = false;
 
+bool Handle_overlap = false;
 bool optimize_debug = true;
 bool Enable_noise = false;
 bool topo_optimize = true;
@@ -133,4 +135,97 @@ bool loadParameters(const std::string& filename) {
     }
     file.close();
     return true;
+}
+
+void writeVector(std::ofstream& ofs, const std::string& name,
+    const std::vector<double>& vec)
+{
+    ofs << name << " = ";
+    for (size_t i = 0; i < vec.size(); ++i)
+    {
+        ofs << vec[i];
+        if (i + 1 < vec.size()) ofs << ", ";
+    }
+    ofs << "\n";
+}
+
+void saveParameters(const std::string& filename)
+{
+    std::ofstream ofs(filename);
+    if (!ofs.is_open())
+    {
+        std::cerr << "Failed to open file: " << filename << std::endl;
+        return;
+    }
+
+    ofs << "input_file = " << input_file << "\n";
+    ofs << "Resolution = " << Resolution << "\n";
+
+    writeVector(ofs, "Weights", Weights);
+    writeVector(ofs, "KT_weights", KT_weights);
+
+    ofs << "Isolevel = " << Isolevel << "\n";
+    ofs << "Gauss_level = " << Gauss_level << "\n";
+
+    ofs << "PoresNum = " << PoresNum << "\n";
+    ofs << "surface_ratio = " << surface_ratio << "\n";
+
+    ofs << "Max_degree = " << Max_degree << "\n";
+
+    ofs << "Amplitude_min = " << Amplitude_min << "\n";
+    ofs << "Amplitude_max = " << Amplitude_max << "\n";
+    ofs << "Sigma_min = " << Sigma_min << "\n";
+    ofs << "Sigma_max = " << Sigma_max << "\n";
+    ofs << "W4sig_max = " << W4sig_max << "\n";
+    ofs << "W4sig_min = " << W4sig_min << "\n";
+    ofs << "Axis_max_ratio = " << Axis_max_ratio << "\n";
+
+    ofs << "SmoothT = " << SmoothT << "\n";
+    ofs << "Tube_radius_factor = " << Tube_radius_factor << "\n";
+    ofs << "Safe_distance_ratio = " << Safe_distance_ratio << "\n";
+
+    ofs << "Trans_thres = " << Trans_thres << "\n";
+    ofs << "Adj_dis_thres = " << Adj_dis_thres << "\n";
+
+    ofs << "debug_show = " << std::boolalpha << debug_show << "\n";
+    ofs << "standard_show = " << standard_show << "\n";
+    ofs << "figure_show = " << figure_show << "\n";
+    ofs << "compare_show = " << compare_show << "\n";
+
+    ofs << "Iso_kernel = " << Iso_kernel << "\n";
+    ofs << "Direct_dis = " << Direct_dis << "\n";
+
+    ofs << "Handle_overlap = " << Handle_overlap << "\n";
+    ofs << "optimize_debug = " << optimize_debug << "\n";
+    ofs << "Enable_noise = " << Enable_noise << "\n";
+    ofs << "topo_optimize = " << topo_optimize << "\n";
+    ofs << "dynamic_change_para = " << dynamic_change_para << "\n";
+
+    ofs.close();
+}
+
+std::string generateFilename()
+{
+    std::ostringstream oss;
+
+    oss/* << std::fixed << std::setprecision(3)*/
+        << input_file
+        << "_" << Resolution
+        << "_" << PoresNum
+        << "_" << surface_ratio
+        << "_" << W4sig_max
+        << "_" << W4sig_min
+        << "_" << Axis_max_ratio
+        << "_" << Safe_distance_ratio
+        << "_" << Trans_thres
+        << "_" << Adj_dis_thres
+        << "_"
+        << b2i(Handle_overlap)
+        << b2i(optimize_debug)
+        << b2i(Enable_noise)
+        << b2i(topo_optimize)
+        << b2i(dynamic_change_para)
+        <<".txt";
+
+    return oss.str();
 }
