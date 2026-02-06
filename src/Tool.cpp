@@ -1095,8 +1095,8 @@ VoxelGrid SDFtoVoxel(Eigen::VectorXd& sdf, Eigen::Vector3d minBox, Eigen::Vector
             {
 				int index = i + j * nx + k * nx * ny;
                 double phi = sdf(index);   // ÄãµÄ SDF ²éÑ¯
-                double rho = smoothHeaviside(phi, eps);
-                //double rho = hardTrans(phi, 0.0);
+                //double rho = smoothHeaviside(phi, eps);
+                double rho = hardTrans(phi, 0.0);
                 if (rho > 0.9) neg_num++;
                 grid.at(i, j, k) = rho;
             }

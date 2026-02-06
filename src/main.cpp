@@ -35,6 +35,7 @@ int main(int argc, char* argv[])
     std::cout << "compare_show: " << compare_show << std::endl;
     std::cout << "topo_optimize: " << topo_optimize << std::endl;
     std::cout << "figure_show: " << figure_show << std::endl;
+    std::cout << "Trans_thres: " << Trans_thres << std::endl;
     std::cout << "--------------------------" << std::endl;
 
 

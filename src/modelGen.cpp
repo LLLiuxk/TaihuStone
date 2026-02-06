@@ -110,7 +110,7 @@ void ModelGenerator::model_porous_structure()
     //saveSDFtoVTI("D:\\VSprojects\\TaihuStone\\src\\origin_model.VTI", SDF_ini, resolution, resolution, resolution);
     //Vector3d point = GV.row(10010);
     //cout << "point index: " << find_nearest_grid(point) << endl;
-    std::string outputPrefix = "D:/VSprojects/TaihuStone/result/" + input_file + "_" + std::to_string(PoresNum) + "_" + to_string_pre(Trans_thres) + "_opt/";
+    outputPrefix = "D:/VSprojects/TaihuStone/result/" + input_file + "_" + std::to_string(PoresNum) + "_" + to_string_pre(Trans_thres, 2) + "_opt/";
 
     if (std::filesystem::exists(outputPrefix)) {
         std::cout << "Directory already exists: " << outputPrefix << std::endl;
@@ -305,7 +305,7 @@ void ModelGenerator::generateGaussianSDF()
     VoxelGrid grids = SDFtoVoxel(SDF_out, bb_min, bb_max, resolution, resolution, resolution);
     SupportCheckResult scr = check_result_voxel(grids, 0.5);
 
-    std::string outputPrefix = "D:/VSprojects/TaihuStone/result/" + input_file + "_" + std::to_string(PoresNum) + "_" + to_string_pre(Trans_thres) + "_opt/";
+    //std::string outputPrefix = "D:/VSprojects/TaihuStone/result/" + input_file + "_" + std::to_string(PoresNum) + "_" + to_string_pre(Trans_thres, 2) + "_opt/";
     std::string npy_filename = outputPrefix + input_file + "_voxelized_model_" + std::to_string(PoresNum)+"_" + std::to_string(resolution) + "^3" + ".npy";
     saveVoxelGridAsNPY(grids.rho, resolution, npy_filename);
     std::string filename = outputPrefix + input_file;
@@ -328,8 +328,7 @@ void ModelGenerator::generateGaussianSDF()
 
 void ModelGenerator::supportFreeOpt()
 {
-
-    std::string outputPrefix = "D:/VSprojects/TaihuStone/result/" + input_file + "_" + std::to_string(PoresNum) + "_" + to_string_pre(Trans_thres) + "_opt/";
+    //std::string outputPrefix = "D:/VSprojects/TaihuStone/result/" + input_file + "_" + std::to_string(PoresNum) + "_" + to_string_pre(Trans_thres, 2) + "_opt/";
     std::string npy_filename = outputPrefix + input_file + "_voxelized_model_" + std::to_string(PoresNum) + "_" + std::to_string(resolution) + "^3" + ".npy";
 
     optimize_model_py(npy_filename, outputPrefix);
@@ -465,7 +464,6 @@ void ModelGenerator::sample_interior_points(std::vector<Eigen::Vector3d>& pore_c
             Nf, 3) =
             F_unit.array() + i * Nv;
     }
-    std::string outputPrefix = "D:/VSprojects/TaihuStone/result/" + input_file + "_" + std::to_string(PoresNum) + "_opt/";
     saveMesh(outputPrefix + "kernels.stl", V_all, F_all);
 
 }
@@ -1537,8 +1535,8 @@ bool ModelGenerator::replace_edges(int p_index, int replace_e, std::vector<Edge>
 
     for (int candidate_p : unused_adj_new[p_index])
     {
-        //if (adj_new[candidate_p].size() >= Max_degree + 1)
-        //    continue;
+        if (adj_new[candidate_p].size() >= Max_degree + 1)
+            continue;
         double dist = distance(Kernels[p_index].center, Kernels[candidate_p].center);
         double dist_w = dist * calculate_edge_weight(Kernels[p_index], Kernels[candidate_p]);
         Edge cand_edge = { p_index, candidate_p, dist, dist_w };
@@ -1694,7 +1692,7 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, vector<int>&
                     cout << "Both Adding and Replacing END for Kernel " << i << "! Exit optimization for this kernel!" << endl;
 				break;
             }
-            if (curr_edge_num < edge_max_num && !add_end /*&& Adj_list[i].size() < Max_degree+1*/)  //没有到边数上限且新增边能增加score，则选择添加边
+            if (curr_edge_num < edge_max_num && !add_end && Adj_list[i].size() < Max_degree+1)  //没有到边数上限且新增边能增加score，则选择添加边
             {
                 //cout << "Adding - Max_degree + 1: " << Adj_list[i].size()<<" vs "<<Max_degree + 1 << endl;
                 double max_delta_score = 0;
@@ -1705,8 +1703,8 @@ void ModelGenerator::optimize_mst(int opt_times_once, int edge_max, vector<int>&
 
                 for (int candidate_p : Unused_adj_list[i])
                 {
-                    //if (Adj_list[candidate_p].size() >= Max_degree + 1)
-                    //    continue;
+                    if (Adj_list[candidate_p].size() >= Max_degree + 1)
+                        continue;
                     double dist = distance(Kernels[i].center, Kernels[candidate_p].center);
                     double dist_w = dist * calculate_edge_weight(Kernels[i], Kernels[candidate_p]);
                     Edge cand_edge = { i, candidate_p, dist, dist_w };
