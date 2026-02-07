@@ -2528,7 +2528,7 @@ void ModelGenerator::test_item()
     saveVoxelGridAsNPY(grids.rho, res, npy_filename);
     
     std::string outputPrefix = "D:/VSprojects/TaihuStone/result/" + input_file + "_opt/";
-    //optimize_model_py(npy_filename, outputPrefix);
+    optimize_model_py(npy_filename, outputPrefix);
 
     VoxelGrid grids_opt = grids;
     readNPYtoVoxel(outputPrefix+"gpu_topology_optimized.npy", grids_opt.rho, res);
