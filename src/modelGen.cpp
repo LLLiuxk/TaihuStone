@@ -2521,7 +2521,7 @@ void ModelGenerator::test_item()
     //saveSDFtoVOI(raw_file, SDF_ini, res, res, res);
 
     VoxelGrid grids = SDFtoVoxel(SDF_ini, bb_min, bb_max, res, res, res);
-    SupportCheckResult scr = checkSupportVoxel(grids, 0.5);
+    //SupportCheckResult scr = checkSupportVoxel(grids, 0.5);
     
 
     std::string npy_filename = "D:/VSprojects/TaihuStone/model/npy/"+ input_file+ "_voxelized_model_" + std::to_string(res) + "x" + std::to_string(res) + "x" + std::to_string(res) + ".npy";
@@ -2532,16 +2532,28 @@ void ModelGenerator::test_item()
 
     VoxelGrid grids_opt = grids;
     readNPYtoVoxel(outputPrefix+"gpu_topology_optimized.npy", grids_opt.rho, res);
+
+    //for(int g = 0; g<grids_opt.rho.size();g++)
+    //{
+    //    if (grids_opt.rho[g] < 0.5)
+    //        grids_opt.rho[g] = 0;
+    //    else
+    //        grids_opt.rho[g] = 1;
+    //}
     //readNPYtoVoxel(npy_filename, gridsopt.rho, res);
 
     //cout << "rho.size()" << grids.rho.size() << "    " << gridsopt.rho.size() << endl;
 
     int solid_num1 = 0, solid_num2 = 0;
-    for (int tt = 0; tt < grids_opt.rho.size(); tt++)
-    {
-        if (grids.rho[tt] > 0.5) solid_num1++;
-        if (grids_opt.rho[tt] > 0.5) solid_num2++;
-    }
+    //for (int tt = 0; tt < grids_opt.rho.size(); tt++)
+    //{
+    //    if(grids.rho[tt] > 0 || grids_opt.rho[tt]>0)
+    //        cout << tt<<"  value:  "<<grids.rho[tt] << "    vs   " << grids_opt.rho[tt] << endl;
+    //    if (grids.rho[tt] != grids_opt.rho[tt])
+    //        solid_num1++;
+    //    //if (grids.rho[tt] > 0.5) solid_num1++;
+    //    //if (grids_opt.rho[tt] > 0.5) solid_num2++;
+    //}
     cout << model_solid_num << "  Solid voxel num changes from : " << solid_num1 << "  to: " << solid_num2 << endl;
 
 
@@ -2549,7 +2561,8 @@ void ModelGenerator::test_item()
 
     for (int i = 0; i < res * res * res; ++i) {
         //scalar(i) = -static_cast<double>(voxel_grid[i]);
-        scalar(i) = -grids_opt.rho[i];
+        //scalar(i) = -grids_opt.rho[i];
+        scalar(i) = - grids_opt.rho[i];
     }
 
     igl::marching_cubes(scalar, GV, res, res, res, -0.5, V2, F2);

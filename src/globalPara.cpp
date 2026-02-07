@@ -1,6 +1,6 @@
 #include "globalPara.h" 
 
-std::string input_file = "namaqualand"; //"RockSetBr_rotated"; //RockSetBr  test_cube
+std::string input_file = "rock_fat"; //"RockSetBr_rotated"; //RockSetBr  test_cube
 int Resolution = 128;
 
 std::vector<double> Weights = { 0.8, 1.0, 1.2 };  //mst 分类系数权重：边界-内部，内部-内部，边界-边界

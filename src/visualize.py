@@ -95,9 +95,9 @@ def visualize_A_reference(A, B):
     a_only = grid.extract_cells(grid.cell_data["label"] == 2)
 
     if both.n_cells > 0:
-        plotter.add_mesh(both, color="lightgray", opacity=0.3)
+        plotter.add_mesh(both, color="gray", opacity=0.4)
     if a_only.n_cells > 0:
-        plotter.add_mesh(a_only, color="red", opacity=1.0)
+        plotter.add_mesh(a_only, color="red", opacity=0.80)
 
     plotter.show()
   
@@ -121,18 +121,19 @@ def visualize_B_reference(A, B):
     b_only = grid.extract_cells(grid.cell_data["label"] == 3)
 
     if both.n_cells > 0:
-        plotter.add_mesh(both, color="lightgray", opacity=0.3)
+        plotter.add_mesh(both, color="gray", opacity=0.4)
     if b_only.n_cells > 0:
-        plotter.add_mesh(b_only, color="green", opacity=1.0)
+        plotter.add_mesh(b_only, color="green", opacity=0.80)
 
     plotter.show()
 
 
 if __name__ == "__main__":
-    voxel = np.load("D:/VSprojects/TaihuStone/src/opt_model.npy")
-    voxel2 = np.load("D:/VSprojects/TaihuStone/src/origin_model3.npy")
+    voxel = np.load("D:/VSprojects/TaihuStone/origin_model.npy")
+    voxel2 = np.load("D:/VSprojects/TaihuStone/opt_model.npy")
     voxel  = voxel  >= 0.5
-    #visualize_A_reference(voxel, voxel2)
-    #visualize_B_reference(voxel, voxel2)
-    visualize_single_voxel(voxel)
+    voxel2  = voxel2  >= 0.5
+    visualize_A_reference(voxel, voxel2)
+    visualize_B_reference(voxel, voxel2)
+    #visualize_single_voxel(voxel)
     #visualize_voxel_diff(voxel, voxel2)
