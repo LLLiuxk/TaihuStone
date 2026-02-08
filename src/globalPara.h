@@ -51,6 +51,9 @@ extern bool Enable_noise;
 extern bool topo_optimize;
 extern bool dynamic_change_para;
 
+extern float show_degree_x;
+extern float show_degree_y;
+extern double show_degree_z;
 
 std::string trim(const std::string& str);
 

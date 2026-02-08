@@ -1,6 +1,6 @@
 #include "globalPara.h" 
 
-std::string input_file = "rock_thin"; //"RockSetBr_rotated"; //RockSetBr  test_cube
+std::string input_file = "rock_smooth"; //"RockSetBr_rotated"; //RockSetBr  test_cube
 int Resolution = 128;
 
 std::vector<double> Weights = { 0.8, 1.0, 1.2 };  //mst 分类系数权重：边界-内部，内部-内部，边界-边界
@@ -11,17 +11,17 @@ double Gauss_level = 0.5;
 int PoresNum = 60;
 double surface_ratio = 0.6; //表面核占比
 
-int Max_degree = 5;
+int Max_degree = 7;
 
 double Amplitude_min = 1.0;
 double Amplitude_max = 1.0;
 double Sigma_min = 0.015;
 double Sigma_max = 0.033;
-double W4sig_max = 4.0;
-double W4sig_min = 30.0; 
+double W4sig_max = 3.0;
+double W4sig_min = 25.0; 
 double Axis_max_ratio = 1.7;
 
-double BaseLayer = 8; // 15  for Ceramic clay printing
+double BaseLayer = 8; // 15  for Ceramic clay printing    10 for cand2
 //250: 0.02, 0.04
 //150~200: 0.025, 0.045
 // 100: 0.033, 0.05
@@ -35,21 +35,25 @@ double SmoothT = 15;    //控制平滑布尔的平滑区域大小, 越大，平滑效果越小，趋近于
 double Tube_radius_factor = 0.8; // 控制管道半径相对于高斯核半径的比例, mid_radius_factor越大，通道越粗
 double Safe_distance_ratio = 0.7;
 
-double Trans_thres = 0.88;  //kernel translucency threshold 
-double Adj_dis_thres = 0.3;
+double Trans_thres = 0.9;  //kernel translucency threshold 
+double Adj_dis_thres = 0.35;
 bool debug_show = false;
 bool standard_show = false;
-bool figure_show = false;
+bool figure_show = true;
 bool compare_show = false;
 
 bool Iso_kernel = false;
 bool Direct_dis = false;
 
-bool Handle_overlap = false;
+bool Handle_overlap = true;
 bool optimize_debug = true;
 bool Enable_noise = false;
 bool topo_optimize = true;
 bool dynamic_change_para = true;
+
+float show_degree_x = -90.0;
+float show_degree_y = 0.0;
+double show_degree_z = 45.0;
 
 std::string trim(const std::string& str) {
     size_t first = str.find_first_not_of(" \t\r\n");
@@ -116,6 +120,7 @@ bool loadParameters(const std::string& filename) {
                 else if (key == "Safe_distance_ratio") Safe_distance_ratio = std::stod(valStr);
                 else if (key == "Trans_thres") Trans_thres = std::stod(valStr);
                 else if (key == "Adj_dis_thres") Adj_dis_thres = std::stod(valStr);
+                else if (key == "BaseLayer") BaseLayer = std::stod(valStr);
                 else if (key == "debug_show") debug_show = (valStr == "true" || valStr == "1");
                 else if (key == "standard_show") standard_show = (valStr == "true" || valStr == "1");
                 else if (key == "figure_show") figure_show = (valStr == "true" || valStr == "1");
@@ -187,6 +192,8 @@ void saveParameters(const std::string& filename)
     ofs << "Trans_thres = " << Trans_thres << "\n";
     ofs << "Adj_dis_thres = " << Adj_dis_thres << "\n";
 
+    ofs << "BaseLayer = " << BaseLayer << "\n";
+    
     ofs << "debug_show = " << std::boolalpha << debug_show << "\n";
     ofs << "standard_show = " << standard_show << "\n";
     ofs << "figure_show = " << figure_show << "\n";

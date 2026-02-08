@@ -6,7 +6,7 @@ vector<RowVector3d> colors = { RowVector3d(0.90, 0.62, 0.0), //orange
     RowVector3d(0.14, 0.24, 0.52),  //drak blue
     RowVector3d(0.8, 0.33, 0.20),  //muted red
     RowVector3d(0.8, 0.1, 0.1),  //red
-    RowVector3d(0.80, 0.80, 0.80),  // dark gray
+    RowVector3d(0.75, 0.75, 0.75),  // dark gray
     RowVector3d(0.3, 0.68, 0.45),  //drak green
     RowVector3d(0.0, 0.62, 0.45),  //drak green
     RowVector3d(0.8, 0.47, 0.65), //pink red
@@ -14,6 +14,7 @@ vector<RowVector3d> colors = { RowVector3d(0.90, 0.62, 0.0), //orange
     RowVector3d(0.94, 0.89, 0.26),  //yellow
     RowVector3d(0.90, 0.80, 0.60)  //yellow
 };
+
 
 
 double Mesh2SDF(Eigen::MatrixXd& V,  Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Eigen::VectorXd& SDF, Eigen::Vector3d& bb_min, Eigen::Vector3d& bb_max)
@@ -151,10 +152,11 @@ void view_model(Eigen::MatrixXd V1, Eigen::MatrixXi F1, std::string win_name, bo
 
     //viewer.core().align_camera_center(V1, F1);
     float deg2rad = float(M_PI) / 180.0f;
+    //show_degree_x = -90, show_degree_z =128
     Eigen::Quaternionf q =
-        Eigen::AngleAxisf(-90.0f * deg2rad, Eigen::Vector3f::UnitX()) *
-        Eigen::AngleAxisf(0.0f * deg2rad, Eigen::Vector3f::UnitY()) *
-        Eigen::AngleAxisf(128.0f * deg2rad, Eigen::Vector3f::UnitZ());
+        Eigen::AngleAxisf(show_degree_x * deg2rad, Eigen::Vector3f::UnitX()) *
+        Eigen::AngleAxisf(show_degree_y * deg2rad, Eigen::Vector3f::UnitY()) *
+        Eigen::AngleAxisf(show_degree_z * deg2rad, Eigen::Vector3f::UnitZ());
     viewer.core().trackball_angle = q;
 
 
@@ -189,9 +191,9 @@ void view_two_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V2,
 
     float deg2rad = float(M_PI) / 180.0f;
     Eigen::Quaternionf q =
-        Eigen::AngleAxisf(-90.0f * deg2rad, Eigen::Vector3f::UnitX()) *
-        Eigen::AngleAxisf(0.0f * deg2rad, Eigen::Vector3f::UnitY()) *
-        Eigen::AngleAxisf(128.0f * deg2rad, Eigen::Vector3f::UnitZ());
+        Eigen::AngleAxisf(show_degree_x * deg2rad, Eigen::Vector3f::UnitX()) *
+        Eigen::AngleAxisf(show_degree_y * deg2rad, Eigen::Vector3f::UnitY()) *
+        Eigen::AngleAxisf(show_degree_z * deg2rad, Eigen::Vector3f::UnitZ());
     viewer.core().trackball_angle = q;
 
     viewer.launch(false, win_name);
@@ -562,9 +564,9 @@ void vis_Kernels_Tubes(std::vector<Eigen::Vector3d>& points, std::vector<pair<in
     // ===精确设置视角===
     float deg2rad = float(M_PI) / 180.0f;
     Eigen::Quaternionf q =
-        Eigen::AngleAxisf(-90.0f * deg2rad, Eigen::Vector3f::UnitX()) *
-        Eigen::AngleAxisf(0.0f * deg2rad, Eigen::Vector3f::UnitY()) *
-        Eigen::AngleAxisf(128.0f * deg2rad, Eigen::Vector3f::UnitZ());
+        Eigen::AngleAxisf(show_degree_x * deg2rad, Eigen::Vector3f::UnitX()) *
+        Eigen::AngleAxisf(show_degree_y * deg2rad, Eigen::Vector3f::UnitY()) *
+        Eigen::AngleAxisf(show_degree_z * deg2rad, Eigen::Vector3f::UnitZ());
     viewer.core().trackball_angle = q;
 
     // Launch the viewer
@@ -578,10 +580,11 @@ void vis_compare_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int
     int  sphereSubdiv = 3;
 
     // ---- Color palette ----
-    const RowVector3d sphereColor = colors[5]; // muted red
-    const RowVector3d lineColor = colors[1]; // 
-    const RowVector3d lineColor1 = colors[2]; // 
+    const RowVector3d sphereColor = colors[12]; // muted red
+    const RowVector3d lineColor = colors[6]; // 
+    const RowVector3d lineColor1 = colors[5]; // 
     const RowVector3d lineColor2 = colors[7]; // 
+
     //const RowVector3d sphereColor(0.75, 0.33, 0.20); // muted red
     //const RowVector3d lineColor(0.20, 0.20, 0.20); // dark gray
 
@@ -648,9 +651,9 @@ void vis_compare_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int
     // ===精确设置视角===
     float deg2rad = float(M_PI) / 180.0f;
     Eigen::Quaternionf q =
-        Eigen::AngleAxisf(-90.0f * deg2rad, Eigen::Vector3f::UnitX()) *
-        Eigen::AngleAxisf(0.0f * deg2rad, Eigen::Vector3f::UnitY()) *
-        Eigen::AngleAxisf(128.0f * deg2rad, Eigen::Vector3f::UnitZ());
+        Eigen::AngleAxisf(show_degree_x * deg2rad, Eigen::Vector3f::UnitX()) *
+        Eigen::AngleAxisf(show_degree_y * deg2rad, Eigen::Vector3f::UnitY()) *
+        Eigen::AngleAxisf(show_degree_z * deg2rad, Eigen::Vector3f::UnitZ());
     viewer.core().trackball_angle = q;
 
     // Launch the viewer
@@ -659,6 +662,7 @@ void vis_compare_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int
 
 void vis_opt_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, std::vector<int> mask, std::string win_name)
 {
+    int delete_in = 3;  //选择显示第几条删除的边
     double sphereRadius = 0.01;
     double lineWidth = 7;
     int  sphereSubdiv = 3;
@@ -703,46 +707,40 @@ void vis_opt_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, in
     }
 
     // Draw lines based on the connections
-    int show_num = 59; // connections.size()
+    int show_num = PoresNum - 1; // connections.size()
     Eigen::MatrixXd P1(show_num, 3);
     Eigen::MatrixXd P2(show_num, 3);
     //Eigen::MatrixXd C(show_num, 3);
-    int skip = 0;
+    vector<int> deleted_index; // = 0;
     for (int i = 0; i < show_num; i++) {
-        if (mask[i] == 1 && skip == 0)
+        if (mask[i] == 1)
         {
-            skip++;
-            P1.row(i) = points[connections[i].first].transpose();
-            P2.row(i) = points[connections[i].first].transpose();
+            deleted_index.push_back(i);
         }
-        else
-        {
-            P1.row(i) = points[connections[i].first].transpose();
-            P2.row(i) = points[connections[i].second].transpose();
-        }
-    }
-
-
-    vector<int> draw_index;
-    int chosen_type = 1;
-    for (int i = 0; i < mask.size(); i++)
-    {
-        if (mask[i] == chosen_type)
-        {
-            draw_index.push_back(i);
-            chosen_type++;
-            if (chosen_type == 3)
-                break;
-        }
+        P1.row(i) = points[connections[i].first].transpose();
+        P2.row(i) = points[connections[i].second].transpose();
     }
 
     //找到要绘制的点
     int draw_one = 0;
-    if(connections[draw_index[0]].first == connections[draw_index[1]].first || connections[draw_index[0]].first == connections[draw_index[1]].second)
-        draw_one = connections[draw_index[0]].first;
-    else
-        draw_one = connections[draw_index[0]].second;
 
+    if (delete_in >= deleted_index.size()) {
+        cout << "beyond delete index!" << endl;
+        return;
+    }
+    //去掉删除的边
+    P1.row(deleted_index[delete_in]) = points[connections[deleted_index[delete_in]].first].transpose();
+    P2.row(deleted_index[delete_in]) = points[connections[deleted_index[delete_in]].first].transpose();
+
+    pair<int, int> e1 = connections[deleted_index[delete_in]];
+    pair<int, int> e2 = connections[show_num + delete_in];
+
+    if(e1.first == e2.first || e1.first == e2.second)
+        draw_one = e1.first;
+    else
+        draw_one = e1.second;
+
+    //cout << "e1: " << deleted_index[delete_in] << "   e2: " << show_num + delete_in << "   draw_one: "<< draw_one<< endl;
     int highlight_id = draw_one;
     MatrixXd V_high = V_unit*1.5;
     V_high.rowwise() += points[highlight_id].transpose();
@@ -753,12 +751,15 @@ void vis_opt_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, in
     viewer.data().shininess = 2000.0;
     //viewer.core().align_camera_center(V_all, F_all);
     viewer.data().add_edges(P1, P2, lineColor);
+
     // Set line width
     viewer.data().line_width = lineWidth;
 
-    for (int i = show_num + 1; i < connections.size(); i++)
+    vector<int> draw_index;
+    draw_index.push_back(deleted_index[delete_in]);
+    for (int i = show_num; i < connections.size(); i++)
     {
-        //cout << i<<" connections: " << connections[i].first << "   " << connections[i].second << endl;
+        //cout << i<<" connections: " << connections[i].first << "   " << connections[i].second << "   mask i :"<<mask[i]<<endl;
         if(connections[i].first == draw_one || connections[i].second == draw_one)
 			draw_index.push_back(i);
     }
@@ -766,16 +767,16 @@ void vis_opt_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, in
     Eigen::MatrixXd P3(ano_num, 3);
     Eigen::MatrixXd P4(ano_num, 3);
     Eigen::MatrixXd C(ano_num, 3);
-    for (int i = 0; i < draw_index.size(); i++) {
+    for (int i = 0; i < ano_num; i++) {
         //if (mask[i] == 3) continue;
-        //cout << "connections[draw_index[i]] " << connections[draw_index[i]].first << "   " << connections[draw_index[i]].second << endl;
+        //cout << "draw_index.size: "<<ano_num << "  connections[draw_index[i]] " << connections[draw_index[i]].first << "   " << connections[draw_index[i]].second << "    mask:"<<mask[draw_index[i]]<<endl;
         P3.row(i) = points[connections[draw_index[i]].first].transpose();
         P4.row(i) = points[connections[draw_index[i]].second].transpose();
 
-        if (i == 0) {
+        if (mask[draw_index[i]] == 1) {
             C.row(i) = lineColor1;
         }
-        else if (i == 1) {
+        else if (mask[draw_index[i]] == 2) {
             C.row(i) = lineColor2;
         }
         else 
@@ -801,9 +802,9 @@ void vis_opt_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, in
     // ===精确设置视角===
     float deg2rad = float(M_PI) / 180.0f;
     Eigen::Quaternionf q =
-        Eigen::AngleAxisf(-90.0f * deg2rad, Eigen::Vector3f::UnitX()) *
-        Eigen::AngleAxisf(0.0f * deg2rad, Eigen::Vector3f::UnitY()) *
-        Eigen::AngleAxisf(128.0f * deg2rad, Eigen::Vector3f::UnitZ());
+        Eigen::AngleAxisf(show_degree_x * deg2rad, Eigen::Vector3f::UnitX()) *
+        Eigen::AngleAxisf(show_degree_y * deg2rad, Eigen::Vector3f::UnitY()) *
+        Eigen::AngleAxisf(show_degree_z * deg2rad, Eigen::Vector3f::UnitZ());
     viewer.core().trackball_angle = q;
 
     // Launch the viewer
@@ -912,9 +913,9 @@ void vis_KerLine_model(Eigen::MatrixXd V1, Eigen::MatrixXi F1, std::vector<Eigen
     //viewer.core().align_camera_center(V1, F1);
     float deg2rad = float(M_PI) / 180.0f;
     Eigen::Quaternionf q =
-        Eigen::AngleAxisf(-90.0f * deg2rad, Eigen::Vector3f::UnitX()) *
-        Eigen::AngleAxisf(0.0f * deg2rad, Eigen::Vector3f::UnitY()) *
-        Eigen::AngleAxisf(128.0f * deg2rad, Eigen::Vector3f::UnitZ());
+        Eigen::AngleAxisf(show_degree_x * deg2rad, Eigen::Vector3f::UnitX()) *
+        Eigen::AngleAxisf(show_degree_y * deg2rad, Eigen::Vector3f::UnitY()) *
+        Eigen::AngleAxisf(show_degree_z * deg2rad, Eigen::Vector3f::UnitZ());
     viewer.core().trackball_angle = q;
 
     // Launch the viewer
@@ -1500,9 +1501,11 @@ vector<vector<int>> compare_edges(const vector<pair<int, int>>& ini, const vecto
 
 vector<int> compare_edges2(const vector<pair<int, int>>& ini, const vector<pair<int, int>> & final, vector<pair<int, int>>& edge_con_total, std::vector<int> rep_vec)
 {
+    // ini- changed-add: ini顺序与changed顺序不匹配
     edge_con_total.clear();
     vector<int> mask(ini.size(), 0);
     edge_con_total = ini;
+    //调整顺序
     std::sort(rep_vec.begin(), rep_vec.end());
     for (auto rv : rep_vec)
     {
@@ -1515,7 +1518,6 @@ vector<int> compare_edges2(const vector<pair<int, int>>& ini, const vector<pair<
 		edge_con_total.push_back(final[i]);
         mask.push_back(3);
     }
-
 
 	//cout << "edge_con_total size:" << edge_con_total.size() << "   "<<mask.size()<<endl;
  //   for(int i = 0; i < edge_con_total.size(); i++)

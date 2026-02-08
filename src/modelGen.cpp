@@ -172,16 +172,19 @@ void ModelGenerator::generateGaussianSDF()
     {
         double support_k = sqrt(-2 * log(Gauss_level / Amplitude_min));
         int hits = resolveOverlaps3D(Kernels);
+        //需要重新计算是否在surface上，影响后续计算
         cout << "Total hits:" << hits << endl;
     }
 
 	int kernel_num = Kernels.size();
     int degree_limit = (kernel_num - 1) / max(1, (int)(kernel_num - surface_kernels.size()));
-
+    cout << "Degree limitation : " << degree_limit << "   " << Max_degree << endl;
     Max_degree = max(degree_limit, Max_degree);
     Tube_edges = pores_connection_mbdst(Kernels, Max_degree);
     edge_con_mbdst.clear();
     for (auto e : Tube_edges) edge_con_mbdst.push_back(make_pair(e.from, e.to));
+    edge_con_final.clear();
+    edge_con_final = edge_con_mbdst;
 
     std::vector<Edge> Tube_edges_mst = pores_connection_mst(Kernels);
     edge_con_mst.clear();
@@ -238,12 +241,14 @@ void ModelGenerator::generateGaussianSDF()
             if (figure_show)
             {
                 cout<< "rep_vec .size()" << rep_vec.size() << endl;
+                std::vector<pair<int, int>> edge_con_tem = edge_con_final;
                 edge_con_final.clear();
                 for (auto e : Tube_edges) edge_con_final.push_back(make_pair(e.from, e.to));
+
                 for(auto rv: rep_vec)
-					cout << "Replace (" << edge_con_mbdst[rv].first << " " << edge_con_mbdst[rv].second << ")  to (" << edge_con_final[rv].first << " " << edge_con_final[rv].second << ")" << endl;
+					cout << "Replace  edge rv "<<rv<<"  : from(" << edge_con_tem[rv].first << " " << edge_con_tem[rv].second << ")  to(" << edge_con_final[rv].first << " " << edge_con_final[rv].second << ")" << endl;
                 std::vector<pair<int, int>> edge_con_total;
-                std::vector<int> mask = compare_edges2(edge_con_mbdst, edge_con_final, edge_con_total, rep_vec);
+                std::vector<int> mask = compare_edges2(edge_con_tem, edge_con_final, edge_con_total, rep_vec);
                 vis_opt_cons(pore_centers, edge_con_total, mask, "compare_lines");
                 //vis_compare_cons(pore_centers, edge_con_mbdst, mask[0], "compare_lines");
                 //vis_compare_cons(pore_centers, edge_con_final, mask[1], "compare_lines");
@@ -293,10 +298,10 @@ void ModelGenerator::generateGaussianSDF()
         vis_Kernels_Tubes(pore_centers, edge_con_final, "After optimization connection, Tubes:");
         vis_KerLine_model(V_t, F_t, pore_centers, edge_con_final, true, "Tubes with points");
         igl::write_triangle_mesh("C:/Users/Liuxk/OneDrive/Recent/new_work/TaihuStone/figures/namaqualand_tubes.stl", V_t, F_t);
-        Eigen::MatrixXd V_o; //输出网格顶点
-        Eigen::MatrixXi F_o; // 输出网格面片
-        igl::read_triangle_mesh("D:/VSprojects/TaihuStone/result/final/namaqualand_60_opt/namaqualand_final.stl", V_o, F_o);
-        vis_KerLine_model(V_o, F_o, pore_centers, edge_con_final, true, "After optimization connection");
+        //Eigen::MatrixXd V_o; //输出网格顶点
+        //Eigen::MatrixXi F_o; // 输出网格面片
+        //igl::read_triangle_mesh("D:/VSprojects/TaihuStone/result/final/namaqualand_60_opt/namaqualand_final.stl", V_o, F_o);
+        //vis_KerLine_model(V_o, F_o, pore_centers, edge_con_final, true, "After optimization connection");
         view_two_models(V_out, F_out, V_t, F_t);
         //saveSDFtoVTI("D:\\VSprojects\\TaihuStone\\src\\origin_model2.VTI", SDF_out, resolution, resolution, resolution);
     }
