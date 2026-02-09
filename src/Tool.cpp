@@ -503,7 +503,7 @@ void show_path(std::vector<int> path)
 void vis_Kernels_Tubes(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, std::string win_name)
 {
     const double sphereRadius = 0.01;
-    const double lineWidth = 5;
+    const double lineWidth = 7;
     const int  sphereSubdiv = 3;
 
     // ---- Color palette ----
@@ -576,7 +576,7 @@ void vis_Kernels_Tubes(std::vector<Eigen::Vector3d>& points, std::vector<pair<in
 void vis_compare_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, std::vector<int> mask, std::string win_name)
 {
     double sphereRadius = 0.01;
-    double lineWidth = 5;
+    double lineWidth = 7;
     int  sphereSubdiv = 3;
 
     // ---- Color palette ----

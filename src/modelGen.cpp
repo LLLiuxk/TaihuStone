@@ -250,6 +250,14 @@ void ModelGenerator::generateGaussianSDF()
                 std::vector<pair<int, int>> edge_con_total;
                 std::vector<int> mask = compare_edges2(edge_con_tem, edge_con_final, edge_con_total, rep_vec);
                 vis_opt_cons(pore_centers, edge_con_total, mask, "compare_lines");
+
+                if (iter_count < 2)
+                {
+                    std::vector<std::vector<int>> masks = compare_edges(edge_con_mbdst, edge_con_final);
+                    vis_compare_cons(pore_centers, edge_con_mbdst, masks[0], "compare_lines");
+                    vis_compare_cons(pore_centers, edge_con_final, masks[1], "compare_lines");
+                }
+                
                 //vis_compare_cons(pore_centers, edge_con_mbdst, mask[0], "compare_lines");
                 //vis_compare_cons(pore_centers, edge_con_final, mask[1], "compare_lines");
             }

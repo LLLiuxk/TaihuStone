@@ -1,5 +1,7 @@
 import numpy as np
 import pyvista as pv
+from scipy.ndimage import binary_erosion
+from scipy.ndimage import label as cc_label
 
 def visualize_single_voxel(voxel, threshold=0):
     """
@@ -75,12 +77,67 @@ def visualize_voxel_diff(A, B):
 
     plotter.show()
 
+def filter_small_components(mask, min_size):
+    labeled, num = cc_label(mask)
+    sizes = np.bincount(labeled.ravel())
+
+    keep = sizes >= min_size
+    keep[0] = False  # background
+
+    return keep[labeled]
+
+def classify_voxels_connected(A, B, min_size=50):
+    label = np.zeros_like(A, dtype=np.uint8)
+
+    both   = (A == 1) & (B == 1)
+    a_only = (A == 1) & (B == 0)
+    b_only = (A == 0) & (B == 1)
+
+    a_only_big = filter_small_components(a_only, min_size)
+    b_only_big = filter_small_components(b_only, min_size)
+
+    label[both] = 1
+    label[a_only_big] = 2
+    label[b_only_big] = 3
+
+    return label
+
+def surface_voxels(mask):
+    """返回 mask 的表面体素"""
+    eroded = binary_erosion(mask)
+    return mask & (~eroded)
+
+def classify_voxels_surface(A, B):
+    label = np.zeros_like(A, dtype=np.uint8)
+
+    # 原始三类
+    both   = (A == 1) & (B == 1)
+    a_only = (A == 1) & (B == 0)
+    b_only = (A == 0) & (B == 1)
+
+    # 只保留“表面相关”的变化
+    A_surface = surface_voxels(A)
+    B_surface = surface_voxels(B)
+
+    a_only_surface = a_only & A_surface
+    b_only_surface = b_only & B_surface
+
+    label[both] = 1
+    label[a_only_surface] = 2
+    label[b_only_surface] = 3
+
+    return label
+
+
+
 def visualize_A_reference(A, B):
     A = A.astype(bool)
     B = B.astype(bool)
     assert A.shape == B.shape
 
-    label = classify_voxels(A, B)
+    #label = classify_voxels(A, B)
+    #label = classify_voxels_surface(A, B)
+    label = classify_voxels_connected(A, B, min_size=3)
 
     grid = pv.ImageData()
     grid.dimensions = np.array(A.shape) + 1
@@ -106,7 +163,9 @@ def visualize_B_reference(A, B):
     B = B.astype(bool)
     assert A.shape == B.shape
 
-    label = classify_voxels(A, B)
+    #label = classify_voxels(A, B)
+    #label = classify_voxels_surface(A, B)
+    label = classify_voxels_connected(A, B, min_size=15)
 
     grid = pv.ImageData()
     grid.dimensions = np.array(A.shape) + 1

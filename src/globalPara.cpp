@@ -17,9 +17,9 @@ double Amplitude_min = 1.0;
 double Amplitude_max = 1.0;
 double Sigma_min = 0.015;
 double Sigma_max = 0.033;
-double W4sig_max = 3.0;
-double W4sig_min = 25.0; 
-double Axis_max_ratio = 1.7;
+double W4sig_max = 28.0;
+double W4sig_min = 28.0; 
+double Axis_max_ratio = 1.0;
 
 double BaseLayer = 8; // 15  for Ceramic clay printing    10 for cand2
 //250: 0.02, 0.04
@@ -32,7 +32,7 @@ double BaseLayer = 8; // 15  for Ceramic clay printing    10 for cand2
 // w for max = 5.0     for min = 30
 
 double SmoothT = 15;    //控制平滑布尔的平滑区域大小, 越大，平滑效果越小，趋近于普通并集
-double Tube_radius_factor = 0.8; // 控制管道半径相对于高斯核半径的比例, mid_radius_factor越大，通道越粗
+double Tube_radius_factor = 0.6; // 控制管道半径相对于高斯核半径的比例, mid_radius_factor越大，通道越粗
 double Safe_distance_ratio = 0.7;
 
 double Trans_thres = 0.9;  //kernel translucency threshold 
@@ -45,10 +45,10 @@ bool compare_show = false;
 bool Iso_kernel = false;
 bool Direct_dis = false;
 
-bool Handle_overlap = true;
-bool optimize_debug = true;
+bool Handle_overlap = false;
+bool optimize_debug = false;
 bool Enable_noise = false;
-bool topo_optimize = true;
+bool topo_optimize = false;
 bool dynamic_change_para = true;
 
 float show_degree_x = -90.0;
