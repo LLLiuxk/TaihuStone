@@ -158,7 +158,7 @@ void ModelGenerator::generateGaussianSDF()
     std::vector<int> inside_indices;
     sample_interior_points(pore_centers, pore_sdfs, inside_indices, pores, gen);
     //sample_interior_close(pore_centers, pore_sdfs, inside_indices, pores, gen);
-    //sample_regular(pore_centers, pore_sdfs, inside_indices, 20);
+    //sample_regular(pore_centers, pore_sdfs, inside_indices, 25);
     //for (int i = 0; i < pore_centers.size(); i++)   std::cout << "i: " << i << "  " << pore_centers[i] << std::endl;
 
     if (figure_show)
@@ -195,6 +195,7 @@ void ModelGenerator::generateGaussianSDF()
         vis_Kernels_Tubes(pore_centers, edge_con_mbdst, "mbdst  Kernels Tubes");
         vis_Kernels_Tubes(pore_centers, edge_con_mst, "mst Kernels Tubes");
     }
+
 	// 构建邻接表
     Adj_list = construct_adj_list(Tube_edges, kernel_num);
     cout << "MaxDegree: " << cal_max_degree(Adj_list) << endl;
@@ -560,35 +561,47 @@ void ModelGenerator::sample_regular(std::vector<Eigen::Vector3d>& pore_centers, 
         return;
     }
 
-    //for (int z = pores; z < Resolution; z=z+ pores) {
-    //    for (int y = pores; y < Resolution; y=y+ pores) {
-    //        for (int x = pores; x < Resolution; x=x+ pores) {
-				//int chosen_idx = x + y * Resolution + z * Resolution * Resolution;
-    //            Eigen::Vector3d candidate_center = GV.row(chosen_idx).transpose();
-    //            if (SDF(chosen_idx) < Isolevel)
-    //            {
-    //                pore_centers.push_back(candidate_center);
-    //                pore_sdfs.push_back(SDF(chosen_idx));
-    //            }
-    //        }
-    //    }
+    //std::random_device rd;  // 获取真随机数种子
+    //std::mt19937 gen(rd()); // 使用Mersenne Twister算法
+    std::mt19937 gen(pores);
+    // 定义分布范围 [0, 5]（包含0和5）
+    std::uniform_int_distribution<int> dist(0, 5);
+
+    // 生成10个随机数示例
+
+    for (int z = pores; z < Resolution; z=z+ pores) {
+        for (int y = pores; y < Resolution; y=y+ pores) {
+            for (int x = pores; x < Resolution; x=x+ pores) {
+                int random_num1 = dist(gen);
+                int random_num2 = dist(gen);
+                int x_ = x + random_num1;
+				int y_ = y + random_num2;
+				int chosen_idx = x_ + y_ * Resolution + z * Resolution * Resolution;
+                Eigen::Vector3d candidate_center = GV.row(chosen_idx).transpose();
+                if (SDF(chosen_idx) < Isolevel)
+                {
+                    pore_centers.push_back(candidate_center);
+                    pore_sdfs.push_back(SDF(chosen_idx));
+                }
+            }
+        }
+    }
+    //int x = 90, y = 90, z = 90;
+    //int chosen_idx = x + y * Resolution + z * Resolution * Resolution;
+    //Eigen::Vector3d candidate_center = GV.row(chosen_idx).transpose();
+    //if (SDF(chosen_idx) < Isolevel)
+    //{
+    //    pore_centers.push_back(candidate_center);
+    //    pore_sdfs.push_back(SDF(chosen_idx));
     //}
-    int x = 90, y = 90, z = 90;
-    int chosen_idx = x + y * Resolution + z * Resolution * Resolution;
-    Eigen::Vector3d candidate_center = GV.row(chosen_idx).transpose();
-    if (SDF(chosen_idx) < Isolevel)
-    {
-        pore_centers.push_back(candidate_center);
-        pore_sdfs.push_back(SDF(chosen_idx));
-    }
-    x += 30; y += 0; z += 0;
-    chosen_idx = x + y * Resolution + z * Resolution * Resolution;
-    candidate_center = GV.row(chosen_idx).transpose();
-    if (SDF(chosen_idx) < Isolevel)
-    {
-        pore_centers.push_back(candidate_center);
-        pore_sdfs.push_back(SDF(chosen_idx));
-    }
+    //x += 30; y += 0; z += 0;
+    //chosen_idx = x + y * Resolution + z * Resolution * Resolution;
+    //candidate_center = GV.row(chosen_idx).transpose();
+    //if (SDF(chosen_idx) < Isolevel)
+    //{
+    //    pore_centers.push_back(candidate_center);
+    //    pore_sdfs.push_back(SDF(chosen_idx));
+    //}
 
     std::cout << "Generate " << pore_centers.size() << " close kernels" << std::endl;
 }
@@ -2322,7 +2335,7 @@ int ModelGenerator::generate_mst_tubes(std::vector<pair<int, int>> edge_con, int
         //    sdfout.push_back(so);
         //saveVoxelGridAsNPY(sdfout, resolution, npy_filename);
         //saveSDFtoVTI(vti_filename, SDF_gaussian_tubes, res, res, res);
-        string stl_filename = "D:/VSprojects/TaihuStone/src/sdf_out_tube.stl";
+        string stl_filename = "D:/VSprojects/TaihuStone/result/msc_result/sdf_out_tube.stl";
         cout << "saveMesh to " << stl_filename << endl;
         saveMesh(stl_filename, V_t, F_t);
 
@@ -2413,23 +2426,26 @@ void ModelGenerator::compare_msc(Eigen::VectorXd SDF_gaussian, int res, int grid
         gaussian_centers.push_back(vk);
     }
     // 2. 初始化分析器
-    //GaussianFieldMSC msc(res, res, res, min_b, max_b);
-    //// 3. 计算连接
-    //// 返回的 adj 是一个邻接表，adj[i] 包含了与 gaussian_centers[i] 相连的点的索引
-    //auto adj = msc.ComputeConnectivity(SDF_gau_out, gaussian_centers);
-    //edge_con_msc.clear();
-    //for (int u = 0; u < adj.size(); ++u) {
-    //    for (int v : adj[u]) {
-    //        // 如果是无向图，加上 if (u < v) 判断以避免重复存储 (例如避免同时存入 1-2 和 2-1)
-    //        // 如果是有向图，去掉这个 if 即可
-    //        if (u < v) {
-    //            edge_con_msc.push_back({ u, v });
-    //        }
-    //    }
-    //}
+    GaussianFieldMSC msc(res, res, res, min_b, max_b);
+    // 3. 计算连接
+    // 返回的 adj 是一个邻接表，adj[i] 包含了与 gaussian_centers[i] 相连的点的索引
+    auto adj = msc.ComputeConnectivity(SDF_gau_out, gaussian_centers);
+    edge_con_msc.clear();
+    for (int u = 0; u < adj.size(); ++u) {
+        for (int v : adj[u]) {
+            // 如果是无向图，加上 if (u < v) 判断以避免重复存储 (例如避免同时存入 1-2 和 2-1)
+            // 如果是有向图，去掉这个 if 即可
+            if (u < v) {
+                edge_con_msc.push_back({ u, v });
+            }
+        }
+    }
 
-    
-    edge_con_msc = MorseComplex::compare_msc(pore_centers, SDF_gau_out, res, grid_num);
+    std::vector<pair<int, int>> edge_con_msc2;
+    cout << "Starting analyze msc2..." << endl;
+    //edge_con_msc = MorseComplex::compare_msc(pore_centers, my_sdf_field, res, grid_num);
+    //edge_con_msc = MorseComplex::compare_msc(pore_centers, SDF_gaussian, res, grid_num);
+    edge_con_msc2 = MorseComplex::compare_msc(pore_centers, SDF_gau_out, res, grid_num);
     cout << "edge_conn_new size: " << edge_con_msc.size() << "     vs   our: "<< Tube_edges.size()<< endl;
     //Eigen::MatrixXd V_g; //输出高斯场对应网格顶点
     //Eigen::MatrixXi F_g;
@@ -2444,6 +2460,7 @@ void ModelGenerator::compare_msc(Eigen::VectorXd SDF_gaussian, int res, int grid
 
 
     vis_Kernels_Tubes(pore_centers, edge_con_msc, "msc_Kernels_Tubes");
+    vis_Kernels_Tubes(pore_centers, edge_con_msc2, "msc_Kernels_Tubes2");
 
     double tube_radius = Tube_radius_factor;
 	double gaus_iso = Gauss_level;
@@ -2453,11 +2470,12 @@ void ModelGenerator::compare_msc(Eigen::VectorXd SDF_gaussian, int res, int grid
         Eigen::Vector3d p = GV.row(idx);
         //tubes
         double sdf_p = 1000.0;
-        for (auto& e : edge_con_msc) {
-            sdf_p = min(sdf_p, generate_tube2(p, Kernels[e.first], Kernels[e.second], gaus_iso, tube_radius));
+        for (auto& e : edge_con_msc2) {
+            //sdf_p = min(sdf_p, generate_tube2(p, Kernels[e.first], Kernels[e.second], gaus_iso, tube_radius));
+            sdf_p = smooth_UnionSDF(sdf_p, generate_tube2(p, Kernels[e.first], Kernels[e.second], gaus_iso, tube_radius), 2 * smooth_t);
             //sdf_p = min(sdf_p, generate_tube(p, Kernels[e.from], Kernels[e.to], gauss_iso, tube_radius));
         }
-        SDF_gaussian_tubes(idx) = smooth_UnionSDF(SDF_gaussian(idx), sdf_p, 3 * smooth_t);
+        SDF_gaussian_tubes(idx) = smooth_UnionSDF(SDF_gaussian(idx), sdf_p, 2 * smooth_t);
 
     }
 
@@ -2465,6 +2483,7 @@ void ModelGenerator::compare_msc(Eigen::VectorXd SDF_gaussian, int res, int grid
     Eigen::MatrixXi F_go;
     MarchingCubes(SDF_gaussian_tubes, GV, res, res, res, Isolevel, V_go, F_go);   //final result
     view_model(V_go, F_go, "SDF_gaussian_tubes_msc");
+    saveMesh("D:\\VSprojects\\TaihuStone\\result\\msc_result\\msc_tubes.stl", V_go, F_go);
 
  
     //#pragma omp parallel for reduction(+:solid_count)
@@ -2476,6 +2495,7 @@ void ModelGenerator::compare_msc(Eigen::VectorXd SDF_gaussian, int res, int grid
             msc_solid_count += 1;
         }
     }
+
     //std::cout << "成功在仿生形状内放置 " << void_centers.size() << " 个空洞点" << std::endl;
 
     // Marching Cubes
@@ -2483,6 +2503,24 @@ void ModelGenerator::compare_msc(Eigen::VectorXd SDF_gaussian, int res, int grid
     Eigen::MatrixXi F_msc;
     MarchingCubes(SDF_msc_out, GV, res, res, res, Isolevel, V_msc, F_msc);   //final result
 	view_model(V_msc, F_msc, "Msc result comparing");
+    saveMesh("D:\\VSprojects\\TaihuStone\\result\\msc_result\\msc_result.stl", V_msc, F_msc);
+
+    VoxelGrid grids = SDFtoVoxel(SDF_msc_out, bb_min, bb_max, resolution, resolution, resolution);
+    SupportCheckResult scr = check_result_voxel(grids, 0.5);
+
+	int kernel_num = Kernels.size();
+    std::vector<std::vector<int>> adj_list(kernel_num);
+    for (const auto& edge : edge_con_msc2) {
+        // 由于最小生成树是无向图，一条边代表双向连接, 需要将 `to` 添加到 `from` 的邻居列表，同时将 `from` 添加到 `to` 的邻居列表。
+        if (edge.first < kernel_num && edge.second < kernel_num) {
+            adj_list[edge.first].push_back(edge.second);
+            adj_list[edge.second].push_back(edge.first);
+        }
+    }
+    initPorosity = 1.0 - msc_solid_count / model_solid_num;
+    std::cout << "MSC Porosity: " << initPorosity * 100 << "%" << "    --------:" << msc_solid_count << "   " << model_solid_num << std::endl;
+    double new_trans_score = cal_total_translucency(Kernels, adj_list);
+    cout << " The msc vp value is: " << new_trans_score << endl;
 
 
 

@@ -93,6 +93,7 @@ bool saveMesh(std::string filename, Eigen::MatrixXd V, Eigen::MatrixXi F)
         std::filesystem::create_directories(dir);
     }
     igl::write_triangle_mesh(filename, V, F);
+    cout << "Save meth to " << filename << "  successfully" << endl;
 	return true;
 }
 
@@ -941,7 +942,8 @@ void geometry_analyzer(Eigen::VectorXd SDF, int resolution, double thres_degree,
                 int idx = x + y * resolution + z* resolution* resolution;
                 double val = SDF[idx];
                 cal_num++;
-                //if(cal_num%100==0)
+                //if(cal_num%
+                // ==0)
                 if (val<0)
                     cout << "idx: " << idx << "  val:"<< val<<endl;
                 // 这里的 0.5 是假设体素大小为1，只检测表面附近的体素

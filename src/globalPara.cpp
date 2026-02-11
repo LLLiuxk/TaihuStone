@@ -1,14 +1,14 @@
 #include "globalPara.h" 
 
-std::string input_file = "rock_smooth"; //"RockSetBr_rotated"; //RockSetBr  test_cube
-int Resolution = 128;
+std::string input_file = "RockSetBr_rotated"; //"RockSetBr_rotated"; //RockSetBr  test_cube
+int Resolution = 100;
 
 std::vector<double> Weights = { 0.8, 1.0, 1.2 };  //mst 分类系数权重：边界-内部，内部-内部，边界-边界
 std::vector<double> KT_weights = { 0.6, 0.1, 0.1, 0.2 };  //kernel translucency权重：角度、长度、内外分布、水平垂直
 double Isolevel = 0;
 double Gauss_level = 0.5;
 
-int PoresNum = 60;
+int PoresNum = 20;
 double surface_ratio = 0.6; //表面核占比
 
 int Max_degree = 7;
@@ -17,8 +17,8 @@ double Amplitude_min = 1.0;
 double Amplitude_max = 1.0;
 double Sigma_min = 0.015;
 double Sigma_max = 0.033;
-double W4sig_max = 28.0;
-double W4sig_min = 28.0; 
+double W4sig_max = 25.0;
+double W4sig_min = 25.0; 
 double Axis_max_ratio = 1.0;
 
 double BaseLayer = 8; // 15  for Ceramic clay printing    10 for cand2
@@ -32,7 +32,7 @@ double BaseLayer = 8; // 15  for Ceramic clay printing    10 for cand2
 // w for max = 5.0     for min = 30
 
 double SmoothT = 15;    //控制平滑布尔的平滑区域大小, 越大，平滑效果越小，趋近于普通并集
-double Tube_radius_factor = 0.6; // 控制管道半径相对于高斯核半径的比例, mid_radius_factor越大，通道越粗
+double Tube_radius_factor = 0.3; // 控制管道半径相对于高斯核半径的比例, mid_radius_factor越大，通道越粗
 double Safe_distance_ratio = 0.7;
 
 double Trans_thres = 0.9;  //kernel translucency threshold 
@@ -48,7 +48,7 @@ bool Direct_dis = false;
 bool Handle_overlap = false;
 bool optimize_debug = false;
 bool Enable_noise = false;
-bool topo_optimize = false;
+bool topo_optimize = true;
 bool dynamic_change_para = true;
 
 float show_degree_x = -90.0;
