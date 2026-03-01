@@ -81,47 +81,106 @@ namespace {
     // 计算 upper/lower link 的连通分量：
     // - link 节点来自 26 邻域
     // - 连通性用 6 邻接（与你文件 Is1SaddlePoint/Is2SaddlePoint 的 floodfill 风格一致）
+    //static std::vector<std::vector<int>> connected_components_in_link(
+    //    int id, int N, const Eigen::VectorXd& f, bool upper_link, double eps)
+    //{
+    //    const double v0 = f_tie(f, id);
+    //    auto n26 = neighbors26(id, N);
+
+    //    std::vector<char> mark(N * N * N, 0); // 0: out, 1: in_link(unvisited), 2: visited
+    //    std::vector<int> link_nodes;
+    //    link_nodes.reserve(n26.size());
+
+    //    for (int nb : n26) {
+    //        const double vnb = f_tie(f, nb);
+    //        if (upper_link) {
+    //            if (vnb > v0 + eps) { mark[nb] = 1; link_nodes.push_back(nb); }
+    //        }
+    //        else {
+    //            if (vnb < v0 - eps) { mark[nb] = 1; link_nodes.push_back(nb); }
+    //        }
+    //    }
+
+    //    std::vector<std::vector<int>> comps;
+    //    std::queue<int> q;
+
+    //    for (int seed : link_nodes) {
+    //        if (mark[seed] != 1) continue;
+    //        comps.emplace_back();
+    //        mark[seed] = 2;
+    //        q.push(seed);
+    //        while (!q.empty()) {
+    //            int cur = q.front(); q.pop();
+    //            comps.back().push_back(cur);
+    //            for (int nb6 : neighbors6(cur, N)) {
+    //                if (mark[nb6] == 1) {
+    //                    mark[nb6] = 2;
+    //                    q.push(nb6);
+    //                }
+    //            }
+    //        }
+    //    }
+    //    return comps;
+    //}
+
     static std::vector<std::vector<int>> connected_components_in_link(
-        int id, int N, const Eigen::VectorXd& f, bool upper_link, double eps)
+        int id, int N, const Eigen::VectorXd& f,
+        bool upper_link, double eps)
     {
         const double v0 = f_tie(f, id);
         auto n26 = neighbors26(id, N);
 
-        std::vector<char> mark(N * N * N, 0); // 0: out, 1: in_link(unvisited), 2: visited
-        std::vector<int> link_nodes;
-        link_nodes.reserve(n26.size());
+        std::unordered_set<int> link_set;
+        link_set.reserve(26);
 
-        for (int nb : n26) {
-            const double vnb = f_tie(f, nb);
-            if (upper_link) {
-                if (vnb > v0 + eps) { mark[nb] = 1; link_nodes.push_back(nb); }
+        for (int nb : n26)
+        {
+            double vnb = f_tie(f, nb);
+            if (upper_link)
+            {
+                if (vnb > v0 + eps)
+                    link_set.insert(nb);
             }
-            else {
-                if (vnb < v0 - eps) { mark[nb] = 1; link_nodes.push_back(nb); }
+            else
+            {
+                if (vnb < v0 - eps)
+                    link_set.insert(nb);
             }
         }
 
         std::vector<std::vector<int>> comps;
-        std::queue<int> q;
+        std::unordered_set<int> visited;
+        visited.reserve(26);
 
-        for (int seed : link_nodes) {
-            if (mark[seed] != 1) continue;
+        for (int seed : link_set)
+        {
+            if (visited.count(seed)) continue;
+
             comps.emplace_back();
-            mark[seed] = 2;
+            std::queue<int> q;
             q.push(seed);
-            while (!q.empty()) {
+            visited.insert(seed);
+
+            while (!q.empty())
+            {
                 int cur = q.front(); q.pop();
                 comps.back().push_back(cur);
-                for (int nb6 : neighbors6(cur, N)) {
-                    if (mark[nb6] == 1) {
-                        mark[nb6] = 2;
-                        q.push(nb6);
+
+                for (int nb : neighbors6(cur, N))
+                {
+                    if (link_set.count(nb) && !visited.count(nb))
+                    {
+                        visited.insert(nb);
+                        q.push(nb);
                     }
                 }
             }
         }
+
         return comps;
     }
+
+
 
     static bool is_2_saddle(int id, int N, const Eigen::VectorXd& f, double eps) {
         auto comps = connected_components_in_link(id, N, f, /*upper_link=*/true, eps);
@@ -186,13 +245,10 @@ std::vector<std::pair<int, int>>  MorseComplex::compare_msc(std::vector<Vector3d
     const int M = (int)SDF_gaussian.size();
     const int N = res;
 
-    //if (N <= 1 || N * N * N != M) {
-    //    std::cerr << "[compare_msc] size mismatch: res=" << res
-    //        << ", res^3=" << (long long)res * res * res
-    //        << ", SDF_gaussian.size()=" << M
-    //        << ", grid_num=" << grid_num << "\n";
-    //    return;
-    //}
+     std::cerr << "[compare_msc] size mismatch: res=" << res
+            << ", res^3=" << (long long)res * res * res
+            << ", SDF_gaussian.size()=" << M
+            << ", grid_num=" << grid_num << "\n";
 
     // -------- 1) 坐标系：[-0.5,0.5]^3 --------
     const double xmin = -0.5;

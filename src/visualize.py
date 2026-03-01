@@ -2,6 +2,102 @@ import numpy as np
 import pyvista as pv
 from scipy.ndimage import binary_erosion
 from scipy.ndimage import label as cc_label
+from scipy.ndimage import maximum_filter
+
+def compute_support_voxels(voxel):
+    """
+    voxel: shape (nx, ny, nz)
+    打印方向 = +z = axis 2
+    """
+    voxel = voxel.astype(bool)
+    nx, ny, nz = voxel.shape
+
+    support_mask = np.zeros_like(voxel, dtype=bool)
+
+    for x in range(1, nx):
+
+        current_layer = voxel[x, :, :]      # y-z 平面
+        below_layer   = voxel[x-1, :, :]
+
+        # 在 y-z 平面做 3×3 邻域
+        support_region = maximum_filter(below_layer, size=3)
+
+        unsupported = current_layer & (~support_region)
+
+        support_mask[x, :, :] = unsupported
+
+    return support_mask
+
+
+def compute_support_voxels2(voxel):
+    """
+    voxel: 3D bool array
+    return:
+        support_mask: 需要支撑的体素 (bool)
+    """
+
+    voxel = voxel.astype(bool)
+    nx, ny, nz = voxel.shape
+
+    support_mask = np.zeros_like(voxel, dtype=bool)
+
+    # 从第 1 层开始（第 0 层默认认为有底板支撑）
+    for k in range(1, nz):
+        current_layer = voxel[:, :, k]
+        below_layer   = voxel[:, :, k-1]
+
+        # 对 below_layer 做 3x3 邻域扩张（卷积思想）
+        padded = np.pad(below_layer, 1, mode='constant', constant_values=False)
+
+        support_region = np.zeros_like(below_layer, dtype=bool)
+
+        for dx in range(3):
+            for dy in range(3):
+                support_region |= padded[dx:dx+nx, dy:dy+ny]
+
+        # 当前层存在实体 且 下层3x3无支撑
+        unsupported = current_layer & (~support_region)
+
+        support_mask[:, :, k] = unsupported
+
+    return support_mask
+
+
+def visualize_support(voxel):
+    voxel = voxel.astype(bool)
+
+    support_mask = compute_support_voxels(voxel)
+
+    total_voxels = np.count_nonzero(voxel)
+    support_voxels = np.count_nonzero(support_mask)
+
+    print("总实体体素数:", total_voxels)
+    print("需要支撑体素数:", support_voxels)
+    print("支撑比例:", support_voxels / total_voxels)
+
+    # 构建 grid
+    grid = pv.ImageData()
+    grid.dimensions = np.array(voxel.shape) + 1
+    grid.spacing = (1, 1, 1)
+
+    label = np.zeros_like(voxel, dtype=np.uint8)
+    label[voxel] = 1
+    label[support_mask] = 2
+
+    grid.cell_data["label"] = label.flatten(order="F")
+
+    plotter = pv.Plotter()
+
+    normal_voxels  = grid.extract_cells(grid.cell_data["label"] == 1)
+    support_voxels = grid.extract_cells(grid.cell_data["label"] == 2)
+
+    if normal_voxels.n_cells > 0:
+        plotter.add_mesh(normal_voxels, color="gray", opacity=0.3)
+
+    if support_voxels.n_cells > 0:
+        plotter.add_mesh(support_voxels, color="red", opacity=1.0)
+
+    plotter.show()
 
 def visualize_single_voxel(voxel, threshold=0):
     """
@@ -188,11 +284,15 @@ def visualize_B_reference(A, B):
 
 
 if __name__ == "__main__":
-    voxel = np.load("D:/VSprojects/TaihuStone/origin_model.npy")
-    voxel2 = np.load("D:/VSprojects/TaihuStone/opt_model.npy")
-    voxel  = voxel  >= 0.5
-    voxel2  = voxel2  >= 0.5
-    visualize_A_reference(voxel, voxel2)
-    visualize_B_reference(voxel, voxel2)
+    # voxel = np.load("D:/VSprojects/TaihuStone/origin_model.npy")
+    # voxel2 = np.load("D:/VSprojects/TaihuStone/opt_model.npy")
+    # voxel  = voxel  >= 0.5
+    # voxel2  = voxel2  >= 0.5
+    # visualize_A_reference(voxel, voxel2)
+    # visualize_B_reference(voxel, voxel2)
+
+    rho = np.load("D:/VSprojects/TaihuStone/test.npy")
+    voxel = rho >= 0.5
+    visualize_support(voxel)
     #visualize_single_voxel(voxel)
     #visualize_voxel_diff(voxel, voxel2)

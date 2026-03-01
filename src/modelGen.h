@@ -193,6 +193,8 @@ public:
 
     double supportHalfLengthOnAxis(const GaussianKernel& k, const Eigen::Vector3d& n_unit, double chi);
 
+    void removeUnusedNodes(std::vector<GaussianKernel>& k, std::vector<int>& surface_kernels, std::vector<std::pair<int, int>>& edges, std::vector<std::vector<int>>& adj);
+
 private:
 
 	int pore_num = PoresNum;			   // ¿Õ¶´ÊýÁ¿

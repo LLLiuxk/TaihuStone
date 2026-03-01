@@ -663,7 +663,7 @@ void vis_compare_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int
 
 void vis_opt_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, std::vector<int> mask, std::string win_name)
 {
-    int delete_in = 3;  //选择显示第几条删除的边
+    int delete_in = 0;  //选择显示第几条删除的边
     double sphereRadius = 0.01;
     double lineWidth = 7;
     int  sphereSubdiv = 3;
@@ -1550,3 +1550,4 @@ int cal_max_degree(std::vector<std::vector<int>> Adj_list)
     }
 	return max_degree;
 }
+

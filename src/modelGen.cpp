@@ -178,7 +178,7 @@ void ModelGenerator::generateGaussianSDF()
 
 	int kernel_num = Kernels.size();
     int degree_limit = (kernel_num - 1) / max(1, (int)(kernel_num - surface_kernels.size()));
-    cout << "Degree limitation : " << degree_limit << "   " << Max_degree << endl;
+    cout << "Degree limitation : " << degree_limit << "   " << Max_degree<< endl;
     Max_degree = max(degree_limit, Max_degree);
     Tube_edges = pores_connection_mbdst(Kernels, Max_degree);
     edge_con_mbdst.clear();
@@ -187,6 +187,8 @@ void ModelGenerator::generateGaussianSDF()
     edge_con_final = edge_con_mbdst;
 
     std::vector<Edge> Tube_edges_mst = pores_connection_mst(Kernels);
+    //Tube_edges = Tube_edges_mst;
+
     edge_con_mst.clear();
     for (auto e : Tube_edges_mst) edge_con_mst.push_back(make_pair(e.from, e.to));
 
@@ -2441,12 +2443,10 @@ void ModelGenerator::compare_msc(Eigen::VectorXd SDF_gaussian, int res, int grid
         }
     }
 
-    std::vector<pair<int, int>> edge_con_msc2;
-    cout << "Starting analyze msc2..." << endl;
-    //edge_con_msc = MorseComplex::compare_msc(pore_centers, my_sdf_field, res, grid_num);
-    //edge_con_msc = MorseComplex::compare_msc(pore_centers, SDF_gaussian, res, grid_num);
-    edge_con_msc2 = MorseComplex::compare_msc(pore_centers, SDF_gau_out, res, grid_num);
-    cout << "edge_conn_new size: " << edge_con_msc.size() << "     vs   our: "<< Tube_edges.size()<< endl;
+   //std::vector<pair<int, int>> edge_con_msc2;
+    //cout << "Starting analyze msc2..." << endl;
+    //edge_con_msc2 = MorseComplex::compare_msc(pore_centers, SDF_gau_out, res, grid_num);
+    //cout << "edge_conn_new size: " << edge_con_msc2.size() << "     vs   our: "<< Tube_edges.size()<< endl;
     //Eigen::MatrixXd V_g; //输出高斯场对应网格顶点
     //Eigen::MatrixXi F_g;
     //MarchingCubes(SDF_gaussian, GV, res, res, res, Isolevel, V_g, F_g);   //final result
@@ -2460,7 +2460,8 @@ void ModelGenerator::compare_msc(Eigen::VectorXd SDF_gaussian, int res, int grid
 
 
     vis_Kernels_Tubes(pore_centers, edge_con_msc, "msc_Kernels_Tubes");
-    vis_Kernels_Tubes(pore_centers, edge_con_msc2, "msc_Kernels_Tubes2");
+    //vis_Kernels_Tubes(pore_centers, edge_con_msc2, "msc_Kernels_Tubes2");
+    //edge_con_msc = edge_con_msc2;
 
     double tube_radius = Tube_radius_factor;
 	double gaus_iso = Gauss_level;
@@ -2470,7 +2471,7 @@ void ModelGenerator::compare_msc(Eigen::VectorXd SDF_gaussian, int res, int grid
         Eigen::Vector3d p = GV.row(idx);
         //tubes
         double sdf_p = 1000.0;
-        for (auto& e : edge_con_msc2) {
+        for (auto& e : edge_con_msc) {
             //sdf_p = min(sdf_p, generate_tube2(p, Kernels[e.first], Kernels[e.second], gaus_iso, tube_radius));
             sdf_p = smooth_UnionSDF(sdf_p, generate_tube2(p, Kernels[e.first], Kernels[e.second], gaus_iso, tube_radius), 2 * smooth_t);
             //sdf_p = min(sdf_p, generate_tube(p, Kernels[e.from], Kernels[e.to], gauss_iso, tube_radius));
@@ -2487,7 +2488,7 @@ void ModelGenerator::compare_msc(Eigen::VectorXd SDF_gaussian, int res, int grid
 
  
     //#pragma omp parallel for reduction(+:solid_count)
-    int msc_solid_count = 0;
+    double msc_solid_count = 0;
     for (int idx = 0; idx < grid_num; ++idx) {
         Eigen::Vector3d p = GV.row(idx);
         SDF_msc_out(idx) = smooth_IntersecSDF(SDF_ini(idx), -SDF_gaussian_tubes(idx), smooth_t);
@@ -2510,17 +2511,22 @@ void ModelGenerator::compare_msc(Eigen::VectorXd SDF_gaussian, int res, int grid
 
 	int kernel_num = Kernels.size();
     std::vector<std::vector<int>> adj_list(kernel_num);
-    for (const auto& edge : edge_con_msc2) {
+    for (const auto& edge : edge_con_msc) {
         // 由于最小生成树是无向图，一条边代表双向连接, 需要将 `to` 添加到 `from` 的邻居列表，同时将 `from` 添加到 `to` 的邻居列表。
         if (edge.first < kernel_num && edge.second < kernel_num) {
             adj_list[edge.first].push_back(edge.second);
             adj_list[edge.second].push_back(edge.first);
         }
     }
+	/*cout << "Before removing unused nodes, kernel num: " << Kernels.size()<<"  edge num:"<<edge_con_msc.size() <<"    adj_list size:"<< adj_list.size()<< endl;
+    removeUnusedNodes(Kernels, surface_kernels, edge_con_msc, adj_list);
+	cout << "After removing unused nodes, kernel num: " << Kernels.size() << "  edge num:" << edge_con_msc.size() << "    adj_list size:" << adj_list.size() << endl;*/
+
     initPorosity = 1.0 - msc_solid_count / model_solid_num;
     std::cout << "MSC Porosity: " << initPorosity * 100 << "%" << "    --------:" << msc_solid_count << "   " << model_solid_num << std::endl;
     double new_trans_score = cal_total_translucency(Kernels, adj_list);
-    cout << " The msc vp value is: " << new_trans_score << endl;
+
+    cout << " The msc vp value is: " << new_trans_score << "    now: "<< new_trans_score * Kernels.size() / kernel_num <<endl;
 
 
 
@@ -2836,4 +2842,70 @@ double ModelGenerator::supportHalfLengthOnAxis(
 
     return std::sqrt(chi * nsn);
 }
+
+void ModelGenerator::removeUnusedNodes(std::vector<GaussianKernel>& k, 
+    std::vector<int> & surface_kernels,
+    std::vector<std::pair<int, int>>& edges,
+    std::vector<std::vector<int>>& adj) {
+
+    int original_size = k.size();
+
+    // 1. 建立映射表 (Old Index -> New Index)
+    // mapping[old_id] = new_id; 如果被删除则为 -1
+    std::vector<int> mapping(original_size, -1);
+
+    std::vector<GaussianKernel> new_k;
+    int new_index_counter = 0;
+
+    // 2. 遍历现有的 adj，决定哪些点保留
+    // 逻辑：如果 adj[i] 不为空，说明该点被使用了，保留。
+    for (int i = 0; i < original_size; ++i) {
+        if (!adj[i].empty()) {
+            // 保留该点
+            mapping[i] = new_index_counter;
+            new_k.push_back(k[i]);
+            new_index_counter++;
+        }
+        else {
+            // adj为空，说明是孤立点，mapping[i] 保持为 -1，不加入 new_k
+        }
+    }
+
+    std::vector<int> nsp;
+    for (int sp = 0; sp < surface_kernels.size(); sp++)
+    {
+        if (mapping[surface_kernels[sp]] != -1)
+        {
+            nsp.push_back(mapping[surface_kernels[sp]]);
+        }
+    }
+    // 3. 更新 Edge 列表
+    // 使用映射表将旧的连接关系转换为新的索引
+    std::vector<std::pair<int, int>> new_edges;
+    for (const auto& e : edges) {
+        int old_u = e.first;
+        int old_v = e.second;
+
+        // 只有当边的两个端点都还在新的点集中时，才保留这条边
+        // (理论上如果adj构建正确，这里一定不会出现 -1，但为了安全加个判断)
+        if (mapping[old_u] != -1 && mapping[old_v] != -1) {
+            new_edges.push_back({ mapping[old_u], mapping[old_v] });
+        }
+    }
+
+    // 4. 重新计算 Adj
+    // 因为索引全变了，直接基于 new_edges 重新生成最稳妥
+    std::vector<std::vector<int>> new_adj(new_k.size());
+    for (const auto& e : new_edges) {
+        new_adj[e.first].push_back(e.second);
+        new_adj[e.second].push_back(e.first); // 假设是无向图
+    }
+
+    // 5. 将更新后的数据写回引用参数
+    k = new_k;
+    surface_kernels = nsp;
+    edges = new_edges;
+    adj = new_adj;
+}
+
 

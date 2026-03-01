@@ -19,7 +19,6 @@ Tube_radius_factor = 0.8
 Safe_distance_ratio = 0.7
 Trans_thres = 0.89
 Adj_dis_thres = 0.35
-
 debug_show = false
 standard_show = false
 figure_show = false
