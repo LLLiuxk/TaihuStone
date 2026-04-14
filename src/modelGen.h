@@ -28,7 +28,14 @@
 //    bool on_surface;
 //
 //};
-
+struct ParaSensitivityStats {
+    double sum_T_angle = 0.0;
+    double sum_T_length = 0.0;
+    double sum_T_location = 0.0;
+    double sum_S_horiz = 0.0;
+    double sum_weighted_vp = 0.0;
+    int valid_path_num = 0;
+};
 
 class GaussianKernel {
 
@@ -151,6 +158,7 @@ public:
     double calculate_path_translucency2(std::vector<int>& path, bool show_debug);  //old version
     double cal_kernel_translucency(int p_index, int& max_s1, int& max_s2, std::vector<int>& max_path, AdjacencyList adj, bool debug=false);
     double cal_total_translucency(std::vector<GaussianKernel> gau, AdjacencyList adj);
+    ParaSensitivityStats cal_para_sensitivity(bool show_debug = false);
 
 
     vector<int> check_inner_leafs(vector<int> leafs_index);

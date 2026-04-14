@@ -268,6 +268,17 @@ void ModelGenerator::generateGaussianSDF()
     }
     finalTranslucency = new_trans_score; 
     edge_con_final.clear();
+    double VP_score = cal_total_translucency(Kernels, Adj_list);
+    cout << "Final VP score: " << finalTranslucency << "  VS   " << VP_score << endl;
+    ParaSensitivityStats para_stats = cal_para_sensitivity(false);
+    cout << "Para sensitivity on max VP paths: "
+        << "sum(T_angle)=" << para_stats.sum_T_angle
+        << ", sum(T_length)=" << para_stats.sum_T_length
+        << ", sum(T_location)=" << para_stats.sum_T_location
+        << ", sum(S_horiz)=" << para_stats.sum_S_horiz
+        << ", weighted_sum=" << para_stats.sum_weighted_vp
+        << ", valid_paths=" << para_stats.valid_path_num << endl;
+
     for (auto e : Tube_edges) edge_con_final.push_back(make_pair(e.from, e.to));
 
     
@@ -1399,6 +1410,100 @@ double ModelGenerator::cal_total_translucency(std::vector<GaussianKernel> gau,  
     cout << good_count << " Kernels have met the translucency threshold!" << endl;
     return total_score/ kernels_num;
 }
+
+ParaSensitivityStats ModelGenerator::cal_para_sensitivity(bool show_debug)
+{
+    ParaSensitivityStats stats;
+    if (Paths.empty()) {
+        if (show_debug) {
+            cout << "[cal_para_sensitivity] Paths is empty. Please run cal_total_translucency() first." << endl;
+        }
+        return stats;
+    }
+
+    const double alpha = 0.5;
+    const double L0 = 5.0;
+    const double beta = 8.0;
+    const double mu = 0.0;
+    const double w_angle = KT_weights[0];
+    const double w_length = KT_weights[1];
+    const double w_location = KT_weights[2];
+    const double w_direction = KT_weights[3];
+
+    for (size_t pi = 0; pi < Paths.size(); ++pi)
+    {
+        const std::vector<int>& path = Paths[pi];
+        const int psize = static_cast<int>(path.size());
+        if (psize < 2) {
+            continue;
+        }
+
+        std::vector<Eigen::Vector3d> path_points;
+        path_points.reserve(psize);
+        for (int node_idx : path) {
+            path_points.push_back(Kernels[node_idx].center);
+        }
+
+        double angle_product = 1.0;
+        int count_inner = 0;
+        int count_surface_line = 0;
+
+        for (int i = 1; i < psize - 1; ++i)
+        {
+            const Vector3d& prev = path_points[i - 1];
+            const Vector3d& curr = path_points[i];
+            const Vector3d& next = path_points[i + 1];
+
+            if (!Kernels[path[i]].on_surface)
+                count_inner++;
+
+            double thres = min(Kernels[path[i - 1]].center_value, Kernels[path[i]].center_value);
+            if (line_cross_surface(prev, curr, thres) < 0.999)
+                count_surface_line++;
+
+            if (i == psize - 2)
+            {
+                thres = min(Kernels[path[i]].center_value, Kernels[path[i + 1]].center_value);
+                if (line_cross_surface(curr, next, thres) < 0.999)
+                    count_surface_line++;
+            }
+
+            double angle_deg = abs_angle(prev - curr, next - curr) / 180.0;
+            angle_product *= angle_deg;
+        }
+
+        double T_angle = (psize == 2) ? 0.6 : std::pow(angle_product, alpha);
+        double T_length = 1.0 - std::exp(-double(psize - 1) / L0);
+        double r_inner = (psize == 2) ? 0.0 : (double(count_inner) / double(psize - 2));
+        double r_surface = (psize == 2) ? 0.0 : (double(count_surface_line) / double(psize - 1));
+        double T_location = 1.0 / (1.0 + std::exp(-beta * (r_inner - r_surface - mu)));
+
+        Eigen::Vector3d z(0, 0, 1);
+        Eigen::Vector3d dir = computePrincipalDirection(path_points);
+        double S_horiz = 1.0 - std::abs(dir.dot(z));
+
+        const double weighted_vp = w_angle * T_angle + w_length * T_length + w_location * T_location + w_direction * S_horiz;
+
+        stats.sum_T_angle += T_angle;
+        stats.sum_T_length += T_length;
+        stats.sum_T_location += T_location;
+        stats.sum_S_horiz += S_horiz;
+        stats.sum_weighted_vp += weighted_vp;
+        stats.valid_path_num += 1;
+
+        if (show_debug) {
+            cout << "[Sensitivity] path@" << pi
+                << "  T_angle=" << T_angle
+                << "  T_length=" << T_length
+                << "  T_location=" << T_location
+                << "  S_horiz=" << S_horiz
+                << "  weighted=" << weighted_vp << endl;
+        }
+    }
+
+    return stats;
+}
+
 
 vector<int> ModelGenerator::check_inner_leafs(vector<int> leafs_index)
 {
