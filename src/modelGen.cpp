@@ -110,7 +110,7 @@ void ModelGenerator::model_porous_structure()
     //saveSDFtoVTI("D:\\VSprojects\\TaihuStone\\src\\origin_model.VTI", SDF_ini, resolution, resolution, resolution);
     //Vector3d point = GV.row(10010);
     //cout << "point index: " << find_nearest_grid(point) << endl;
-    outputPrefix = "D:/VSprojects/TaihuStone/result/" + input_file + "_" + std::to_string(PoresNum) + "_" + to_string_pre(Trans_thres, 2) + "_opt/";
+    outputPrefix = "D:/VSprojects/TaihuStone/result/" + input_file + "_" + std::to_string(PoresNum) + "_" + to_string_pre(Trans_thres, 2) + "_" + to_string_pre(KT_weights[0], 2) + "_" + to_string_pre(KT_weights[1], 2) + "_" + to_string_pre(KT_weights[2], 2) + "_opt/";
 
     if (std::filesystem::exists(outputPrefix)) {
         std::cout << "Directory already exists: " << outputPrefix << std::endl;
@@ -297,6 +297,7 @@ void ModelGenerator::generateGaussianSDF()
     //-----------------generate tubes------------------------------------------
 
     double solid_count = generate_mst_tubes(edge_con_final, grid_num, resolution, Isolevel, Gauss_level, SmoothT);
+    int E_num = edge_con_final.size();
     initPorosity = 1.0 - solid_count / model_solid_num;
     std::cout << "Porosity: " << initPorosity * 100 << "%" << "    --------:" << solid_count << "   " << model_solid_num << std::endl;
 
@@ -327,9 +328,9 @@ void ModelGenerator::generateGaussianSDF()
     std::string filename = outputPrefix + input_file;
     if (optimize_debug)
         filename += "_opt";
-    filename = filename + "_" + to_string(PoresNum) + "_" + to_string(Resolution) + "_" + to_string_pre(surface_ratio) + "_" +
-        to_string_pre(Trans_thres) + "_" + to_string_pre(Weights[0]) + "_" + to_string_pre(KT_weights[0]) + "_" +
-        to_string_pre(sigma_min, 3) + "_" + to_string_pre(sigma_max, 3) + "_" + to_string_pre(finalTranslucency, 3) + "_" + to_string_pre(finalPorosity * 100.0) + "%.stl";
+    filename = filename + "_" + to_string(PoresNum) + "_" + to_string(Resolution) + "_" + to_string(E_num) + "_" + to_string_pre(surface_ratio) + "_" +
+        to_string_pre(Trans_thres) + "_" + to_string_pre(Weights[0]) + "_" + to_string_pre(KT_weights[0]) + "_" + to_string_pre(sigma_min, 3) + "_" + 
+        to_string_pre(sigma_max, 3) + "_" + to_string_pre(finalTranslucency, 3) + "_" + to_string_pre(initPorosity * 100.0) + "%.stl";
     saveMesh(filename, V_out, F_out);
 	Grids = grids;
 
@@ -359,7 +360,8 @@ void ModelGenerator::supportFreeOpt()
         if (Grids.rho[tt] > 0.5) solid_num1++;
         if (grids_opt.rho[tt] > 0.5) solid_num2++;
     }
-    cout << " Solid voxel num changes from : " << solid_num1 << "  to: " << solid_num2 << "    --final prosity: "<< 100.0 - 100.0* solid_num2 / model_solid_num <<"%"<< endl;
+    finalPorosity = 1.0 - 1.0 * solid_num2 / model_solid_num;
+    cout << " Solid voxel num changes from : " << solid_num1 << "  to: " << solid_num2 << "    --final prosity: " << finalPorosity * 100.0 << "%" << endl;
 }
 
 void ModelGenerator::sample_interior_points(std::vector<Eigen::Vector3d>& pore_centers, std::vector<double>& pore_sdfs, std::vector<int>& inside_indices, int pores, std::mt19937& gen)
