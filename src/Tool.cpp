@@ -1,4 +1,4 @@
-﻿#include "Tool.h"
+#include "Tool.h"
 
 vector<RowVector3d> colors = { RowVector3d(0.90, 0.62, 0.0), //orange
     RowVector3d(0.9, 0.75, 0.40), //light orange
@@ -658,6 +658,76 @@ void vis_compare_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int
     viewer.core().trackball_angle = q;
 
     // Launch the viewer
+    viewer.launch(false, win_name + to_string(connections.size()));
+}
+
+void vis_translucency_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, std::vector<int> edge_usage, std::string win_name)
+{
+    double sphereRadius = 0.01;
+    double lineWidth = 7;
+    int  sphereSubdiv = 3;
+
+    const RowVector3d sphereColor = colors[12];
+    const RowVector3d lineColor = colors[6];
+    const RowVector3d lineColorUsed = colors[11]; // yellow
+
+    if (edge_usage.size() != connections.size()) {
+        cout << "Warning: edge_usage size(" << edge_usage.size()
+            << ") != connections size(" << connections.size() << "), fallback to gray lines." << endl;
+        edge_usage.assign(connections.size(), 0);
+    }
+
+    igl::opengl::glfw::Viewer viewer;
+    viewer.core().background_color.setConstant(1.0f);
+
+    MatrixXd V_unit;
+    MatrixXi F_unit;
+    igl::icosahedron(V_unit, F_unit);
+    for (int i = 0; i < sphereSubdiv; ++i)
+        igl::loop(V_unit, F_unit, V_unit, F_unit);
+
+    for (int i = 0; i < V_unit.rows(); ++i)
+        V_unit.row(i).normalize();
+    V_unit *= sphereRadius;
+
+    int Nv = V_unit.rows();
+    int Nf = F_unit.rows();
+    int Np = points.size();
+    MatrixXd V_all(Np * Nv, 3);
+    MatrixXi F_all(Np * Nf, 3);
+
+    for (int i = 0; i < Np; ++i)
+    {
+        V_all.block(i * Nv, 0, Nv, 3) =
+            V_unit.rowwise() + points[i].transpose();
+
+        F_all.block(i * Nf, 0, Nf, 3) =
+            F_unit.array() + i * Nv;
+    }
+
+    viewer.data().set_mesh(V_all, F_all);
+    viewer.data().set_colors(sphereColor);
+    viewer.data().show_lines = false;
+    viewer.data().shininess = 200.0;
+
+    Eigen::MatrixXd P1(connections.size(), 3);
+    Eigen::MatrixXd P2(connections.size(), 3);
+    Eigen::MatrixXd C(connections.size(), 3);
+    for (int i = 0; i < connections.size(); ++i) {
+        P1.row(i) = points[connections[i].first].transpose();
+        P2.row(i) = points[connections[i].second].transpose();
+        C.row(i) = (edge_usage[i] > 0) ? lineColorUsed : lineColor;
+    }
+    viewer.data().add_edges(P1, P2, C);
+    viewer.data().line_width = lineWidth;
+
+    float deg2rad = float(M_PI) / 180.0f;
+    Eigen::Quaternionf q =
+        Eigen::AngleAxisf(show_degree_x * deg2rad, Eigen::Vector3f::UnitX()) *
+        Eigen::AngleAxisf(show_degree_y * deg2rad, Eigen::Vector3f::UnitY()) *
+        Eigen::AngleAxisf(show_degree_z * deg2rad, Eigen::Vector3f::UnitZ());
+    viewer.core().trackball_angle = q;
+
     viewer.launch(false, win_name + to_string(connections.size()));
 }
 
@@ -1552,6 +1622,114 @@ vector<int> cal_max_degree(std::vector<std::vector<int>> Adj_list)
             max_degree_num++;
     }
     return { max_degree , max_degree_num };
+}
+
+int save_translucency_summary(
+    const std::string& output_prefix,
+    const std::string& input_name,
+    int max_degree,
+    int max_degree_num,
+    double final_translucency,
+    double sum_t_angle,
+    double sum_t_length,
+    double sum_t_location,
+    double sum_s_horiz,
+    double sum_weighted,
+    int kernel_num,
+    int valid_paths,
+    const std::vector<double>& kt_weights,
+    const std::vector<std::pair<int, int>>& edges,
+    const std::vector<int>& edge_usage
+)
+{
+    double kernel_num_safe = (kernel_num <= 0) ? 1.0 : static_cast<double>(kernel_num);
+    double avg_t_angle = sum_t_angle / kernel_num_safe;
+    double avg_t_length = sum_t_length / kernel_num_safe;
+    double avg_t_location = sum_t_location / kernel_num_safe;
+    double avg_s_horiz = sum_s_horiz / kernel_num_safe;
+    double avg_weighted = sum_weighted / kernel_num_safe;
+
+    int used_edge_num = 0;
+    for (auto use_times : edge_usage) {
+        if (use_times > 0) used_edge_num++;
+    }
+
+    cout << "MaxDegree: " << max_degree << "   num: " << max_degree_num << endl;
+    cout << "Final translucency score: " << final_translucency << endl;
+    cout << "Para sensitivity on max VP paths: "
+        << "sum(T_angle)=" << avg_t_angle
+        << ", sum(T_length)=" << avg_t_length
+        << ", sum(T_location)=" << avg_t_location
+        << ", sum(S_horiz)=" << avg_s_horiz
+        << ", weighted_sum=" << avg_weighted
+        << ", valid_paths=" << valid_paths << endl;
+    cout << "KT_weights: ";
+    for (size_t i = 0; i < kt_weights.size(); ++i) {
+        cout << kt_weights[i];
+        if (i + 1 < kt_weights.size()) cout << ", ";
+    }
+    cout << endl;
+    cout << "[Final translucency edges] used " << used_edge_num
+        << " / " << edge_usage.size() << " edges." << endl;
+
+    std::filesystem::create_directories(output_prefix);
+    std::string trans_txt = output_prefix + input_name + "_translucency_summary.txt";
+    std::ofstream trans_ofs(trans_txt, std::ios::out);
+    if (!trans_ofs.is_open()) {
+        cout << "Warning: failed to open translucency summary file: " << trans_txt << endl;
+        return used_edge_num;
+    }
+
+    trans_ofs << std::fixed << std::setprecision(6);
+    trans_ofs << "MaxDegree: " << max_degree << "   num: " << max_degree_num << "\n";
+    trans_ofs << "Final translucency score: " << final_translucency << "\n";
+    trans_ofs << "Para sensitivity on max VP paths: "
+        << "sum(T_angle)=" << avg_t_angle
+        << ", sum(T_length)=" << avg_t_length
+        << ", sum(T_location)=" << avg_t_location
+        << ", sum(S_horiz)=" << avg_s_horiz
+        << ", weighted_sum=" << avg_weighted
+        << ", valid_paths=" << valid_paths << "\n";
+    trans_ofs << "KT_weights: ";
+    for (size_t i = 0; i < kt_weights.size(); ++i) {
+        trans_ofs << kt_weights[i];
+        if (i + 1 < kt_weights.size()) trans_ofs << ", ";
+    }
+    trans_ofs << "\n";
+    trans_ofs << "[Final translucency edges] used " << used_edge_num
+        << " / " << edge_usage.size() << " edges.\n";
+    trans_ofs << "Used edges detail (edge_index, from, to, usage_count):\n";
+
+    size_t row_num = std::min(edges.size(), edge_usage.size());
+    for (size_t ei = 0; ei < row_num; ++ei) {
+        if (edge_usage[ei] > 0) {
+            trans_ofs << ei << ", "
+                << edges[ei].first << ", "
+                << edges[ei].second << ", "
+                << edge_usage[ei] << "\n";
+        }
+    }
+    trans_ofs.close();
+    return used_edge_num;
+}
+
+void append_translucency_summary_metrics(
+    const std::string& output_prefix,
+    const std::string& input_name,
+    int floating_voxel_count,
+    int unsupported_voxel_count
+)
+{
+    std::string trans_txt = output_prefix + input_name + "_translucency_summary.txt";
+    std::ofstream trans_ofs(trans_txt, std::ios::app);
+    if (!trans_ofs.is_open()) {
+        cout << "Warning: failed to append translucency summary file: " << trans_txt << endl;
+        return;
+    }
+
+    trans_ofs << "Floating voxel count (removed from SDF): " << floating_voxel_count << "\n";
+    trans_ofs << "Unsupported voxel count: " << unsupported_voxel_count << "\n";
+    trans_ofs.close();
 }
 
 

@@ -1,4 +1,5 @@
 ﻿#pragma once
+
 #include "Tool.h"
 #include <queue>
 #include <random>
@@ -250,6 +251,7 @@ private:
     std::vector<pair<int, int>> edge_con_final;
 
     int model_solid_num = 0;
+    int floating_voxel_removed = -1;
     double initPorosity = 0;
     double finalPorosity = 0;
 	double finalTranslucency = 0;

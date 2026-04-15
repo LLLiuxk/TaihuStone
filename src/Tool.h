@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <igl/readOBJ.h>
 #include <igl/signed_distance.h>
 
@@ -92,6 +92,7 @@ void vis_Kernels_Tubes(std::vector<Eigen::Vector3d>& points, std::vector<pair<in
 void vis_KerLine_model(Eigen::MatrixXd V1, Eigen::MatrixXi F1, std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, bool show_line = false, std::string win_name = "vis_Kernels_Tubes");
 void vis_compare_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, std::vector<int> mask, std::string win_name = "compare_lines");
 void vis_opt_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, std::vector<int> mask, std::string win_name = "compare_lines");
+void vis_translucency_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, std::vector<int> edge_usage, std::string win_name = "final_translucency_lines");
 
 int  single_component(Eigen::MatrixXd V, Eigen::MatrixXi F);
 
@@ -189,3 +190,28 @@ vector<int> compare_edges2(const vector<pair<int, int>>& ini, const vector<pair<
 
 
 vector<int> cal_max_degree(std::vector<std::vector<int>> Adj_list);
+
+int save_translucency_summary(
+    const std::string& output_prefix,
+    const std::string& input_name,
+    int max_degree,
+    int max_degree_num,
+    double final_translucency,
+    double sum_t_angle,
+    double sum_t_length,
+    double sum_t_location,
+    double sum_s_horiz,
+    double sum_weighted,
+    int kernel_num,
+    int valid_paths,
+    const std::vector<double>& kt_weights,
+    const std::vector<std::pair<int, int>>& edges,
+    const std::vector<int>& edge_usage
+);
+
+void append_translucency_summary_metrics(
+    const std::string& output_prefix,
+    const std::string& input_name,
+    int floating_voxel_count,
+    int unsupported_voxel_count
+);

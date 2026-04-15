@@ -268,19 +268,32 @@ void ModelGenerator::generateGaussianSDF()
     }
     finalTranslucency = new_trans_score; 
     edge_con_final.clear();
-    double VP_score = cal_total_translucency(Kernels, Adj_list);
-    cout << "MaxDegree: " << cal_max_degree(Adj_list)[0] << "   num: " << cal_max_degree(Adj_list)[1] << endl;
-    cout << "Final VP score: " << finalTranslucency << "  VS  " << VP_score << endl;
+    //double VP_score = cal_total_translucency(Kernels, Adj_list);
+    vector<int> degree_info = cal_max_degree(Adj_list);
     ParaSensitivityStats para_stats = cal_para_sensitivity(false);
-    cout << "Para sensitivity on max VP paths: "
-        << "sum(T_angle)=" << para_stats.sum_T_angle / Kernels.size()
-        << ", sum(T_length)=" << para_stats.sum_T_length / Kernels.size()
-        << ", sum(T_location)=" << para_stats.sum_T_location / Kernels.size()
-        << ", sum(S_horiz)=" << para_stats.sum_S_horiz / Kernels.size()
-        << ", weighted_sum=" << para_stats.sum_weighted_vp / Kernels.size()
-        << ", valid_paths=" << para_stats.valid_path_num << endl;
 
     for (auto e : Tube_edges) edge_con_final.push_back(make_pair(e.from, e.to));
+    vector<int> final_edge_usage = cal_edge_usage(Paths, NO_DEBUG);
+    int used_edge_num = save_translucency_summary(
+        outputPrefix,
+        input_file,
+        degree_info[0],
+        degree_info[1],
+        finalTranslucency,
+        para_stats.sum_T_angle,
+        para_stats.sum_T_length,
+        para_stats.sum_T_location,
+        para_stats.sum_S_horiz,
+        para_stats.sum_weighted_vp,
+        static_cast<int>(Kernels.size()),
+        para_stats.valid_path_num,
+        KT_weights,
+        edge_con_final,
+        final_edge_usage
+    );
+    if (figure_show || compare_show) {
+        vis_translucency_cons(pore_centers, edge_con_final, final_edge_usage, "Final translucency skeleton (yellow=used): ");
+    }
 
     
   //  edge_con_final.clear();
@@ -333,6 +346,7 @@ void ModelGenerator::generateGaussianSDF()
     //output save
     VoxelGrid grids = SDFtoVoxel(SDF_out, bb_min, bb_max, resolution, resolution, resolution);
     SupportCheckResult scr = check_result_voxel(grids, 0.5);
+    append_translucency_summary_metrics(outputPrefix, input_file, floating_voxel_removed, scr.unsupportedVoxelCount);
 
     //std::string outputPrefix = "D:/VSprojects/TaihuStone/result/" + input_file + "_" + std::to_string(PoresNum) + "_" + to_string_pre(Trans_thres, 2) + "_opt/";
     std::string npy_filename = outputPrefix + input_file + "_voxelized_model_" + std::to_string(PoresNum)+"_" + std::to_string(resolution) + "^3" + ".npy";
@@ -2425,6 +2439,7 @@ int ModelGenerator::generate_mbdst_tubes(std::vector<pair<int, int>> edge_con, i
     //filter island
     int eliminate_num = 0;
     int eli_parts = removeFloatingSDF(SDF_out, res, res, res, 2, eliminate_num);
+    floating_voxel_removed = eliminate_num;
     cout << "ELIMINATE islands num : " << eli_parts << " for total units num :" << eliminate_num << endl;
    
     // Marching Cubes
