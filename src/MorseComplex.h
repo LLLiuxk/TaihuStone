@@ -1,14 +1,14 @@
-#pragma once
+ï»¿#pragma once
 #include <Eigen/Dense>
 #include <vector>
 
 
-// ÀàĞÍ±ğÃû
+// ç±»å‹åˆ«å
 using Vector3d = Eigen::Vector3d;
 
-// ¸¨Öúº¯ÊıÉùÃ÷
+// è¾…åŠ©å‡½æ•°å£°æ˜
 namespace MorseComplex {
-    // Ö÷Òª¹¦ÄÜº¯Êı
+    // ä¸»è¦åŠŸèƒ½å‡½æ•°
     std::vector<std::pair<int, int>>  compare_msc(std::vector<Vector3d> Kernels,
         Eigen::VectorXd SDF_gaussian,
         int res,

@@ -1,4 +1,4 @@
-#pragma once// ²ÎÊı½á¹¹Ìå
+ï»¿#pragma once// å‚æ•°ç»“æ„ä½“
 #define NO_DEBUG false
 #include <vector>
 #include <string>
@@ -30,11 +30,11 @@ extern double BaseLayer;
 
 extern double Gauss_level;
 
-extern double SmoothT;    //¿ØÖÆÆ½»¬²¼¶ûµÄÆ½»¬ÇøÓò´óĞ¡
+extern double SmoothT;    //æ§åˆ¶å¹³æ»‘å¸ƒå°”çš„å¹³æ»‘åŒºåŸŸå¤§å°
 
-extern double Tube_radius_factor;  // ¿ØÖÆ¹ÜµÀ°ë¾¶Ïà¶ÔÓÚ¸ßË¹ºË°ë¾¶µÄ±ÈÀı
+extern double Tube_radius_factor;  // æ§åˆ¶ç®¡é“åŠå¾„ç›¸å¯¹äºé«˜æ–¯æ ¸åŠå¾„çš„æ¯”ä¾‹
 
-extern double Safe_distance_ratio; // Dart throwing°²È«¾àÀë±ÈÀı
+extern double Safe_distance_ratio; // Dart throwingå®‰å…¨è·ç¦»æ¯”ä¾‹
 
 extern double Trans_thres;
 
@@ -44,7 +44,7 @@ extern bool standard_show;
 extern bool figure_show;
 extern bool compare_show;
 extern bool Direct_dis;
-extern bool Iso_kernel;  //Ê¹ÓÃiso»¹ÊÇÍÖÇò
+extern bool Iso_kernel;  //ä½¿ç”¨isoè¿˜æ˜¯æ¤­çƒ
 extern bool Handle_overlap;
 extern bool optimize_debug;
 extern bool Enable_noise;
@@ -57,7 +57,7 @@ extern double show_degree_z;
 
 std::string trim(const std::string& str);
 
-// ¸¨Öúº¯Êı£º½âÎö vector<double> (ÀıÈç "0.8, 1.0, 1.2")
+// è¾…åŠ©å‡½æ•°ï¼šè§£æ vector<double> (ä¾‹å¦‚ "0.8, 1.0, 1.2")
 std::vector<double> parseVector(std::string valStr);
 
 bool loadParameters(const std::string& filename);

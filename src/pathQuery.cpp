@@ -1,4 +1,4 @@
-#include "modelGen.h"
+ï»¿#include "modelGen.h"
 
 PathQuery::PathQuery(int num_nodes, const std::vector<std::vector<int>>& adj, int root) 
     : n(num_nodes), adj_list(adj), root(root), parent(num_nodes, -1)
@@ -14,7 +14,7 @@ std::vector<int> PathQuery::query_path(int t)
 {
     if (t < 0 || t >= n) return {};
     if (parent[t] == -1 && t != root) {
-        // ²»Á¬Í¨£¬·µ»Ø¿ÕÂ·¾¶
+        // ä¸è¿é€šï¼Œè¿”å›ç©ºè·¯å¾„
         return {};
     }
     std::vector<int> path;
@@ -28,7 +28,7 @@ std::vector<int> PathQuery::query_path(int t)
     return path;
 }
 
-// Ò»´Î BFS ½¨Á¢ parent Êı×é
+// ä¸€æ¬¡ BFS å»ºç«‹ parent æ•°ç»„
 bool PathQuery::build_parent_tree() 
 {
     std::vector<bool> visited(n, false);
@@ -47,7 +47,7 @@ bool PathQuery::build_parent_tree()
             if (!visited[v]) {
 
                 visited[v] = true;
-                parent[v] = u;  // ¼ÇÂ¼Â·¾¶Ê÷
+                parent[v] = u;  // è®°å½•è·¯å¾„æ ‘
                 q.push(v);
                 count++;
             }

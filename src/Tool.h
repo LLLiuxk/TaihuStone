@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #include <igl/readOBJ.h>
 #include <igl/signed_distance.h>
 
@@ -45,10 +45,10 @@ extern vector<RowVector3d> colors;
 //
 //    g_kernel_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
 //    g_kernel_noise.SetFractalType(FastNoiseLite::FractalType_FBm);
-//    g_kernel_noise.SetFractalOctaves(3);        // µÍÆµ
+//    g_kernel_noise.SetFractalOctaves(3);        // ä½é¢‘
 //    g_kernel_noise.SetFractalLacunarity(2.0f);
 //    g_kernel_noise.SetFractalGain(0.5f);
-//    g_kernel_noise.SetFrequency(0.8f);          // ºËĞÄ²ÎÊı£º¿Õ¼ä³ß¶È
+//    g_kernel_noise.SetFrequency(0.8f);          // æ ¸å¿ƒå‚æ•°ï¼šç©ºé—´å°ºåº¦
 //    initialized = true;
 //}
 
@@ -59,9 +59,9 @@ static void init_field_noise()
 
     g_field_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     g_field_noise.SetFractalType(FastNoiseLite::FractalType_FBm);
-    g_field_noise.SetFractalOctaves(4);  //¸ßÆµ
+    g_field_noise.SetFractalOctaves(4);  //é«˜é¢‘
     g_field_noise.SetFractalGain(0.55f);
-    g_field_noise.SetFrequency(1.0f); // ¿Õ¼ä³ß¶ÈÓÉÍâ²¿¿ØÖÆ
+    g_field_noise.SetFrequency(1.0f); // ç©ºé—´å°ºåº¦ç”±å¤–éƒ¨æ§åˆ¶
 
     initialized = true;
 }
@@ -69,18 +69,18 @@ static void init_field_noise()
 double Mesh2SDF(Eigen::MatrixXd& V, Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Eigen::VectorXd& S, Eigen::Vector3d& bb_min, Eigen::Vector3d& bb_max);
 bool saveMesh(std::string filename, Eigen::MatrixXd V, Eigen::MatrixXi F);
 
-// SDFÆ½»¬²¢¼¯¡£kÔ½´ó£¬Æ½»¬Ğ§¹ûÔ½Ğ¡£¬Ç÷½üÓÚÆÕÍ¨²¢¼¯
+// SDFå¹³æ»‘å¹¶é›†ã€‚kè¶Šå¤§ï¼Œå¹³æ»‘æ•ˆæœè¶Šå°ï¼Œè¶‹è¿‘äºæ™®é€šå¹¶é›†
 double smooth_UnionSDF(double sdf1, double sdf2, double k = SmoothT);
 
-// SDFÆ½»¬½»¼¯
+// SDFå¹³æ»‘äº¤é›†
 double smooth_IntersecSDF(double sdf1, double sdf2, double k);
 
-// SDF²¼¶ûÔËËã£º²¢¼¯
+// SDFå¸ƒå°”è¿ç®—ï¼šå¹¶é›†
 double unionSDF(double sdf1, double sdf2);
 
-// SDF²¼¶ûÔËËã£º½»¼¯
+// SDFå¸ƒå°”è¿ç®—ï¼šäº¤é›†
 double intersectionSDF(double sdf1, double sdf2);
-// SDF²¼¶ûÔËËã£º²î¼¯ (A - B)
+// SDFå¸ƒå°”è¿ç®—ï¼šå·®é›† (A - B)
 double differenceSDF(double sdf1, double sdf2);
 
 void MarchingCubes(Eigen::VectorXd& S, Eigen::MatrixXd& GV, int nx, int ny, int nz, double isovalue, Eigen::MatrixXd& V, Eigen::MatrixXi& F);
@@ -95,13 +95,13 @@ void vis_opt_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, in
 
 int  single_component(Eigen::MatrixXd V, Eigen::MatrixXi F);
 
-//Èı½ÇÔËËã
+//ä¸‰è§’è¿ç®—
 double abs_angle(Vector3d v1, Vector3d v2);
 double distance(Vector3d v1, Vector3d v2);
 double squared_distance(Vector3d v1, Vector3d v2);
 Eigen::Matrix3d construct_R(double u, double v, double theta_max_rad, Eigen::Vector3d z_axis = Eigen::Vector3d(0.0, 0.0, 1.0));
 
-//Bernstein»ùº¯Êı 
+//BernsteinåŸºå‡½æ•° 
 double bernstein_basis(int i, int n, double t);
 
 //load files
@@ -122,7 +122,7 @@ void getCoord(int idx, int res, int& x, int& y, int& z);
 Eigen::Vector3d computePrincipalDirection(const std::vector<Eigen::Vector3d>& points);
 
 //TO
-double smoothHeaviside(double s, double eps = 0.1);  // Heaviside Æ½»¬¿í¶È£¨½¨Òé = 1~2 ¸öÌåËØ³ß´ç£©
+double smoothHeaviside(double s, double eps = 0.1);  // Heaviside å¹³æ»‘å®½åº¦ï¼ˆå»ºè®® = 1~2 ä¸ªä½“ç´ å°ºå¯¸ï¼‰
 double hardTrans(double s, double iso);
 
 VoxelGrid SDFtoVoxel(Eigen::VectorXd& sdf, Eigen::Vector3d minBox, Eigen::Vector3d maxBox, int nx, int ny, int nz); 
@@ -163,12 +163,12 @@ void sort_min2max(std::vector<std::pair<T1, T2>>& vec)
 //    double spatial_frequency);
 
 void add_noise_near_isosurface(
-    Eigen::VectorXd& S,              // ±êÁ¿³¡£¨in-place ĞŞ¸Ä£©
-    const Eigen::MatrixXd& GV,        // ÌåËØ×ø±ê
-    double iso_value,                 // MC µÈÖµÃæ
-    double noise_amplitude,            // ÔëÉù·ùÖµ£¨½¨Òé 0.05 ~ 0.3 * ³¡³ß¶È£©
-    double band_width,                 // µÈÖµÃæ´ø¿í
-    double spatial_frequency           // ÔëÉù¿Õ¼äÆµÂÊ
+    Eigen::VectorXd& S,              // æ ‡é‡åœºï¼ˆin-place ä¿®æ”¹ï¼‰
+    const Eigen::MatrixXd& GV,        // ä½“ç´ åæ ‡
+    double iso_value,                 // MC ç­‰å€¼é¢
+    double noise_amplitude,            // å™ªå£°å¹…å€¼ï¼ˆå»ºè®® 0.05 ~ 0.3 * åœºå°ºåº¦ï¼‰
+    double band_width,                 // ç­‰å€¼é¢å¸¦å®½
+    double spatial_frequency           // å™ªå£°ç©ºé—´é¢‘ç‡
 );
 
 //cal sigma

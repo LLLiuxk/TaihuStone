@@ -1,14 +1,14 @@
-#include "selfSupVoxel.h"
+ï»¿#include "selfSupVoxel.h"
 
 SupportCheckResult checkSupportVoxel(VoxelGrid& grid, double densityThreshold)
 {
     SupportCheckResult result;
 
-    // 1. Í³¼Æ×ÜÌå»ı
+    // 1. ç»Ÿè®¡æ€»ä½“ç§¯
     int totalSolidVoxels = 0;
 
-    // 2. ±éÀúÍø¸ñ
-    // ×¢Òâ£ºk ´Ó 0 ¿ªÊ¼±éÀú¡£k=0 µÄ²ãÎÒÃÇÒ²ÊÓÎªÊµÌå£¬µ«ËüÌùÔÚµ×°åÉÏ£¬Ä¬ÈÏÊÇ±»Ö§³ÅµÄ¡£
+    // 2. éå†ç½‘æ ¼
+    // æ³¨æ„ï¼šk ä» 0 å¼€å§‹éå†ã€‚k=0 çš„å±‚æˆ‘ä»¬ä¹Ÿè§†ä¸ºå®ä½“ï¼Œä½†å®ƒè´´åœ¨åº•æ¿ä¸Šï¼Œé»˜è®¤æ˜¯è¢«æ”¯æ’‘çš„ã€‚
     std::vector<bool> supported(grid.nx * grid.ny * grid.nz, false);
 	int base_layer = findBaseLayer(grid, densityThreshold);
    // for (int j = 0; j < grid.ny; ++j) {
@@ -24,28 +24,28 @@ SupportCheckResult checkSupportVoxel(VoxelGrid& grid, double densityThreshold)
                 int idx = grid.index(i, j, k);
                 double val = grid.rho[grid.index(i, j, k)];
 
-                // Èç¹ûµ±Ç°¸ñ×ÓÊÇ¿ÕµÄ£¬Ìø¹ı
+                // å¦‚æœå½“å‰æ ¼å­æ˜¯ç©ºçš„ï¼Œè·³è¿‡
                 if (val < densityThreshold) continue;
 
                 totalSolidVoxels++;
 
-                // Èç¹ûÊÇµ×²ã (k=0)£¬Ä¬ÈÏÓÉ´òÓ¡Æ½Ì¨Ö§³Å£¬²»ĞèÒª¶îÍâÖ§³Å
+                // å¦‚æœæ˜¯åº•å±‚ (k=0)ï¼Œé»˜è®¤ç”±æ‰“å°å¹³å°æ”¯æ’‘ï¼Œä¸éœ€è¦é¢å¤–æ”¯æ’‘
                 if (k == base_layer) 
                 {
                     supported[idx] = true;
                     continue;
                 }
 
-                // 3. ¼ì²éÏÂ·½Ö§³Å (k-1 ²ã)£¬ ¼ì²é 3x3 ÁÚÓò (Ä£Äâ 45 ¶ÈĞü´¹½Ç)
+                // 3. æ£€æŸ¥ä¸‹æ–¹æ”¯æ’‘ (k-1 å±‚)ï¼Œ æ£€æŸ¥ 3x3 é‚»åŸŸ (æ¨¡æ‹Ÿ 45 åº¦æ‚¬å‚è§’)
 
-                // ±éÀúÏÂ·½ 3x3 ÇøÓò
+                // éå†ä¸‹æ–¹ 3x3 åŒºåŸŸ
                 for (int dy = -1; dy <= 1; ++dy) {
                     for (int dx = -1; dx <= 1; ++dx) {
-                        // »ñÈ¡ÏÂ·½ÌåËØµÄÃÜ¶È
+                        // è·å–ä¸‹æ–¹ä½“ç´ çš„å¯†åº¦
                         double belowVal = grid.getSafe(i + dx, j + dy, k - 1);
                         if (belowVal >= densityThreshold /*&& supported[grid.index(i + dx, j + dy, k - 1)]*/) { // && supported[grid.index(i + dx, j + dy, k - 1)]
                             supported[idx] = true;
-                            goto check_done; // Ö»ÒªÕÒµ½Ò»¸öÖ§³Åµã£¬¾ÍÌø³öÄÚ²ãÑ­»·
+                            goto check_done; // åªè¦æ‰¾åˆ°ä¸€ä¸ªæ”¯æ’‘ç‚¹ï¼Œå°±è·³å‡ºå†…å±‚å¾ªç¯
                         }
                     }
                 }
@@ -65,7 +65,7 @@ SupportCheckResult checkSupportVoxel(VoxelGrid& grid, double densityThreshold)
 	result.solid_nums = totalSolidVoxels;
     result.unsupportedRatio = 1.0 * result.unsupportedVoxelCount / totalSolidVoxels;
 	std::cout << "unsupport num: " << totalSolidVoxels<<" - " <<usnum << " =  " << result.unsupportedVoxelCount << "   ratio: " << result.unsupportedRatio * 100 << "%" << std::endl;
-    // 5. ¼ÆËãÍ³¼ÆÊı¾İ
+    // 5. è®¡ç®—ç»Ÿè®¡æ•°æ®
     //double vVol = grid.voxelVolume();
     //result.totalVolume = totalSolidVoxels * vVol;
     //result.unsupportedVolume = result.unsupportedVoxelCount * vVol;
@@ -77,8 +77,8 @@ SupportCheckResult checkSupportVoxel(VoxelGrid& grid, double densityThreshold)
     //}
 	//std::cout << "result.unsupportedVoxelCount" << result.unsupportedVoxelCount << "   totalSolidVoxels: " << totalSolidVoxels << std::endl;
 
-    // 6. ×îÖÕÅĞ¶¨
-    // Éè¶¨Ò»¸öÈİÈÌ¶È£¬±ÈÈçĞü´¹Ìå»ıÕ¼±ÈĞ¡ÓÚ 0.1% ¿ÉÄÜÖ»ÊÇÔëµã»ò¼«Ğ¡µÄµ¹½Ç
+    // 6. æœ€ç»ˆåˆ¤å®š
+    // è®¾å®šä¸€ä¸ªå®¹å¿åº¦ï¼Œæ¯”å¦‚æ‚¬å‚ä½“ç§¯å æ¯”å°äº 0.1% å¯èƒ½åªæ˜¯å™ªç‚¹æˆ–æå°çš„å€’è§’
     if (result.unsupportedRatio > 0.001) {
         result.isSupportFree = false;
     }
@@ -95,15 +95,15 @@ int findBaseLayer(const VoxelGrid& grid, double densityThreshold)
         for (int j = 0; j < grid.ny; ++j) {
             for (int i = 0; i < grid.nx; ++i) {
                 double val = grid.rho[grid.index(i, j, k)];
-                // Èç¹ûµ±Ç°¸ñ×ÓÊÇ¿ÕµÄ£¬Ìø¹ı
+                // å¦‚æœå½“å‰æ ¼å­æ˜¯ç©ºçš„ï¼Œè·³è¿‡
                 if (val < densityThreshold) continue;
-                // ÕÒµ½µÚÒ»²ãÊµÌåÌåËØ
+                // æ‰¾åˆ°ç¬¬ä¸€å±‚å®ä½“ä½“ç´ 
                 else
                     return k;
             }
         }
     }
-	return -1; // Î´ÕÒµ½ÊµÌåÌåËØ
+	return -1; // æœªæ‰¾åˆ°å®ä½“ä½“ç´ 
 }
 
 SupportCheckResult checkFloatingVoxel(VoxelGrid& grid, double densityThreshold)
@@ -118,9 +118,9 @@ SupportCheckResult checkFloatingVoxel(VoxelGrid& grid, double densityThreshold)
     std::vector<int> parts_solids;
     
 
-    // visited ±ê¼Ç
+    // visited æ ‡è®°
     std::vector<char> visited(N, 0);
-    // 6 ÁÚÓò
+    // 6 é‚»åŸŸ
     const int dx[6] = { 1,-1, 0, 0, 0, 0 };
     const int dy[6] = { 0, 0, 1,-1, 0, 0 };
     const int dz[6] = { 0, 0, 0, 0, 1,-1 };
@@ -138,7 +138,7 @@ SupportCheckResult checkFloatingVoxel(VoxelGrid& grid, double densityThreshold)
     {
         int id = grid.index(i, j, k);
 
-        // Ö»´Ó¡°Î´·ÃÎÊµÄÊµÌåÌåËØ¡±³ö·¢
+        // åªä»â€œæœªè®¿é—®çš„å®ä½“ä½“ç´ â€å‡ºå‘
         if (visited[id]) continue;
         if (grid.at(i, j, k) <= densityThreshold) continue;
 
@@ -174,7 +174,7 @@ SupportCheckResult checkFloatingVoxel(VoxelGrid& grid, double densityThreshold)
         parts_solids.push_back(component_count);
     }
 
-    // °´ÌåËØÊı´Ó´óµ½Ğ¡ÅÅĞò
+    // æŒ‰ä½“ç´ æ•°ä»å¤§åˆ°å°æ’åº
     std::sort(parts_solids.begin(),
         parts_solids.end(),
         std::greater<int>());
@@ -303,7 +303,7 @@ int removeFloatingSDF(Eigen::VectorXd& SDF, int nx, int ny, int nz, double smoot
 
     std::vector<Eigen::Vector3i> stack, nbrs;
 
-    // ===== 1. Á¬Í¨²¿¼ş·ÖÎö£¨SDF <= 0£©=====
+    // ===== 1. è¿é€šéƒ¨ä»¶åˆ†æï¼ˆSDF <= 0ï¼‰=====
     for (int z = 0; z < nz; ++z)
         for (int y = 0; y < ny; ++y)
             for (int x = 0; x < nx; ++x)
@@ -338,19 +338,19 @@ int removeFloatingSDF(Eigen::VectorXd& SDF, int nx, int ny, int nz, double smoot
                 }
             }
 
-    // ===== 2. ÕÒ×î´ó²¿¼ş =====
+    // ===== 2. æ‰¾æœ€å¤§éƒ¨ä»¶ =====
     int main_comp = 0;
     for (int i = 1; i < cid; ++i)
         if (comp_size[i] > comp_size[main_comp])
             main_comp = i;
 
-    // ===== 3. Ô¤ÊÕ¼¯Ö÷½á¹¹ÌåËØ =====
+    // ===== 3. é¢„æ”¶é›†ä¸»ç»“æ„ä½“ç´  =====
     std::vector<int> main_voxels;
     for (int i = 0; i < N; ++i)
         if (comp_id[i] == main_comp)
             main_voxels.push_back(i);
 
-    // ===== 4. Æ½»¬Ïû³ı¹Âµº =====
+    // ===== 4. å¹³æ»‘æ¶ˆé™¤å­¤å²› =====
     int modified = 0;
     int removed_components = cid - 1;
 
@@ -358,7 +358,7 @@ int removeFloatingSDF(Eigen::VectorXd& SDF, int nx, int ny, int nz, double smoot
     {
         if (comp_id[i] >= 0 && comp_id[i] != main_comp)
         {
-            // ×î½üÖ÷½á¹¹ÌåËØ¾àÀë£¨´Ö±© O(N)£¬ÄãÖ®ºó¿É»» KD-tree£©
+            // æœ€è¿‘ä¸»ç»“æ„ä½“ç´ è·ç¦»ï¼ˆç²—æš´ O(N)ï¼Œä½ ä¹‹åå¯æ¢ KD-treeï¼‰
             double min_d2 = 1e30;
 
             int z = i / (nx * ny);
@@ -380,7 +380,7 @@ int removeFloatingSDF(Eigen::VectorXd& SDF, int nx, int ny, int nz, double smoot
             double d = std::sqrt(min_d2);
             double t = std::min(d / smooth_radius, 1.0);
 
-            // smoothstep ÍÆ»ØÕıÖµ
+            // smoothstep æ¨å›æ­£å€¼
             double s = t * t * (3 - 2 * t);
             SDF[i] = s * std::abs(SDF[i]);
 

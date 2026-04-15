@@ -1,4 +1,4 @@
-#include "Tool.h"
+ï»¿#include "Tool.h"
 
 vector<RowVector3d> colors = { RowVector3d(0.90, 0.62, 0.0), //orange
     RowVector3d(0.9, 0.75, 0.40), //light orange
@@ -24,9 +24,9 @@ double Mesh2SDF(Eigen::MatrixXd& V,  Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Ei
         return 0.0;
     }
 
-    Eigen::VectorXi I;  // ×î½üÃæË÷Òı
-    Eigen::MatrixXd C;  // ×î½üµã×ø±ê
-    Eigen::MatrixXd N;  // ÄÚÍâ·¨Ïò·ûºÅ
+    Eigen::VectorXi I;  // æœ€è¿‘é¢ç´¢å¼•
+    Eigen::MatrixXd C;  // æœ€è¿‘ç‚¹åæ ‡
+    Eigen::MatrixXd N;  // å†…å¤–æ³•å‘ç¬¦å·
 
     bb_min = V.colwise().minCoeff();
     bb_max = V.colwise().maxCoeff();
@@ -47,7 +47,7 @@ double Mesh2SDF(Eigen::MatrixXd& V,  Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Ei
     //cout << "bb_min: " << bb_min << endl;
     //bb_min = V.colwise().minCoeff();
     
-    int res = Resolution;  // Íø¸ñ·Ö±æÂÊ£¬¿Éµ÷¸ßÒÔÌáÉı¾«¶È
+    int res = Resolution;  // ç½‘æ ¼åˆ†è¾¨ç‡ï¼Œå¯è°ƒé«˜ä»¥æå‡ç²¾åº¦
     //double dx = bb_size.maxCoeff() / (res - 1);
     double dx = 1.0 / (res - 1);
 
@@ -73,12 +73,12 @@ double Mesh2SDF(Eigen::MatrixXd& V,  Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Ei
 
      std::cout << "Sample resolution: " << res<<"  "<< res<<"  "<< res<<" = "<< GV.rows() << std::endl;
 
-    // µ÷ÓÃ libigl µÄ signed_distance()
+    // è°ƒç”¨ libigl çš„ signed_distance()
 
     igl::signed_distance( GV, V, F, igl::SIGNED_DISTANCE_TYPE_FAST_WINDING_NUMBER, SDF, I, C, N );
     return scale_factor;
-    //Eigen::MatrixXd V_t; //Êä³öÍø¸ñ¶¥µã
-    //Eigen::MatrixXi F_t; // Êä³öÍø¸ñÃæÆ¬
+    //Eigen::MatrixXd V_t; //è¾“å‡ºç½‘æ ¼é¡¶ç‚¹
+    //Eigen::MatrixXi F_t; // è¾“å‡ºç½‘æ ¼é¢ç‰‡
     //MarchingCubes(SDF, GV, res, res, res, 0, V_t, F_t);  //gaussian combined with tubes
     //view_model(V_t, F_t);
 
@@ -86,7 +86,7 @@ double Mesh2SDF(Eigen::MatrixXd& V,  Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Ei
 
 bool saveMesh(std::string filename, Eigen::MatrixXd V, Eigen::MatrixXi F)
 {
-    // È·±£Êä³öÄ¿Â¼´æÔÚ
+    // ç¡®ä¿è¾“å‡ºç›®å½•å­˜åœ¨
     std::filesystem::path filePath(filename);
     std::filesystem::path dir = filePath.parent_path();
     if (!dir.empty() && !std::filesystem::exists(dir)) {
@@ -97,30 +97,30 @@ bool saveMesh(std::string filename, Eigen::MatrixXd V, Eigen::MatrixXi F)
 	return true;
 }
 
-//Æ½»¬²¢¼¯  softmin , kÔ½´ó£¬Æ½»¬Ğ§¹ûÔ½Ğ¡£¬Ç÷½üÓÚÆÕÍ¨²¢¼¯
+//å¹³æ»‘å¹¶é›†  softmin , kè¶Šå¤§ï¼Œå¹³æ»‘æ•ˆæœè¶Šå°ï¼Œè¶‹è¿‘äºæ™®é€šå¹¶é›†
 double smooth_UnionSDF(double sdf1, double sdf2, double k)   //k y
 {
     return -1.0 / k * log(exp(-sdf1 * k) + exp(-sdf2 * k));
 }
-// SDFÆ½»¬½»¼¯  softmax, kÔ½´ó£¬Æ½»¬Ğ§¹ûÔ½Ğ¡£¬Ç÷½üÓÚÆÕÍ¨½»¼¯
+// SDFå¹³æ»‘äº¤é›†  softmax, kè¶Šå¤§ï¼Œå¹³æ»‘æ•ˆæœè¶Šå°ï¼Œè¶‹è¿‘äºæ™®é€šäº¤é›†
 double smooth_IntersecSDF(double sdf1, double sdf2, double k)
 {
     return  1.0 / k * log(exp(sdf1 * k) + exp(sdf2 * k));
 }
 
-// SDF²¼¶ûÔËËã£º²¢¼¯
+// SDFå¸ƒå°”è¿ç®—ï¼šå¹¶é›†
 double unionSDF(double sdf1, double sdf2) 
 {
     return std::min(sdf1, sdf2);
 }
 
-// SDF²¼¶ûÔËËã£º½»¼¯
+// SDFå¸ƒå°”è¿ç®—ï¼šäº¤é›†
 double intersectionSDF(double sdf1, double sdf2) 
 {
     return std::max(sdf1, sdf2);
 }
 
-// SDF²¼¶ûÔËËã£º²î¼¯ (A - B)
+// SDFå¸ƒå°”è¿ç®—ï¼šå·®é›† (A - B)
 double differenceSDF(double sdf1, double sdf2) 
 {
     return std::max(sdf1, -sdf2);
@@ -144,11 +144,11 @@ void view_model(Eigen::MatrixXd V1, Eigen::MatrixXi F1, std::string win_name, bo
     viewer.core().background_color.setConstant(1.0f); // White background
 
     viewer.data().set_mesh(V1, F1);
-    viewer.data().show_lines = show_line;   // ²»ÏÔÊ¾Íø¸ñÏß
-    viewer.data().show_faces = !show_line;   // ²»ÏÔÊ¾Èı½ÇÃæ
-    //viewer.data().set_colors(Eigen::RowVector3d(0.8, 0.7, 0.2)); // ÉèÖÃÒ»¸öÆ¯ÁÁµÄÀ¶É«
+    viewer.data().show_lines = show_line;   // ä¸æ˜¾ç¤ºç½‘æ ¼çº¿
+    viewer.data().show_faces = !show_line;   // ä¸æ˜¾ç¤ºä¸‰è§’é¢
+    //viewer.data().set_colors(Eigen::RowVector3d(0.8, 0.7, 0.2)); // è®¾ç½®ä¸€ä¸ªæ¼‚äº®çš„è“è‰²
 
-    viewer.data().point_size = 10; // ÈÃµã¸üÏÔÑÛ
+    viewer.data().point_size = 10; // è®©ç‚¹æ›´æ˜¾çœ¼
     //viewer.launch();
 
     //viewer.core().align_camera_center(V1, F1);
@@ -171,24 +171,24 @@ void view_two_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V2,
     viewer.core().background_color.setConstant(1.0f); // White background
 
     viewer.data().set_mesh(V1, F1);
-    //viewer.data().show_lines = false;   // ²»ÏÔÊ¾Íø¸ñÏß
-    viewer.data().show_lines = true;   // ²»ÏÔÊ¾Íø¸ñÏß
-    viewer.data().show_faces = false;   // ²»ÏÔÊ¾Èı½ÇÃæ
+    //viewer.data().show_lines = false;   // ä¸æ˜¾ç¤ºç½‘æ ¼çº¿
+    viewer.data().show_lines = true;   // ä¸æ˜¾ç¤ºç½‘æ ¼çº¿
+    viewer.data().show_faces = false;   // ä¸æ˜¾ç¤ºä¸‰è§’é¢
     viewer.data().set_colors(Eigen::RowVector3d(0.8, 0.8, 0.8));
     viewer.data().shininess = 500.0;
-    //viewer.data().set_colors(Eigen::RowVector3d(0.8, 0.7, 0.2)); // ÉèÖÃÒ»¸öÆ¯ÁÁµÄÀ¶É«
+    //viewer.data().set_colors(Eigen::RowVector3d(0.8, 0.7, 0.2)); // è®¾ç½®ä¸€ä¸ªæ¼‚äº®çš„è“è‰²
 
     int id2 = viewer.append_mesh();
     viewer.data(id2).set_mesh(V2, F2);
     //viewer.data(id3).set_colors(Eigen::RowVector3d(0.4, 0.4, 0.2));
-    viewer.data(id2).show_lines = false;   // ²»ÏÔÊ¾Íø¸ñÏß
+    viewer.data(id2).show_lines = false;   // ä¸æ˜¾ç¤ºç½‘æ ¼çº¿
 
     //viewer.data(id2).set_colors(Eigen::RowVector3d(0.95, 0.7, 0.30));
     viewer.data(id2).set_colors(Eigen::RowVector3d(0.18, 0.67, 0.97));
     viewer.data(id2).shininess = 2000.0;
-    // Ìí¼Ó¸¨Öúµã (¸ßË¹ºËµÄÖĞĞÄ)£¬ÉèÖÃÎªºìÉ«
+    // æ·»åŠ è¾…åŠ©ç‚¹ (é«˜æ–¯æ ¸çš„ä¸­å¿ƒ)ï¼Œè®¾ç½®ä¸ºçº¢è‰²
    // viewer.data().add_points(kernel_points, Eigen::RowVector3d(1, 0, 0));
-    //viewer.data().point_size = 10; // ÈÃµã¸üÏÔÑÛ
+    //viewer.data().point_size = 10; // è®©ç‚¹æ›´æ˜¾çœ¼
 
     float deg2rad = float(M_PI) / 180.0f;
     Eigen::Quaternionf q =
@@ -207,32 +207,32 @@ void view_three_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V
     viewer.core().background_color.setConstant(1.0f); // White background
 
     viewer.data().set_mesh(V1, F1);
-    viewer.data().show_lines = false;   // ²»ÏÔÊ¾Íø¸ñÏß
-    //viewer.data().set_colors(Eigen::RowVector3d(0.8, 0.7, 0.2)); // ÉèÖÃÒ»¸öÆ¯ÁÁµÄÀ¶É«
+    viewer.data().show_lines = false;   // ä¸æ˜¾ç¤ºç½‘æ ¼çº¿
+    //viewer.data().set_colors(Eigen::RowVector3d(0.8, 0.7, 0.2)); // è®¾ç½®ä¸€ä¸ªæ¼‚äº®çš„è“è‰²
 
     int id2 = viewer.append_mesh();
     Eigen::MatrixXd V_shifted = V2;
-    //V_shifted.rowwise() -= shift;  // Ïò×óÒÆ¶¯ 1 ¸öµ¥Î»
+    //V_shifted.rowwise() -= shift;  // å‘å·¦ç§»åŠ¨ 1 ä¸ªå•ä½
 
     viewer.data(id2).set_mesh(V_shifted, F2);
     viewer.data(id2).set_colors(Eigen::RowVector3d(0.8, 0.1, 0.1));
 
 	int id3 = viewer.append_mesh();
     Eigen::MatrixXd V_shifted3 = V3;
-    V_shifted3.rowwise() += shift;  // ÏòÓÒÒÆ¶¯ 1 ¸öµ¥Î»
+    V_shifted3.rowwise() += shift;  // å‘å³ç§»åŠ¨ 1 ä¸ªå•ä½
 
     viewer.data(id3).set_mesh(V_shifted3, F3);
     viewer.data(id3).set_colors(Eigen::RowVector3d(0.8, 0.8, 0.8));
-    // Ìí¼Ó¸¨Öúµã (¸ßË¹ºËµÄÖĞĞÄ)£¬ÉèÖÃÎªºìÉ«
+    // æ·»åŠ è¾…åŠ©ç‚¹ (é«˜æ–¯æ ¸çš„ä¸­å¿ƒ)ï¼Œè®¾ç½®ä¸ºçº¢è‰²
    // viewer.data().add_points(kernel_points, Eigen::RowVector3d(1, 0, 0));
-    viewer.data().point_size = 10; // ÈÃµã¸üÏÔÑÛ
+    viewer.data().point_size = 10; // è®©ç‚¹æ›´æ˜¾çœ¼
     viewer.launch(false, win_name);
 }
 
 int single_component(Eigen::MatrixXd V, Eigen::MatrixXi F)
 {
     if (F.rows() == 0) return -1;    
-    // ¹¹½¨¶¥µãµ½ÃæµÄÁÚ½Ó
+    // æ„å»ºé¡¶ç‚¹åˆ°é¢çš„é‚»æ¥
     std::vector<std::vector<int>> vertex_faces(V.rows());
     vertex_faces.reserve(V.rows());
     for (int fi = 0; fi < F.rows(); ++fi) {
@@ -242,7 +242,7 @@ int single_component(Eigen::MatrixXd V, Eigen::MatrixXi F)
                 vertex_faces[v].push_back(fi);
         }
     }
-    // ÃæµÄ·ÃÎÊ±ê¼Ç
+    // é¢çš„è®¿é—®æ ‡è®°
     std::vector<char> visited(F.rows(), 0);
     std::vector<int> comp_ids(F.rows(), -1);
     int comp = 0;
@@ -260,7 +260,7 @@ int single_component(Eigen::MatrixXd V, Eigen::MatrixXi F)
         while (!stack.empty()) {
             int cur = stack.back(); stack.pop_back();
             ++size;
-            // Í¨¹ı¹²Ïí¶¥µãÀ©Õ¹
+            // é€šè¿‡å…±äº«é¡¶ç‚¹æ‰©å±•
             for (int k = 0; k < 3; ++k) {
                 int v = F(cur, k);
                 for (int nf : vertex_faces[v]) {
@@ -278,7 +278,7 @@ int single_component(Eigen::MatrixXd V, Eigen::MatrixXi F)
     if (comp <= 1)
     {
         std::cout << "Only single component" << std::endl;
-        return 1; // ÒÑ¾­ÊÇµ¥Ò»×é¼ş
+        return 1; // å·²ç»æ˜¯å•ä¸€ç»„ä»¶
     }
     else
     {
@@ -301,7 +301,7 @@ double abs_angle(Vector3d v1, Vector3d v2)
         double dot_product = (v1).dot(v2);
         double cos_theta = dot_product / (mag1 * mag2);
         //cout << "dot_product: " << dot_product << "   cos_theta: " << cos_theta << endl;
-        // ¼Ğ½Ç¿ÉÄÜÒò¸¡µãÎó²îÂÔ³¬³ö[-1, 1]·¶Î§
+        // å¤¹è§’å¯èƒ½å› æµ®ç‚¹è¯¯å·®ç•¥è¶…å‡º[-1, 1]èŒƒå›´
         cos_theta = std::max(-1.0, std::min(1.0, cos_theta));
 
         double angle_rad = std::acos(cos_theta);
@@ -332,11 +332,11 @@ Eigen::Matrix3d construct_R(double u, double v, double theta_max_rad, Eigen::Vec
         cos_theta
     );
     d.normalize();
-    // Èç¹û¼¸ºõÃ»ÓĞĞı×ª£¬Ö±½Ó·µ»Øµ¥Î»¾ØÕó
+    // å¦‚æœå‡ ä¹æ²¡æœ‰æ—‹è½¬ï¼Œç›´æ¥è¿”å›å•ä½çŸ©é˜µ
     if ((d - z_axis).norm() < 1e-6) {
         return Eigen::Matrix3d::Identity();
     }
-    // Rodrigues ¹«Ê½
+    // Rodrigues å…¬å¼
     Eigen::Vector3d axis = z_axis.cross(d);
     axis.normalize();
 
@@ -359,7 +359,7 @@ Eigen::Matrix3d construct_R(double u, double v, double theta_max_rad, Eigen::Vec
 
 bool align_models_with_pca(const std::string& model1_path, const std::string& model2_path, const std::string& output_path) 
 {
-    // ¶ÁÈ¡Ä£ĞÍ
+    // è¯»å–æ¨¡å‹
     MatrixXd V1, V2;
     MatrixXi F1, F2;
     MatrixXd N1, N2;
@@ -369,33 +369,33 @@ bool align_models_with_pca(const std::string& model1_path, const std::string& mo
         return false;
     }
     cout << "Load meshes!" << endl;
-    // ¼ÆËãÖ÷³É·Ö·ÖÎö(PCA)»ñÈ¡Ö÷·½Ïò
+    // è®¡ç®—ä¸»æˆåˆ†åˆ†æ(PCA)è·å–ä¸»æ–¹å‘
     auto compute_principal_axes = [](const MatrixXd& V) -> Matrix3d {
-        // ÖĞĞÄ»¯
+        // ä¸­å¿ƒåŒ–
         Vector3d center = V.colwise().mean();
         MatrixXd centered = V.rowwise() - center.transpose();
         cout << "centering!" << endl;
-        // ¼ÆËãĞ­·½²î¾ØÕó
+        // è®¡ç®—åæ–¹å·®çŸ©é˜µ
         Matrix3d cov = centered.transpose() * centered / (V.rows() - 1);
 
-        // ÌØÕ÷·Ö½â
+        // ç‰¹å¾åˆ†è§£
         SelfAdjointEigenSolver<Matrix3d> eigen_solver(cov);
         Matrix3d eigenvectors = eigen_solver.eigenvectors();
         cout << "feature decomposed!" << endl;
-        // °´ÌØÕ÷Öµ½µĞòÅÅÁĞ
+        // æŒ‰ç‰¹å¾å€¼é™åºæ’åˆ—
         Vector3d eigenvalues = eigen_solver.eigenvalues();
         Matrix3d sorted_eigenvectors;
         for (int i = 0; i < 3; ++i) {
             int max_idx;
             eigenvalues.maxCoeff(&max_idx);
             sorted_eigenvectors.col(2 - i) = eigenvectors.col(max_idx);
-            eigenvalues(max_idx) = -1; // ±ê¼ÇÎªÒÑ´¦Àí
+            eigenvalues(max_idx) = -1; // æ ‡è®°ä¸ºå·²å¤„ç†
         }
 
         return sorted_eigenvectors;
         };
 
-    // »ñÈ¡Ö÷·½Ïò
+    // è·å–ä¸»æ–¹å‘
     Matrix3d axes1 = compute_principal_axes(V1);
     Matrix3d axes2 = compute_principal_axes(V2);
 
@@ -405,13 +405,13 @@ bool align_models_with_pca(const std::string& model1_path, const std::string& mo
     if (flip_y) axes2.col(1) = -axes2.col(1);
     if (flip_z) axes2.col(2) = -axes2.col(2);
 
-    // ¹¹½¨Ğı×ª¾ØÕó
+    // æ„å»ºæ—‹è½¬çŸ©é˜µ
     Matrix3d rotation = axes1 * axes2.transpose();
 
-    // ÏÈÓ¦ÓÃĞı×ª
+    // å…ˆåº”ç”¨æ—‹è½¬
     MatrixXd V2_rotated = V2 * rotation.transpose();
     cout << "Rotated!" << endl;
-    // ¼ÆËãĞı×ªºóµÄ°üÎ§ºĞ
+    // è®¡ç®—æ—‹è½¬åçš„åŒ…å›´ç›’
     Vector3d min1 = V1.colwise().minCoeff();
     Vector3d max1 = V1.colwise().maxCoeff();
     Vector3d min2_rotated = V2_rotated.colwise().minCoeff();
@@ -422,16 +422,16 @@ bool align_models_with_pca(const std::string& model1_path, const std::string& mo
     Vector3d size1 = max1 - min1;
     Vector3d size2_rotated = max2_rotated - min2_rotated;
 
-    // ¼ÆËãËõ·ÅºÍÆ½ÒÆ
+    // è®¡ç®—ç¼©æ”¾å’Œå¹³ç§»
     Vector3d scale = size1.array() / size2_rotated.array();
     Vector3d translation = center1 - center2_rotated;
     cout << "Compute scaling ratio!" << endl;
-    // ¹¹½¨ÍêÕû±ä»»¾ØÕó
+    // æ„å»ºå®Œæ•´å˜æ¢çŸ©é˜µ
     Matrix4d transform = Matrix4d::Identity();
     transform.block<3, 3>(0, 0) = rotation * scale.asDiagonal();
     transform.block<3, 1>(0, 3) = translation;
 
-    // Ó¦ÓÃ±ä»»
+    // åº”ç”¨å˜æ¢
     MatrixXd V2_transformed(V2.rows(), 3);
     for (int i = 0; i < V2.rows(); ++i) {
         Vector4d v;
@@ -440,7 +440,7 @@ bool align_models_with_pca(const std::string& model1_path, const std::string& mo
         V2_transformed.row(i) = v_transformed.head<3>();
     }
 
-    // ±£´æ½á¹û
+    // ä¿å­˜ç»“æœ
     return igl::write_triangle_mesh(output_path, V2_transformed, F2);
 }
 
@@ -448,7 +448,7 @@ bool align_models_with_pca(const std::string& model1_path, const std::string& mo
 //B_i,n(t) = C(n, i) * t^i * (1 - t)^(n-i)
 double bernstein_basis(int i, int n, double t)
 {
-    // ×éºÏÊı nCk
+    // ç»„åˆæ•° nCk
     auto comb = [](int n, int k)->double {
         if (k < 0 || k > n) return 0.0;
         k = std::min(k, n - k);
@@ -474,15 +474,15 @@ bool exportSDF(Eigen::VectorXd& sdf, std::string& filename)
     {
         outFile << sdf(i);
 
-        // ¼ì²éÊÇ·ñÊÇµ±Ç°ĞĞµÄµÚ100¸öÔªËØ
+        // æ£€æŸ¥æ˜¯å¦æ˜¯å½“å‰è¡Œçš„ç¬¬100ä¸ªå…ƒç´ 
         if ((i + 1) % 100 == 0) {
-            // Èç¹ûÊÇ£¬²¢ÇÒ²»ÊÇÕû¸öÏòÁ¿µÄ×îºóÒ»¸öÔªËØ£¬Ôò»»ĞĞ
+            // å¦‚æœæ˜¯ï¼Œå¹¶ä¸”ä¸æ˜¯æ•´ä¸ªå‘é‡çš„æœ€åä¸€ä¸ªå…ƒç´ ï¼Œåˆ™æ¢è¡Œ
             if ((i + 1) != sdf.size()) {
                 outFile << '\n';
             }
         }
         else {
-            // Èç¹û²»ÊÇĞĞÎ²£¬²¢ÇÒ²»ÊÇÕû¸öÏòÁ¿µÄ×îºóÒ»¸öÔªËØ£¬Ôò¼Ó¿Õ¸ñ
+            // å¦‚æœä¸æ˜¯è¡Œå°¾ï¼Œå¹¶ä¸”ä¸æ˜¯æ•´ä¸ªå‘é‡çš„æœ€åä¸€ä¸ªå…ƒç´ ï¼Œåˆ™åŠ ç©ºæ ¼
             if ((i + 1) != sdf.size()) {
                 outFile << ' ';
             }
@@ -562,7 +562,7 @@ void vis_Kernels_Tubes(std::vector<Eigen::Vector3d>& points, std::vector<pair<in
 
     //viewer.core().align_camera_center(V1, F1);
 
-    // ===¾«È·ÉèÖÃÊÓ½Ç===
+    // ===ç²¾ç¡®è®¾ç½®è§†è§’===
     float deg2rad = float(M_PI) / 180.0f;
     Eigen::Quaternionf q =
         Eigen::AngleAxisf(show_degree_x * deg2rad, Eigen::Vector3f::UnitX()) *
@@ -649,7 +649,7 @@ void vis_compare_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int
 
     //viewer.core().align_camera_center(V1, F1);
 
-    // ===¾«È·ÉèÖÃÊÓ½Ç===
+    // ===ç²¾ç¡®è®¾ç½®è§†è§’===
     float deg2rad = float(M_PI) / 180.0f;
     Eigen::Quaternionf q =
         Eigen::AngleAxisf(show_degree_x * deg2rad, Eigen::Vector3f::UnitX()) *
@@ -663,7 +663,7 @@ void vis_compare_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int
 
 void vis_opt_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, std::vector<int> mask, std::string win_name)
 {
-    int delete_in = 0;  //Ñ¡ÔñÏÔÊ¾µÚ¼¸ÌõÉ¾³ıµÄ±ß
+    int delete_in = 0;  //é€‰æ‹©æ˜¾ç¤ºç¬¬å‡ æ¡åˆ é™¤çš„è¾¹
     double sphereRadius = 0.01;
     double lineWidth = 7;
     int  sphereSubdiv = 3;
@@ -722,14 +722,14 @@ void vis_opt_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, in
         P2.row(i) = points[connections[i].second].transpose();
     }
 
-    //ÕÒµ½Òª»æÖÆµÄµã
+    //æ‰¾åˆ°è¦ç»˜åˆ¶çš„ç‚¹
     int draw_one = 0;
 
     if (delete_in >= deleted_index.size()) {
         cout << "beyond delete index!" << endl;
         return;
     }
-    //È¥µôÉ¾³ıµÄ±ß
+    //å»æ‰åˆ é™¤çš„è¾¹
     P1.row(deleted_index[delete_in]) = points[connections[deleted_index[delete_in]].first].transpose();
     P2.row(deleted_index[delete_in]) = points[connections[deleted_index[delete_in]].first].transpose();
 
@@ -747,7 +747,7 @@ void vis_opt_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, in
     V_high.rowwise() += points[highlight_id].transpose();
 
     viewer.data().set_mesh(V_high, F_unit);
-    viewer.data().set_colors(sphereColor2); // ºìÉ«
+    viewer.data().set_colors(sphereColor2); // çº¢è‰²
     viewer.data().show_lines = false;
     viewer.data().shininess = 2000.0;
     //viewer.core().align_camera_center(V_all, F_all);
@@ -800,7 +800,7 @@ void vis_opt_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, in
 
     //viewer.core().align_camera_center(V1, F1);
 
-    // ===¾«È·ÉèÖÃÊÓ½Ç===
+    // ===ç²¾ç¡®è®¾ç½®è§†è§’===
     float deg2rad = float(M_PI) / 180.0f;
     Eigen::Quaternionf q =
         Eigen::AngleAxisf(show_degree_x * deg2rad, Eigen::Vector3f::UnitX()) *
@@ -901,14 +901,14 @@ void vis_KerLine_model(Eigen::MatrixXd V1, Eigen::MatrixXi F1, std::vector<Eigen
     int id2 = viewer.append_mesh();
 
     viewer.data(id2).set_mesh(V1, F1);
-    viewer.data(id2).show_lines = show_line;   // ²»ÏÔÊ¾Íø¸ñÏß
-    viewer.data(id2).show_faces = !show_line;   // ²»ÏÔÊ¾Èı½ÇÃæ
+    viewer.data(id2).show_lines = show_line;   // ä¸æ˜¾ç¤ºç½‘æ ¼çº¿
+    viewer.data(id2).show_faces = !show_line;   // ä¸æ˜¾ç¤ºä¸‰è§’é¢
 	viewer.data(id2).line_color = Eigen::Matrix<float, 4, 1>(0.5f, 0.5f, 0.5f, 1.0f);
-    //viewer.data().set_colors(Eigen::RowVector3d(0.8, 0.7, 0.2)); // ÉèÖÃÒ»¸öÆ¯ÁÁµÄÀ¶É«
+    //viewer.data().set_colors(Eigen::RowVector3d(0.8, 0.7, 0.2)); // è®¾ç½®ä¸€ä¸ªæ¼‚äº®çš„è“è‰²
     //viewer.data(id2).set_colors(sphereColor);//(Eigen::RowVector3d(0.95, 0.95, 0.95));
     viewer.data(id2).shininess = 500.0;
 
-    //viewer.data(id2).point_size = 10; // ÈÃµã¸üÏÔÑÛ
+    //viewer.data(id2).point_size = 10; // è®©ç‚¹æ›´æ˜¾çœ¼
     //viewer.launch();
 
     //viewer.core().align_camera_center(V1, F1);
@@ -926,8 +926,8 @@ void vis_KerLine_model(Eigen::MatrixXd V1, Eigen::MatrixXi F1, std::vector<Eigen
 void geometry_analyzer(Eigen::VectorXd SDF, int resolution, double thres_degree, int &overhang_count, int& floating_count, std::vector<uint8_t> &overhang_mask, std::vector<uint8_t> &floating_mask)
 {
     double overhang_threshold = -std::cos(thres_degree * M_PI / 180.0f);
-    overhang_mask.clear(); // 1±íÊ¾¸ÃÎ»ÖÃ´æÔÚĞü´¹Î¥¹æ
-    floating_mask.clear(); // 1±íÊ¾¸ÃÎ»ÖÃÊÇĞü¿Õ¹Âµº
+    overhang_mask.clear(); // 1è¡¨ç¤ºè¯¥ä½ç½®å­˜åœ¨æ‚¬å‚è¿è§„
+    floating_mask.clear(); // 1è¡¨ç¤ºè¯¥ä½ç½®æ˜¯æ‚¬ç©ºå­¤å²›
     overhang_count = 0;
     floating_count = 0;
 
@@ -946,14 +946,14 @@ void geometry_analyzer(Eigen::VectorXd SDF, int resolution, double thres_degree,
                 // ==0)
                 if (val<0)
                     cout << "idx: " << idx << "  val:"<< val<<endl;
-                // ÕâÀïµÄ 0.5 ÊÇ¼ÙÉèÌåËØ´óĞ¡Îª1£¬Ö»¼ì²â±íÃæ¸½½üµÄÌåËØ
-                // ÔÚÊµ¼ÊÓ¦ÓÃÖĞ£¬Í¨³£¼ì²â abs(val) < voxel_size * sqrt(3)
+                // è¿™é‡Œçš„ 0.5 æ˜¯å‡è®¾ä½“ç´ å¤§å°ä¸º1ï¼Œåªæ£€æµ‹è¡¨é¢é™„è¿‘çš„ä½“ç´ 
+                // åœ¨å®é™…åº”ç”¨ä¸­ï¼Œé€šå¸¸æ£€æµ‹ abs(val) < voxel_size * sqrt(3)
                 if (std::abs(val) < 0.8f) {
                     Vector3d normal = computeGradient(x, y, z, resolution, SDF);
 
-                    // ¼ì²é·¨ÏßZ·ÖÁ¿
-                    // normal.z < 0 ±íÊ¾³¯ÏÂ
-                    // normal.z < -0.707 ±íÊ¾½Ç¶È¶¸ÓÚ45¶È
+                    // æ£€æŸ¥æ³•çº¿Zåˆ†é‡
+                    // normal.z < 0 è¡¨ç¤ºæœä¸‹
+                    // normal.z < -0.707 è¡¨ç¤ºè§’åº¦é™¡äº45åº¦
                     if (normal.z() < overhang_threshold) {
                         overhang_mask[idx] = 1;
                         overhang_count++;
@@ -963,16 +963,16 @@ void geometry_analyzer(Eigen::VectorXd SDF, int resolution, double thres_degree,
         }
     }
     cout << "cal_num: " << cal_num << endl;
-    // 2. ¼ì²âĞü¿ÕÌØÕ÷ (Floating Islands)
-        // Ê¹ÓÃ BFS ´Ó Z=0 ¿ªÊ¼±ê¼Ç
+    // 2. æ£€æµ‹æ‚¬ç©ºç‰¹å¾ (Floating Islands)
+        // ä½¿ç”¨ BFS ä» Z=0 å¼€å§‹æ ‡è®°
     std::vector<bool> visited(total_voxels, false);
     std::queue<int> q;
 
-    // A. ³õÊ¼»¯ÖÖ×Ó£º½« Z=0 Æ½ÃæÉÏµÄËùÓĞÊµÌåÌåËØ¼ÓÈë¶ÓÁĞ
+    // A. åˆå§‹åŒ–ç§å­ï¼šå°† Z=0 å¹³é¢ä¸Šçš„æ‰€æœ‰å®ä½“ä½“ç´ åŠ å…¥é˜Ÿåˆ—
     for (int y = 0; y < resolution; ++y) {
         for (int x = 0; x < resolution; ++x) {
             int idx = x+ y* resolution;
-            // ¼ÙÉè SDF <= 0 ±íÊ¾ÊµÌå
+            // å‡è®¾ SDF <= 0 è¡¨ç¤ºå®ä½“
             if (SDF[idx] <= 0.0f) {
                 q.push(idx);
                 visited[idx] = true;
@@ -980,7 +980,7 @@ void geometry_analyzer(Eigen::VectorXd SDF, int resolution, double thres_degree,
         }
     }
 
-    // B. ¹ã¶ÈÓÅÏÈËÑË÷ (BFS) ´«²¥Ö§³Å
+    // B. å¹¿åº¦ä¼˜å…ˆæœç´¢ (BFS) ä¼ æ’­æ”¯æ’‘
     int dx[] = { 1, -1, 0, 0, 0, 0 };
     int dy[] = { 0, 0, 1, -1, 0, 0 };
     int dz[] = { 0, 0, 0, 0, 1, -1 };
@@ -1000,7 +1000,7 @@ void geometry_analyzer(Eigen::VectorXd SDF, int resolution, double thres_degree,
             if (nx>=0&&nx< resolution&& ny >= 0 && ny < resolution&& nz >= 0 && nz < resolution)
             {
                 int n_idx = nx+ ny*resolution+ nz* resolution* resolution;
-                // Èç¹ûÁÚ¾ÓÊÇÊµÌå ÇÒ Î´±»·ÃÎÊ
+                // å¦‚æœé‚»å±…æ˜¯å®ä½“ ä¸” æœªè¢«è®¿é—®
                 if (SDF[n_idx] <= 0.0f && !visited[n_idx]) {
                     visited[n_idx] = true;
                     q.push(n_idx);
@@ -1008,8 +1008,8 @@ void geometry_analyzer(Eigen::VectorXd SDF, int resolution, double thres_degree,
             }
         }
     }
-    cout << "Ñ°ÕÒÎ´±»·ÃÎÊµÄÊµÌå (¼´Ğü¿Õ²¿·Ö)" << endl;
-    // C. Ñ°ÕÒÎ´±»·ÃÎÊµÄÊµÌå (¼´Ğü¿Õ²¿·Ö)
+    cout << "å¯»æ‰¾æœªè¢«è®¿é—®çš„å®ä½“ (å³æ‚¬ç©ºéƒ¨åˆ†)" << endl;
+    // C. å¯»æ‰¾æœªè¢«è®¿é—®çš„å®ä½“ (å³æ‚¬ç©ºéƒ¨åˆ†)
     for (int i = 0; i < total_voxels; ++i) {
         if (SDF[i] <= 0.0f && !visited[i]) {
             floating_mask[i] = 1;
@@ -1021,7 +1021,7 @@ void geometry_analyzer(Eigen::VectorXd SDF, int resolution, double thres_degree,
 
 Vector3d computeGradient(int x, int y, int z, int res, Eigen::VectorXd SDF)
 {
-    // ±ß½ç¼ì²éÂÔ£¬Ñ­»·ÖĞÒÑ¿ØÖÆ·¶Î§
+    // è¾¹ç•Œæ£€æŸ¥ç•¥ï¼Œå¾ªç¯ä¸­å·²æ§åˆ¶èŒƒå›´
     double dx = SDF[x + 1 + y * res + z * res * res] - SDF[x - 1 + y * res + z * res * res];
     double dy = SDF[x + (y + 1) * res + z * res * res] - SDF[x + (y - 1) * res + z * res * res];
     double dz = SDF[x + y * res + (z + 1) * res * res] - SDF[x + y * res + (z - 1) * res * res];
@@ -1057,7 +1057,7 @@ Eigen::Vector3d computePrincipalDirection(const std::vector<Eigen::Vector3d>& po
     }
 
     Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> solver(C);
-    return solver.eigenvectors().col(2).normalized(); // ×î´óÌØÕ÷Öµ
+    return solver.eigenvectors().col(2).normalized(); // æœ€å¤§ç‰¹å¾å€¼
 }
 
 //TO
@@ -1097,7 +1097,7 @@ VoxelGrid SDFtoVoxel(Eigen::VectorXd& sdf, Eigen::Vector3d minBox, Eigen::Vector
             for (int i = 0; i < nx; ++i)
             {
 				int index = i + j * nx + k * nx * ny;
-                double phi = sdf(index);   // ÄãµÄ SDF ²éÑ¯
+                double phi = sdf(index);   // ä½ çš„ SDF æŸ¥è¯¢
                 //double rho = smoothHeaviside(phi, eps);
                 double rho = hardTrans(phi, 0.0);
                 if (rho > 0.9) neg_num++;
@@ -1190,28 +1190,28 @@ void saveSDFtoNPY(std::string filename, Eigen::VectorXd& sdf, int res) {
 
 }
 
-// ±£´æÌåËØÍø¸ñÎªNPY¸ñÊ½
+// ä¿å­˜ä½“ç´ ç½‘æ ¼ä¸ºNPYæ ¼å¼
 void saveVoxelGridAsNPY(std::vector<double>& voxel_grid, int res, std::string filename) 
 {
     std::ofstream file(filename, std::ios::binary);
     if (!file.is_open()) {
-        std::cerr << "ÎŞ·¨´´½¨NPYÎÄ¼ş: " << filename << std::endl;
+        std::cerr << "æ— æ³•åˆ›å»ºNPYæ–‡ä»¶: " << filename << std::endl;
         return;
     }
-    // NPYÎÄ¼şÍ·¸ñÊ½
+    // NPYæ–‡ä»¶å¤´æ ¼å¼
     // Magic number (6 bytes): \x93NUMPY
     file.write("\x93NUMPY", 6);
     // Version (2 bytes): 1.0
     file.write("\x01\x00", 2);
 
     // Header dictionary
-    std::string dtype = "'<f8'";     // ĞŞ¸ÄÎª£ºĞ¡¶ËË«¾«¶È¸¡µãÊı
+    std::string dtype = "'<f8'";     // ä¿®æ”¹ä¸ºï¼šå°ç«¯åŒç²¾åº¦æµ®ç‚¹æ•°
     std::string fortran_order = "False";
     std::string shape = "(" + std::to_string(res) + ", " + std::to_string(res) + ", " + std::to_string(res) + ")";
 
     std::string header_dict = "{'descr': " + dtype + ", 'fortran_order': " + fortran_order + ", 'shape': " + shape + ", }";
 
-    // ²¹Æëµ½16×Ö½Ú¶ÔÆë
+    // è¡¥é½åˆ°16å­—èŠ‚å¯¹é½
     while ((header_dict.length() + 1) % 16 != 15) {
         header_dict += " ";
     }
@@ -1229,18 +1229,18 @@ void saveVoxelGridAsNPY(std::vector<double>& voxel_grid, int res, std::string fi
     for (int z = 0; z < res; ++z) {
         for (int y = 0; y < res; ++y) {
             for (int x = 0; x < res; ++x) {
-                // ½«Êı¾İ°´ z, y, x Ë³ĞòÅÅÁĞ
+                // å°†æ•°æ®æŒ‰ z, y, x é¡ºåºæ’åˆ—
                 int index = (z * res * res) + (y * res) + x;
                 voxel_grid_reordered.push_back(voxel_grid[index]);
             }
         }
     }
 
-    // Data (°´ÕÕx,y,zË³Ğò´æ´¢)
+    // Data (æŒ‰ç…§x,y,zé¡ºåºå­˜å‚¨)
     file.write(reinterpret_cast<const char*>(voxel_grid_reordered.data()), voxel_grid_reordered.size() * sizeof(double)); 
 
     file.close();
-    std::cout << "NPYÎÄ¼ş±£´æ³É¹¦: " << filename << " (´óĞ¡: " << res << "x" << res << "x" << res << ")" << std::endl;
+    std::cout << "NPYæ–‡ä»¶ä¿å­˜æˆåŠŸ: " << filename << " (å¤§å°: " << res << "x" << res << "x" << res << ")" << std::endl;
 }
 
 bool readNPYtoVoxel(const std::string& filename, std::vector<double>& voxel_grid, int& res)
@@ -1251,43 +1251,43 @@ bool readNPYtoVoxel(const std::string& filename, std::vector<double>& voxel_grid
         return false;
     }
 
-    // --- 1. ¶ÁÈ¡²¢Ğ£Ñé Magic ---
+    // --- 1. è¯»å–å¹¶æ ¡éªŒ Magic ---
     char magic[6];
     file.read(magic, 6);
     if (std::string(magic, 6) != "\x93NUMPY") return false;
 
-    // --- 2. Ìø¹ı Version (2 bytes) ---
+    // --- 2. è·³è¿‡ Version (2 bytes) ---
     file.ignore(2);
 
-    // --- 3. ¶ÁÈ¡ Header ³¤¶È ---
+    // --- 3. è¯»å– Header é•¿åº¦ ---
     uint16_t header_len;
     file.read(reinterpret_cast<char*>(&header_len), 2);
 
-    // --- 4. ¶ÁÈ¡ Header ÄÚÈİ ---
+    // --- 4. è¯»å– Header å†…å®¹ ---
     std::string header_dict(header_len, ' ');
     file.read(&header_dict[0], header_len);
 
-    // --- 5. ½âÎö Header (¹Ø¼üĞŞ¸Ä) ---
-    // ¼ì²éÊÇ float (<f4) »¹ÊÇ double (<f8)
+    // --- 5. è§£æ Header (å…³é”®ä¿®æ”¹) ---
+    // æ£€æŸ¥æ˜¯ float (<f4) è¿˜æ˜¯ double (<f8)
     bool is_float32 = false;
     if (header_dict.find("'<f4'") != std::string::npos || header_dict.find("\"<f4\"") != std::string::npos) {
         is_float32 = true;
-        //std::cout << "¼ì²âµ½Êı¾İ¸ñÊ½: Float32 (<f4)" << std::endl;
+        //std::cout << "æ£€æµ‹åˆ°æ•°æ®æ ¼å¼: Float32 (<f4)" << std::endl;
     }
     else if (header_dict.find("'<f8'") != std::string::npos || header_dict.find("\"<f8\"") != std::string::npos) {
         is_float32 = false;
-        //std::cout << "¼ì²âµ½Êı¾İ¸ñÊ½: Float64/Double (<f8)" << std::endl;
+        //std::cout << "æ£€æµ‹åˆ°æ•°æ®æ ¼å¼: Float64/Double (<f8)" << std::endl;
     }
     else {
-        //std::cerr << "´íÎó: Î´Öª»ò²»Ö§³ÖµÄÊı¾İÀàĞÍ¡£" << std::endl;
+        //std::cerr << "é”™è¯¯: æœªçŸ¥æˆ–ä¸æ”¯æŒçš„æ•°æ®ç±»å‹ã€‚" << std::endl;
         return false;
     }
 
-    // ½âÎö shape
+    // è§£æ shape
     std::regex shape_regex(R"('shape':\s*\((\d+),\s*(\d+),\s*(\d+)\))");
     std::smatch match;
     if (std::regex_search(header_dict, match, shape_regex)) {
-        res = std::stoi(match[1].str()); // ¼ÙÉèÊÇÁ¢·½Ìå£¬È¡µÚÒ»Î¬
+        res = std::stoi(match[1].str()); // å‡è®¾æ˜¯ç«‹æ–¹ä½“ï¼Œå–ç¬¬ä¸€ç»´
     }
     else {
         std::cerr << "Warnning: could not analyze shape" << std::endl;
@@ -1297,29 +1297,29 @@ bool readNPYtoVoxel(const std::string& filename, std::vector<double>& voxel_grid
     size_t total_elements = static_cast<size_t>(res) * res * res;
     voxel_grid.resize(total_elements);
 
-    // --- 6. ·ÖÇé¿ö¶ÁÈ¡Êı¾İ (¹Ø¼üĞŞ¸Ä) ---
+    // --- 6. åˆ†æƒ…å†µè¯»å–æ•°æ® (å…³é”®ä¿®æ”¹) ---
     if (is_float32) {
-        // Èç¹ûÊÇ float£¬ÏÈ´´½¨Ò»¸öÁÙÊ±µÄ float buffer
+        // å¦‚æœæ˜¯ floatï¼Œå…ˆåˆ›å»ºä¸€ä¸ªä¸´æ—¶çš„ float buffer
         std::vector<float> temp_buffer(total_elements);
 
         file.read(reinterpret_cast<char*>(temp_buffer.data()), total_elements * sizeof(float));
 
         if (!file) {
-            std::cerr << "´íÎó: ÎÄ¼şÊı¾İ¶ÁÈ¡²»ÍêÕû (ÆÚÍû " << total_elements * sizeof(float) << " ×Ö½Ú)" << std::endl;
+            std::cerr << "é”™è¯¯: æ–‡ä»¶æ•°æ®è¯»å–ä¸å®Œæ•´ (æœŸæœ› " << total_elements * sizeof(float) << " å­—èŠ‚)" << std::endl;
             return false;
         }
 
-        // ×ª»» float -> double
+        // è½¬æ¢ float -> double
         for (size_t i = 0; i < total_elements; ++i) {
             voxel_grid[i] = static_cast<double>(temp_buffer[i]);
         }
     }
     else {
-        // Èç¹û±¾À´¾ÍÊÇ double£¬Ö±½Ó¶Á
+        // å¦‚æœæœ¬æ¥å°±æ˜¯ doubleï¼Œç›´æ¥è¯»
         file.read(reinterpret_cast<char*>(voxel_grid.data()), total_elements * sizeof(double));
 
         if (!file) {
-            std::cerr << "´íÎó: ÎÄ¼şÊı¾İ¶ÁÈ¡²»ÍêÕû (ÆÚÍû " << total_elements * sizeof(double) << " ×Ö½Ú)" << std::endl;
+            std::cerr << "é”™è¯¯: æ–‡ä»¶æ•°æ®è¯»å–ä¸å®Œæ•´ (æœŸæœ› " << total_elements * sizeof(double) << " å­—èŠ‚)" << std::endl;
             return false;
         }
     }
@@ -1334,23 +1334,23 @@ void writeAdjacencyListToFile(const std::vector<std::vector<int>>& adjList,
     std::ofstream outFile(filename);
 
     if (!outFile.is_open()) {
-        std::cerr << "ÎŞ·¨´ò¿ªÎÄ¼ş: " << filename << std::endl;
+        std::cerr << "æ— æ³•æ‰“å¼€æ–‡ä»¶: " << filename << std::endl;
         return;
     }
 
     for (const auto& neighbors : adjList) {
-        // Ğ´ÈëÃ¿¸ö¶¥µãµÄÁÚ½ÓÁĞ±í
+        // å†™å…¥æ¯ä¸ªé¡¶ç‚¹çš„é‚»æ¥åˆ—è¡¨
         for (size_t i = 0; i < neighbors.size(); ++i) {
             outFile << neighbors[i];
             if (i != neighbors.size() - 1) {
-                outFile << " ";  // ÓÃ¿Õ¸ñ·Ö¸ôÏàÁÚ½Úµã
+                outFile << " ";  // ç”¨ç©ºæ ¼åˆ†éš”ç›¸é‚»èŠ‚ç‚¹
             }
         }
-        outFile << std::endl;  // Ã¿ĞĞ´ú±íÒ»¸ö¶¥µãµÄÁÚ½Ó±í
+        outFile << std::endl;  // æ¯è¡Œä»£è¡¨ä¸€ä¸ªé¡¶ç‚¹çš„é‚»æ¥è¡¨
     }
 
     outFile.close();
-    std::cout << "ÁÚ½Ó±íÒÑ³É¹¦Ğ´Èëµ½ÎÄ¼ş: " << filename << std::endl;
+    std::cout << "é‚»æ¥è¡¨å·²æˆåŠŸå†™å…¥åˆ°æ–‡ä»¶: " << filename << std::endl;
 }
 
 std::vector<std::vector<int>> readAdjacencyListFromFile(const std::string& filename) {
@@ -1358,7 +1358,7 @@ std::vector<std::vector<int>> readAdjacencyListFromFile(const std::string& filen
     std::ifstream inFile(filename);
 
     if (!inFile.is_open()) {
-        std::cerr << "ÎŞ·¨´ò¿ªÎÄ¼ş: " << filename << std::endl;
+        std::cerr << "æ— æ³•æ‰“å¼€æ–‡ä»¶: " << filename << std::endl;
         return adjList2;
     }
 
@@ -1368,7 +1368,7 @@ std::vector<std::vector<int>> readAdjacencyListFromFile(const std::string& filen
         std::stringstream ss(line);
         int value;
 
-        // ´ÓÃ¿Ò»ĞĞ¶ÁÈ¡ËùÓĞÕûÊı
+        // ä»æ¯ä¸€è¡Œè¯»å–æ‰€æœ‰æ•´æ•°
         while (ss >> value) {
             neighbors.push_back(value);
         }
@@ -1397,30 +1397,30 @@ std::string to_string_pre(double value, int precision)
 //{
 //    init_field_noise();
 //
-//    // 1. µÈÖµÃæÈ¨ÖØ
+//    // 1. ç­‰å€¼é¢æƒé‡
 //    double w = std::exp(-(sdf_value * sdf_value) / (2.0 * band_width * band_width)); 
 //
 //    if (w < 1e-6)
 //        return sdf_value;
 //
-//    // 2. Á¬Ğø¿Õ¼äÔëÉù
+//    // 2. è¿ç»­ç©ºé—´å™ªå£°
 //    double n = g_field_noise.GetNoise(
 //        float(p.x() * spatial_frequency),
 //        float(p.y() * spatial_frequency),
 //        float(p.z() * spatial_frequency)
 //    );
 //
-//    // 3. SDF ÈÅ¶¯
+//    // 3. SDF æ‰°åŠ¨
 //    return sdf_value + noise_amplitude * w * n;
 //}
 
 void add_noise_near_isosurface(
-    Eigen::VectorXd& S,              // ±êÁ¿³¡£¨in-place ĞŞ¸Ä£©
-    const Eigen::MatrixXd& GV,        // ÌåËØ×ø±ê
-    double iso_value,                 // MC µÈÖµÃæ
-    double noise_amplitude,            // ÔëÉù·ùÖµ£¨½¨Òé 0.05 ~ 0.3 * ³¡³ß¶È£©
-    double band_width,                 // µÈÖµÃæ´ø¿í
-    double spatial_frequency           // ÔëÉù¿Õ¼äÆµÂÊ
+    Eigen::VectorXd& S,              // æ ‡é‡åœºï¼ˆin-place ä¿®æ”¹ï¼‰
+    const Eigen::MatrixXd& GV,        // ä½“ç´ åæ ‡
+    double iso_value,                 // MC ç­‰å€¼é¢
+    double noise_amplitude,            // å™ªå£°å¹…å€¼ï¼ˆå»ºè®® 0.05 ~ 0.3 * åœºå°ºåº¦ï¼‰
+    double band_width,                 // ç­‰å€¼é¢å¸¦å®½
+    double spatial_frequency           // å™ªå£°ç©ºé—´é¢‘ç‡
 )
 {
     //init_noise();
@@ -1433,7 +1433,7 @@ void add_noise_near_isosurface(
     {
         double F = S(i);
 
-        // ---- µÈÖµÃæÈ¨ÖØ£¨Ö»ÔÚ iso ¸½½üÉúĞ§£©----
+        // ---- ç­‰å€¼é¢æƒé‡ï¼ˆåªåœ¨ iso é™„è¿‘ç”Ÿæ•ˆï¼‰----
         double w = std::exp(
             -std::pow((F - iso_value) / band_width, 2.0)
         );
@@ -1441,7 +1441,7 @@ void add_noise_near_isosurface(
         if (w < 1e-4)
             continue;
 
-        // ---- ¿Õ¼äÔëÉù ----
+        // ---- ç©ºé—´å™ªå£° ----
         const Eigen::Vector3d& p = GV.row(i);
         double n = g_field_noise.GetNoise(
             float(p.x() * spatial_frequency),
@@ -1449,7 +1449,7 @@ void add_noise_near_isosurface(
             float(p.z() * spatial_frequency)
         );
 
-        // ---- ±êÁ¿³¡ÈÅ¶¯£¨ÖµÈÅ¶¯£©----
+        // ---- æ ‡é‡åœºæ‰°åŠ¨ï¼ˆå€¼æ‰°åŠ¨ï¼‰----
         S(i) += noise_amplitude * w * n;
     }
 }
@@ -1465,27 +1465,27 @@ double sigma_value(double v, double n, double w, double iso)
 vector<vector<int>> compare_edges(const vector<pair<int, int>>& ini, const vector<pair<int, int>> & final)
 {
     vector<vector<int>> mask;
-    vector<int> mask1(ini.size(), 1);   // Ä¬ÈÏÈ«²¿±ê¼ÇÎªÉ¾³ı
-    vector<int> mask2(final.size(), 2); // Ä¬ÈÏÈ«²¿±ê¼ÇÎªĞÂÔö
+    vector<int> mask1(ini.size(), 1);   // é»˜è®¤å…¨éƒ¨æ ‡è®°ä¸ºåˆ é™¤
+    vector<int> mask2(final.size(), 2); // é»˜è®¤å…¨éƒ¨æ ‡è®°ä¸ºæ–°å¢
 
-    // Í³¼Æ final ÖĞ¸÷±ß³öÏÖµÄ´ÎÊı
+    // ç»Ÿè®¡ final ä¸­å„è¾¹å‡ºç°çš„æ¬¡æ•°
     map<pair<int, int>, vector<int>> final_map;
     for (int i = 0; i < final.size(); ++i) {
         final_map[final[i]].push_back(i);
     }
 
-    // ±éÀú ini£¬Ñ°ÕÒÆ¥ÅäÏî
+    // éå† iniï¼Œå¯»æ‰¾åŒ¹é…é¡¹
     for (int i = 0; i < ini.size(); ++i) {
         auto it = final_map.find(ini[i]);
         if (it != final_map.end() && !it->second.empty()) {
-            // ÕÒµ½Æ¥Åä£ºËµÃ÷ÕâÌõ±ß¡°Ã»¶¯¡±
+            // æ‰¾åˆ°åŒ¹é…ï¼šè¯´æ˜è¿™æ¡è¾¹â€œæ²¡åŠ¨â€
             mask1[i] = 0;
 
-            // È¡³ö final ÖĞµÄË÷Òı²¢±ê¼ÇÎª 0
+            // å–å‡º final ä¸­çš„ç´¢å¼•å¹¶æ ‡è®°ä¸º 0
             int final_idx = it->second.back();
             mask2[final_idx] = 0;
 
-            // ÏûºÄµôÕâ¸öË÷Òı£¨´¦ÀíÖØ¸´±ßµÄÇé¿ö£©
+            // æ¶ˆè€—æ‰è¿™ä¸ªç´¢å¼•ï¼ˆå¤„ç†é‡å¤è¾¹çš„æƒ…å†µï¼‰
             it->second.pop_back();
         }
     }
@@ -1503,11 +1503,11 @@ vector<vector<int>> compare_edges(const vector<pair<int, int>>& ini, const vecto
 
 vector<int> compare_edges2(const vector<pair<int, int>>& ini, const vector<pair<int, int>> & final, vector<pair<int, int>>& edge_con_total, std::vector<int> rep_vec)
 {
-    // ini- changed-add: iniË³ĞòÓëchangedË³Ğò²»Æ¥Åä
+    // ini- changed-add: inié¡ºåºä¸changedé¡ºåºä¸åŒ¹é…
     edge_con_total.clear();
     vector<int> mask(ini.size(), 0);
     edge_con_total = ini;
-    //µ÷ÕûË³Ğò
+    //è°ƒæ•´é¡ºåº
     std::sort(rep_vec.begin(), rep_vec.end());
     for (auto rv : rep_vec)
     {

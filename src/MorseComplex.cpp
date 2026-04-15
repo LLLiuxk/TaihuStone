@@ -1,4 +1,4 @@
-#include "MorseComplex.h"
+ï»¿#include "MorseComplex.h"
 #include <Eigen/Dense>
 #include <vector>
 #include <queue>
@@ -56,9 +56,9 @@ namespace {
         return out;
     }
 
-    // ÎªÁËÎÈ¶¨´¦Àí plateau/tie£º¼ÓÈë¼«Ğ¡ÈÅ¶¯£¨°´ id ´òÆÆÆ½¾Ö£©
+    // ä¸ºäº†ç¨³å®šå¤„ç† plateau/tieï¼šåŠ å…¥æå°æ‰°åŠ¨ï¼ˆæŒ‰ id æ‰“ç ´å¹³å±€ï¼‰
     inline double f_tie(const Eigen::VectorXd& f, int id) {
-        // 1e-16 ¼¶±ğÈÅ¶¯£¬Ò»°ã²»»á¸Ä±äÕæÊµÊıÖµ¹ØÏµ£¬Ö»ÓÃÓÚ±ÜÃâ == µÄÆçÒå
+        // 1e-16 çº§åˆ«æ‰°åŠ¨ï¼Œä¸€èˆ¬ä¸ä¼šæ”¹å˜çœŸå®æ•°å€¼å…³ç³»ï¼Œåªç”¨äºé¿å… == çš„æ­§ä¹‰
         return f[id] + 1e-16 * (double)id;
     }
 
@@ -78,9 +78,9 @@ namespace {
         return true;
     }
 
-    // ¼ÆËã upper/lower link µÄÁ¬Í¨·ÖÁ¿£º
-    // - link ½ÚµãÀ´×Ô 26 ÁÚÓò
-    // - Á¬Í¨ĞÔÓÃ 6 ÁÚ½Ó£¨ÓëÄãÎÄ¼ş Is1SaddlePoint/Is2SaddlePoint µÄ floodfill ·ç¸ñÒ»ÖÂ£©
+    // è®¡ç®— upper/lower link çš„è¿é€šåˆ†é‡ï¼š
+    // - link èŠ‚ç‚¹æ¥è‡ª 26 é‚»åŸŸ
+    // - è¿é€šæ€§ç”¨ 6 é‚»æ¥ï¼ˆä¸ä½ æ–‡ä»¶ Is1SaddlePoint/Is2SaddlePoint çš„ floodfill é£æ ¼ä¸€è‡´ï¼‰
     //static std::vector<std::vector<int>> connected_components_in_link(
     //    int id, int N, const Eigen::VectorXd& f, bool upper_link, double eps)
     //{
@@ -191,7 +191,7 @@ namespace {
         return comps.size() >= 2;
     }
 
-    // ÀëÉ¢Ìİ¶È×·×Ù£º´Ó start ÑØ×î¶¸ÉÏÉı/ÏÂ½µ×ßµ½"ÎŞ·¨¼ÌĞø"µÄµã
+    // ç¦»æ•£æ¢¯åº¦è¿½è¸ªï¼šä» start æ²¿æœ€é™¡ä¸Šå‡/ä¸‹é™èµ°åˆ°"æ— æ³•ç»§ç»­"çš„ç‚¹
     static int follow_discrete_gradient(int start, int N, const Eigen::VectorXd& f,
         bool ascent, double eps, int max_steps = 100000)
     {
@@ -215,7 +215,7 @@ namespace {
         return cur;
     }
 
-    // ×î½ü kernel£¨¼òµ¥ O(K)£»Èô kernel ºÜ¶àÔÙ»» kd-tree£©
+    // æœ€è¿‘ kernelï¼ˆç®€å• O(K)ï¼›è‹¥ kernel å¾ˆå¤šå†æ¢ kd-treeï¼‰
     static int nearest_kernel(const std::vector<Vector3d>& kernels, const Vector3d& p) {
         int best = -1;
         double best_d2 = std::numeric_limits<double>::infinity();
@@ -241,7 +241,7 @@ std::vector<std::pair<int, int>>  MorseComplex::compare_msc(std::vector<Vector3d
     int res,
     int grid_num)
 {
-    // -------- 0) Ğ£Ñé N --------
+    // -------- 0) æ ¡éªŒ N --------
     const int M = (int)SDF_gaussian.size();
     const int N = res;
 
@@ -250,7 +250,7 @@ std::vector<std::pair<int, int>>  MorseComplex::compare_msc(std::vector<Vector3d
             << ", SDF_gaussian.size()=" << M
             << ", grid_num=" << grid_num << "\n";
 
-    // -------- 1) ×ø±êÏµ£º[-0.5,0.5]^3 --------
+    // -------- 1) åæ ‡ç³»ï¼š[-0.5,0.5]^3 --------
     const double xmin = -0.5;
     const double xmax = +0.5;
     const double h = (N > 1) ? (xmax - xmin) / (double)(N - 1) : 0.0;
@@ -263,8 +263,8 @@ std::vector<std::pair<int, int>>  MorseComplex::compare_msc(std::vector<Vector3d
         return Vector3d(xmin + x * h, xmin + y * h, xmin + z * h);
         };
 
-    // -------- 2) É¨ÃèÁÙ½çµã£¨max/min/1-saddle/2-saddle£©--------
-    const double eps = 1e-14; // tie-break ºó eps ¿É¸üĞ¡
+    // -------- 2) æ‰«æä¸´ç•Œç‚¹ï¼ˆmax/min/1-saddle/2-saddleï¼‰--------
+    const double eps = 1e-14; // tie-break å eps å¯æ›´å°
     std::vector<int> maxima, minima, saddle1, saddle2;
     maxima.reserve(M / 200);
     minima.reserve(M / 200);
@@ -277,7 +277,7 @@ std::vector<std::pair<int, int>>  MorseComplex::compare_msc(std::vector<Vector3d
         int y = r / N;
         int z = r % N;
 
-        // ±ß½çµãºÜÈİÒ×³öÏÖÎ±ÁÙ½çµã£ºÏÈÌø¹ı×îÍâ²ã
+        // è¾¹ç•Œç‚¹å¾ˆå®¹æ˜“å‡ºç°ä¼ªä¸´ç•Œç‚¹ï¼šå…ˆè·³è¿‡æœ€å¤–å±‚
         if (x == 0 || y == 0 || z == 0 || x == N - 1 || y == N - 1 || z == N - 1) continue;
 
         if (is_strict_max(id, N, SDF_gaussian, eps)) maxima.push_back(id);
@@ -298,7 +298,7 @@ std::vector<std::pair<int, int>>  MorseComplex::compare_msc(std::vector<Vector3d
     //    return;
     //}
 
-    // -------- 3) maximum -> kernel Ó³Éä£¨¶ÔÓ¦ÄãÎÄ¼şÀï maximum µÄ sSourceID£©--------
+    // -------- 3) maximum -> kernel æ˜ å°„ï¼ˆå¯¹åº”ä½ æ–‡ä»¶é‡Œ maximum çš„ sSourceIDï¼‰--------
     std::unordered_map<int, int> max_to_kernel;
     max_to_kernel.reserve(maxima.size() * 2);
 
@@ -307,17 +307,17 @@ std::vector<std::pair<int, int>>  MorseComplex::compare_msc(std::vector<Vector3d
         max_to_kernel[mid] = kid;
     }
 
-    // -------- 4) ÓÃ 2-saddle ¹¹½¨ kernel Í¼£¨È¥ÖØ£º±£Áô saddle Öµ¸ü´óÕß£¬ÀàËÆ reduce_pairs for 2-saddle£©--------
+    // -------- 4) ç”¨ 2-saddle æ„å»º kernel å›¾ï¼ˆå»é‡ï¼šä¿ç•™ saddle å€¼æ›´å¤§è€…ï¼Œç±»ä¼¼ reduce_pairs for 2-saddleï¼‰--------
     // edge_best[(k1,k2)] = best saddle value
     std::unordered_map<std::pair<int, int>, double, PairHash> edge_best;
     int raw_pairs = 0;
 
     for (int sid : saddle2) {
-        // upper link ·ÖÁ¿
+        // upper link åˆ†é‡
         auto comps = connected_components_in_link(sid, N, SDF_gaussian, /*upper_link=*/true, eps);
         if (comps.size() < 2) continue;
 
-        // ¶ÔÃ¿¸ö·ÖÁ¿£ºÈ¡·ÖÁ¿ÄÚ f ×î´óµã×÷Îª seed£¬ÑØ ascent ×·×Ùµ½ max
+        // å¯¹æ¯ä¸ªåˆ†é‡ï¼šå–åˆ†é‡å†… f æœ€å¤§ç‚¹ä½œä¸º seedï¼Œæ²¿ ascent è¿½è¸ªåˆ° max
         std::vector<int> reached_max;
         reached_max.reserve(comps.size());
 
@@ -330,12 +330,12 @@ std::vector<std::pair<int, int>>  MorseComplex::compare_msc(std::vector<Vector3d
             if (is_strict_max(end, N, SDF_gaussian, eps)) reached_max.push_back(end);
         }
 
-        // È¥ÖØ
+        // å»é‡
         std::sort(reached_max.begin(), reached_max.end());
         reached_max.erase(std::unique(reached_max.begin(), reached_max.end()), reached_max.end());
         if (reached_max.size() < 2) continue;
 
-        // Èô³öÏÖ >2 ¸öÉÏÉı·ÖÁ¿£¨ÀëÉ¢Îó²î¿ÉÄÜ·¢Éú£©£ºÑ¡"max Öµ×î¸ß"µÄÁ½¸ö
+        // è‹¥å‡ºç° >2 ä¸ªä¸Šå‡åˆ†é‡ï¼ˆç¦»æ•£è¯¯å·®å¯èƒ½å‘ç”Ÿï¼‰ï¼šé€‰"max å€¼æœ€é«˜"çš„ä¸¤ä¸ª
         std::sort(reached_max.begin(), reached_max.end(), [&](int a, int b) {
             return f_tie(SDF_gaussian, a) > f_tie(SDF_gaussian, b);
             });
@@ -349,7 +349,7 @@ std::vector<std::pair<int, int>>  MorseComplex::compare_msc(std::vector<Vector3d
         if (k1 > k2) std::swap(k1, k2);
         ++raw_pairs;
 
-        const double saddle_value = SDF_gaussian[sid]; // 2-saddle µÄ±êÁ¿Öµ
+        const double saddle_value = SDF_gaussian[sid]; // 2-saddle çš„æ ‡é‡å€¼
         auto key = std::make_pair(k1, k2);
 
         auto it = edge_best.find(key);
@@ -357,7 +357,7 @@ std::vector<std::pair<int, int>>  MorseComplex::compare_msc(std::vector<Vector3d
             edge_best[key] = saddle_value;
         }
         else {
-            // 2-saddle£º±£Áô¸ü"¸ß"µÄ saddle£¨¶ÔÓ¦Äã reduce_pairs ¶Ô 2-saddle µÄÂß¼­£©
+            // 2-saddleï¼šä¿ç•™æ›´"é«˜"çš„ saddleï¼ˆå¯¹åº”ä½  reduce_pairs å¯¹ 2-saddle çš„é€»è¾‘ï¼‰
             if (saddle_value > it->second) it->second = saddle_value;
         }
     }
@@ -366,14 +366,14 @@ std::vector<std::pair<int, int>>  MorseComplex::compare_msc(std::vector<Vector3d
     std::cout << "[MSC] unique kernel edges (after dedup): " << edge_best.size() << "\n";
 
     std::vector<std::pair<int, int>> pairs;
-    pairs.reserve(edge_best.size());  // Ô¤·ÖÅäÄÚ´æÒÔÌá¸ßĞ§ÂÊ
+    pairs.reserve(edge_best.size());  // é¢„åˆ†é…å†…å­˜ä»¥æé«˜æ•ˆç‡
 
     for (const auto& kv : edge_best) {
-        pairs.push_back(kv.first);  // kv.first ¾ÍÊÇ pair<int, int>
+        pairs.push_back(kv.first);  // kv.first å°±æ˜¯ pair<int, int>
     }
 
 	return pairs;
-    // -------- 5) Éú³ÉÁÚ½Ó±í & Á¬Í¨·ÖÁ¿ --------
+    // -------- 5) ç”Ÿæˆé‚»æ¥è¡¨ & è¿é€šåˆ†é‡ --------
     //std::vector<std::vector<int>> adj(Kernels.size());
     //adj.assign(Kernels.size(), {});
 
@@ -420,8 +420,8 @@ std::vector<std::pair<int, int>>  MorseComplex::compare_msc(std::vector<Vector3d
     //    std::cout << "\n";
     //}
 
-    // -------- 6) Êä³ö edge list£¨¿ÉÓÃÀ´ compare/¿ÉÊÓ»¯£©--------
-    // ÕâÀïÖ±½Ó´òÓ¡Ç°Èô¸ÉÌõ£»ÄãÒ²¿ÉÒÔ¸Ä³ÉĞ´ÎÄ¼ş£¨CSV/JSON£©
+    // -------- 6) è¾“å‡º edge listï¼ˆå¯ç”¨æ¥ compare/å¯è§†åŒ–ï¼‰--------
+    // è¿™é‡Œç›´æ¥æ‰“å°å‰è‹¥å¹²æ¡ï¼›ä½ ä¹Ÿå¯ä»¥æ”¹æˆå†™æ–‡ä»¶ï¼ˆCSV/JSONï¼‰
     //int shown = 0;
     //std::cout << "[MSC] sample edges (k1,k2,saddle_value):\n";
     //for (auto& kv : edge_best) {

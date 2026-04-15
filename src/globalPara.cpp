@@ -1,15 +1,15 @@
-#include "globalPara.h" 
+ï»¿#include "globalPara.h" 
 
 std::string input_file = "namaqualand";//" boulder_smooth"; //"RockSetBr_rotated"; //RockSetBr  test_cube
 int Resolution = 128;
 
-std::vector<double> Weights = { 0.8, 1.0, 1.2 };  //mst ·ÖÀàÏµÊıÈ¨ÖØ£º±ß½ç-ÄÚ²¿£¬ÄÚ²¿-ÄÚ²¿£¬±ß½ç-±ß½ç
-std::vector<double> KT_weights = { 0.5, 0.1, 0.1, 0.3 };  //kernel translucencyÈ¨ÖØ£º½Ç¶È¡¢³¤¶È¡¢ÄÚÍâ·Ö²¼¡¢Ë®Æ½´¹Ö±
+std::vector<double> Weights = { 0.8, 1.0, 1.2 };  //mst åˆ†ç±»ç³»æ•°æƒé‡ï¼šè¾¹ç•Œ-å†…éƒ¨ï¼Œå†…éƒ¨-å†…éƒ¨ï¼Œè¾¹ç•Œ-è¾¹ç•Œ
+std::vector<double> KT_weights = { 0.5, 0.1, 0.1, 0.3 };  //kernel translucencyæƒé‡ï¼šè§’åº¦ã€é•¿åº¦ã€å†…å¤–åˆ†å¸ƒã€æ°´å¹³å‚ç›´
 double Isolevel = 0;
 double Gauss_level = 0.5;
 
 int PoresNum = 60;
-double surface_ratio = 0.6; //±íÃæºËÕ¼±È
+double surface_ratio = 0.6; //è¡¨é¢æ ¸å æ¯”
 
 int Max_degree = 5;
 
@@ -28,7 +28,7 @@ double BaseLayer = 8; // 15  for Ceramic clay printing    10 for cand2
 //120pores 0.02 0.037 0.58 0.38 A
 //200pores 0.015 0.033 0.5 0.38 A
 // 100 2 4 0.68 0.4 high_rock
-//¾­Ñé¹«Ê½£ºsigma =(v/(6.8371*n*w))^(1/3)
+//ç»éªŒå…¬å¼ï¼šsigma =(v/(6.8371*n*w))^(1/3)
 // w for max = 5.0     for min = 30
 
 double SmoothT = 15;    //Control the smoothing area size;  smoothT +, the effect -, approaching a regular union.
@@ -63,7 +63,7 @@ std::string trim(const std::string& str) {
 }
 
 
-// ¸¨Öúº¯Êı£º½âÎö vector<double> (ÀıÈç "0.8, 1.0, 1.2")
+// è¾…åŠ©å‡½æ•°ï¼šè§£æ vector<double> (ä¾‹å¦‚ "0.8, 1.0, 1.2")
 std::vector<double> parseVector(std::string valStr) {
     std::vector<double> vec;
     std::stringstream ss(valStr);
@@ -83,18 +83,18 @@ bool loadParameters(const std::string& filename) {
 
     std::string line;
     while (std::getline(file, line)) {
-        // Ìø¹ı×¢ÊÍºÍ¿ÕĞĞ
+        // è·³è¿‡æ³¨é‡Šå’Œç©ºè¡Œ
         if (line.empty() || line[0] == '#' || line.substr(0, 2) == "//") continue;
 
         std::stringstream ss(line);
         std::string key, valStr;
 
-        // ¼ÙÉè¸ñÊ½Îª "key = value"
+        // å‡è®¾æ ¼å¼ä¸º "key = value"
         if (std::getline(ss, key, '=') && std::getline(ss, valStr)) {
             key = trim(key);
             valStr = trim(valStr);
 
-            // ÒÆ³ıĞĞÎ²¿ÉÄÜ´æÔÚµÄ×¢ÊÍ
+            // ç§»é™¤è¡Œå°¾å¯èƒ½å­˜åœ¨çš„æ³¨é‡Š
             size_t commentPos = valStr.find("//");
             if (commentPos != std::string::npos) valStr = valStr.substr(0, commentPos);
             valStr = trim(valStr);

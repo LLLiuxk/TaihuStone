@@ -1,4 +1,4 @@
-#include <igl/marching_cubes.h>
+ï»¿#include <igl/marching_cubes.h>
 #include <igl/opengl/glfw/Viewer.h>
 #include <igl/copyleft/cgal/mesh_boolean.h>
 
@@ -17,7 +17,7 @@ int main(int argc, char* argv[])
 {
     auto start_time = std::chrono::high_resolution_clock::now();
 
-    std::string configFileName = "default"; // ÓÃÓÚÈÕÖ¾ÏÔÊ¾
+    std::string configFileName = "default"; // ç”¨äºŽæ—¥å¿—æ˜¾ç¤º
     if (argc > 1) {
         configFileName = argv[1];
         std::cout << "Loading configuration from: " << configFileName << std::endl;

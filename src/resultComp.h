@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #ifndef RESULT_COMP_H
 #define RESULT_COMP_H
 
@@ -6,7 +6,7 @@
 #include <set>
 #include <Eigen/Core>
 
-// ¼òµ¥µÄ 3D ÏòÁ¿½á¹¹£¬ÓÃÓÚ´«ÈëÎïÀí×ø±ê·¶Î§
+// ç®€å•çš„ 3D å‘é‡ç»“æ„ï¼Œç”¨äºä¼ å…¥ç‰©ç†åæ ‡èŒƒå›´
 struct Vec3 {
     double x, y, z;
     double distSq(const Vec3& other) const {
@@ -17,21 +17,21 @@ struct Vec3 {
 class GaussianFieldMSC {
 public:
     /**
-     * @brief ¹¹Ôìº¯Êı
-     * @param nx XÖáÍø¸ñ·Ö±æÂÊ
-     * @param ny YÖáÍø¸ñ·Ö±æÂÊ
-     * @param nz ZÖáÍø¸ñ·Ö±æÂÊ
-     * @param min_b ÎïÀí¿Õ¼äµÄ×îĞ¡°üÎ§ºĞ×ø±ê
-     * @param max_b ÎïÀí¿Õ¼äµÄ×î´ó°üÎ§ºĞ×ø±ê
+     * @brief æ„é€ å‡½æ•°
+     * @param nx Xè½´ç½‘æ ¼åˆ†è¾¨ç‡
+     * @param ny Yè½´ç½‘æ ¼åˆ†è¾¨ç‡
+     * @param nz Zè½´ç½‘æ ¼åˆ†è¾¨ç‡
+     * @param min_b ç‰©ç†ç©ºé—´çš„æœ€å°åŒ…å›´ç›’åæ ‡
+     * @param max_b ç‰©ç†ç©ºé—´çš„æœ€å¤§åŒ…å›´ç›’åæ ‡
      */
     GaussianFieldMSC(int nx, int ny, int nz, Vec3 min_b, Vec3 max_b);
 
     /**
-     * @brief ºËĞÄº¯Êı£º¼ÆËã MSC Á¬½Ó¹ØÏµ
+     * @brief æ ¸å¿ƒå‡½æ•°ï¼šè®¡ç®— MSC è¿æ¥å…³ç³»
      *
-     * @param field_data Õ¹Æ½µÄ±êÁ¿³¡Êı¾İ (´óĞ¡Ó¦Îª nx*ny*nz£¬Ë³Ğò X->Y->Z)
-     * @param original_points Ô­Ê¼µÄ¸ßË¹ºËÖĞĞÄµã (ÓÃÓÚ×îºó½«ÍØÆË½á¹¹Ó³Éä»ØÕâĞ©µã)
-     * @return std::vector<std::vector<int>> ÁÚ½Ó±í£¬Ë÷Òı¶ÔÓ¦ original_points µÄÏÂ±ê
+     * @param field_data å±•å¹³çš„æ ‡é‡åœºæ•°æ® (å¤§å°åº”ä¸º nx*ny*nzï¼Œé¡ºåº X->Y->Z)
+     * @param original_points åŸå§‹çš„é«˜æ–¯æ ¸ä¸­å¿ƒç‚¹ (ç”¨äºæœ€åå°†æ‹“æ‰‘ç»“æ„æ˜ å°„å›è¿™äº›ç‚¹)
+     * @return std::vector<std::vector<int>> é‚»æ¥è¡¨ï¼Œç´¢å¼•å¯¹åº” original_points çš„ä¸‹æ ‡
      */
     std::vector<std::vector<int>> ComputeConnectivity(
         const Eigen::VectorXd& field_data,
@@ -42,7 +42,7 @@ private:
     Vec3 min_b_, max_b_;
     double dx_, dy_, dz_;
 
-    // ÄÚ²¿¸¨Öúº¯Êı
+    // å†…éƒ¨è¾…åŠ©å‡½æ•°
     inline int getIdx(int x, int y, int z) const;
     inline void getCoord(int idx, int& x, int& y, int& z) const;
 

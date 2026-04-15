@@ -1,15 +1,15 @@
-#pragma once
+ï»¿#pragma once
 #include "Tool.h"
 #include <queue>
 #include <random>
-#include <chrono>  // Ìí¼ÓÊ±¼ä²âÁ¿
+#include <chrono>  // æ·»åŠ æ—¶é—´æµ‹é‡
 #include <direct.h>
 #include <filesystem>
 #include <omp.h>
 #include <igl/read_triangle_mesh.h>
 
 
-// ¶¨Òå¸ßË¹ºËµÄÊı¾İ½á¹¹
+// å®šä¹‰é«˜æ–¯æ ¸çš„æ•°æ®ç»“æ„
 //class GaussianKernel {
 //
 //public:
@@ -21,8 +21,8 @@
 //    bool is_on_surface() const;
 //
 //public:
-//    Eigen::Vector3d center; // ºËµÄÖĞĞÄÎ»ÖÃ
-//    double sigma;         // ºËµÄ´óĞ¡/Ó°ÏìÁ¦·¶Î§ (¸ßË¹º¯ÊıµÄ±ê×¼²î), sigmaÔ½´óÖµÔ½´ó£¬µÈÖµÃæµÄÔ²Ô½´ó
+//    Eigen::Vector3d center; // æ ¸çš„ä¸­å¿ƒä½ç½®
+//    double sigma;         // æ ¸çš„å¤§å°/å½±å“åŠ›èŒƒå›´ (é«˜æ–¯å‡½æ•°çš„æ ‡å‡†å·®), sigmaè¶Šå¤§å€¼è¶Šå¤§ï¼Œç­‰å€¼é¢çš„åœ†è¶Šå¤§
 //    double amplitude;
 //    double center_value;
 //    bool on_surface;
@@ -44,16 +44,16 @@ public:
     GaussianKernel(
         const Eigen::Vector3d& center_,
         double sigma_,
-        double sigma_parallel_,              // ÑØÖ÷Öá£¨½¨Ôì·½Ïò£©
-        double sigma_perp_,                  // ´¹Ö±Ö÷Öá
-        const Eigen::Matrix3d& rotation_,    // Ö÷Öá·½Ïò
+        double sigma_parallel_,              // æ²¿ä¸»è½´ï¼ˆå»ºé€ æ–¹å‘ï¼‰
+        double sigma_perp_,                  // å‚ç›´ä¸»è½´
+        const Eigen::Matrix3d& rotation_,    // ä¸»è½´æ–¹å‘
         double amplitude_,
         double center_value_ = 0.0
     );
 
     GaussianKernel(
         const Eigen::Vector3d& center_,
-        double sigma_,              // ÑØÖ÷Öá£¨½¨Ôì·½Ïò£©
+        double sigma_,              // æ²¿ä¸»è½´ï¼ˆå»ºé€ æ–¹å‘ï¼‰
         double amplitude_,
         double center_value_ = 0.0
     );
@@ -66,11 +66,11 @@ public:
 public:
     Eigen::Vector3d center;
 
-    double sigma_parallel;   // ¦Ò¡Î
-    double sigma_perp;       // ¦Ò¡Í
+    double sigma_parallel;   // Ïƒâˆ¥
+    double sigma_perp;       // ÏƒâŠ¥
 
-    Eigen::Matrix3d R;       // ¾Ö²¿ ¡ú ÊÀ½ç Ğı×ª¾ØÕó
-    Eigen::Matrix3d invSigma; // ¦²^{-1}
+    Eigen::Matrix3d R;       // å±€éƒ¨ â†’ ä¸–ç•Œ æ—‹è½¬çŸ©é˜µ
+    Eigen::Matrix3d invSigma; // Î£^{-1}
 
     double sigma;   // ball
     double amplitude;
@@ -85,7 +85,7 @@ struct Edge {
     double length;
     double weight;
 
-    // ÖØÔØ > ÔËËã·ûÒÔÊµÏÖ×îĞ¡¶Ñ
+    // é‡è½½ > è¿ç®—ç¬¦ä»¥å®ç°æœ€å°å †
     bool operator>(const Edge& other) const {
 		if (Direct_dis) return length > other.length;
         else return weight > other.weight;
@@ -95,10 +95,10 @@ struct Edge {
 class PathQuery {
 public:
     PathQuery(int num_nodes, const std::vector<std::vector<int>>& adj, int root);
-    // ²éÑ¯´Ó root µ½ÈÎÒâÄ¿±ê t µÄÂ·¾¶
+    // æŸ¥è¯¢ä» root åˆ°ä»»æ„ç›®æ ‡ t çš„è·¯å¾„
     std::vector<int> query_path(int t);
 
-    // Ò»´Î BFS ½¨Á¢ parent Êı×é
+    // ä¸€æ¬¡ BFS å»ºç«‹ parent æ•°ç»„
     bool build_parent_tree();
 
 public:
@@ -143,7 +143,7 @@ public:
     double cal_path_graph_length(std::vector<int> path_);
 
     std::vector<int> find_path_in_tree(int p1, int p2, int num_nodes, AdjacencyList adj);
-    std::vector<int>  find_specified_path(int p_index, int s1, int s2, AdjacencyList adj); //¾­¹ıµãp_indexµÄ£¬Á½¶ËµãÎªs1s2µÄÂ·¾¶
+    std::vector<int>  find_specified_path(int p_index, int s1, int s2, AdjacencyList adj); //ç»è¿‡ç‚¹p_indexçš„ï¼Œä¸¤ç«¯ç‚¹ä¸ºs1s2çš„è·¯å¾„
     double length_graph_path(int p1, int p2, AdjacencyList adj);
     double length_path(int p1, int p2);
     int find_edge_by_nodes(int from_node, int to_node, const std::vector<Edge> edge_list);
@@ -154,7 +154,7 @@ public:
     double calculate_edge_weight(GaussianKernel k1, GaussianKernel k2);
 
 	
-	double calculate_path_translucency(std::vector<int>& path, bool show_debug = false);  //pathÀï´æ·ÅµÄÊÇkernelµÄË÷Òı
+	double calculate_path_translucency(std::vector<int>& path, bool show_debug = false);  //pathé‡Œå­˜æ”¾çš„æ˜¯kernelçš„ç´¢å¼•
     double calculate_path_translucency2(std::vector<int>& path, bool show_debug);  //old version
     double cal_kernel_translucency(int p_index, int& max_s1, int& max_s2, std::vector<int>& max_path, AdjacencyList adj, bool debug=false);
     double cal_total_translucency(std::vector<GaussianKernel> gau, AdjacencyList adj);
@@ -171,7 +171,7 @@ public:
     pair<double, double> add_edges(Edge cand_edge, AdjacencyList adj, std::vector<int>& max_path1, std::vector<int>& max_path2, bool debug = false);
     bool replace_edges(int p_index, int replace_e, std::vector<Edge>& Tube_edges, AdjacencyList& adj, AdjacencyList& unused_adj);
     void optimize_mst(int opt_times_once, int edge_max, vector<int>& rep_vec, bool debug = false);
-	void optimize_mst2(int itea_max_times, int max_edge, bool iter_add = false, bool debug = false); //max_edge = 0´ú±í×î´ó±ßÊıµİÔö£¬£¡=0´ú±í¹Ì¶¨×î´ó±ßÊı
+	void optimize_mst2(int itea_max_times, int max_edge, bool iter_add = false, bool debug = false); //max_edge = 0ä»£è¡¨æœ€å¤§è¾¹æ•°é€’å¢ï¼Œï¼=0ä»£è¡¨å›ºå®šæœ€å¤§è¾¹æ•°
 
 	//------------generate tubes----------------
     double generate_tube(const Eigen::Vector3d& p, const GaussianKernel& k1, const GaussianKernel& k2, double iso_level_C, double mid_radius_factor);
@@ -192,9 +192,9 @@ public:
         double isoValue = 0.5,
         double minSigmaPerp = 1e-4,
         double minSigmaParallel = 1e-4,
-        double tol = 1e-5,                 // Í¶Ó°·ÖÀëÈİ²î£¨µ¥Î»Í¬×ø±ê£©
-        double margin = 1e-4,               // ¶îÍâ·ÖÀëÔ£Á¿£¨¿ÉÉè³É 1e-4 µÈ£©
-        double minScalePerUpdate = 0.90,   // Ã¿´Î¸üĞÂ×î¶àËõµ½¶àÉÙ£¨±ÜÃâÖèËõ/¶¶¶¯£©
+        double tol = 1e-5,                 // æŠ•å½±åˆ†ç¦»å®¹å·®ï¼ˆå•ä½åŒåæ ‡ï¼‰
+        double margin = 1e-4,               // é¢å¤–åˆ†ç¦»è£•é‡ï¼ˆå¯è®¾æˆ 1e-4 ç­‰ï¼‰
+        double minScalePerUpdate = 0.90,   // æ¯æ¬¡æ›´æ–°æœ€å¤šç¼©åˆ°å¤šå°‘ï¼ˆé¿å…éª¤ç¼©/æŠ–åŠ¨ï¼‰
         bool verbose = false);
 
     void buildCandidateAxes(const GaussianKernel& a, const GaussianKernel& b, const Eigen::Vector3d& delta, std::vector<Eigen::Vector3d>& axesOut);
@@ -205,27 +205,27 @@ public:
 
 private:
 
-	int pore_num = PoresNum;			   // ¿Õ¶´ÊıÁ¿
-    int resolution = Resolution;               // Íø¸ñ·Ö±æÂÊ
+	int pore_num = PoresNum;			   // ç©ºæ´æ•°é‡
+    int resolution = Resolution;               // ç½‘æ ¼åˆ†è¾¨ç‡
 
-    Eigen::MatrixXd V_ini; //³õÊ¼Íø¸ñ¶¥µã
-    Eigen::MatrixXi F_ini; // ³õÊ¼Íø¸ñÃæÆ¬
-    Eigen::VectorXd SDF_ini;           // Ô­Ê¼/ÒÑ´¦ÀíµÄSDFÍø¸ñÖµ
-    Eigen::MatrixXd GV;            // Íø¸ñµã×ø±ê
-    Eigen::MatrixXd V_t; //Êä³ö¸ßË¹³¡¶ÔÓ¦Íø¸ñ¶¥µã
-    Eigen::MatrixXi F_t; // Êä³ö¸ßË¹³¡¶ÔÓ¦Íø¸ñÃæÆ¬
+    Eigen::MatrixXd V_ini; //åˆå§‹ç½‘æ ¼é¡¶ç‚¹
+    Eigen::MatrixXi F_ini; // åˆå§‹ç½‘æ ¼é¢ç‰‡
+    Eigen::VectorXd SDF_ini;           // åŸå§‹/å·²å¤„ç†çš„SDFç½‘æ ¼å€¼
+    Eigen::MatrixXd GV;            // ç½‘æ ¼ç‚¹åæ ‡
+    Eigen::MatrixXd V_t; //è¾“å‡ºé«˜æ–¯åœºå¯¹åº”ç½‘æ ¼é¡¶ç‚¹
+    Eigen::MatrixXi F_t; // è¾“å‡ºé«˜æ–¯åœºå¯¹åº”ç½‘æ ¼é¢ç‰‡
 
-    Eigen::MatrixXd V_out; //Êä³öÍø¸ñ¶¥µã
-    Eigen::MatrixXi F_out; // Êä³öÍø¸ñÃæÆ¬
-    Eigen::VectorXd SDF_out;           // Êä³öµÄSDFÍø¸ñÖµ
-    Eigen::VectorXd SDF_gau;           // Ö»ÓĞgaussianµÄSDFÍø¸ñÖµ
-    //Eigen::MatrixXd GV_out;            // Íø¸ñµã×ø±ê
+    Eigen::MatrixXd V_out; //è¾“å‡ºç½‘æ ¼é¡¶ç‚¹
+    Eigen::MatrixXi F_out; // è¾“å‡ºç½‘æ ¼é¢ç‰‡
+    Eigen::VectorXd SDF_out;           // è¾“å‡ºçš„SDFç½‘æ ¼å€¼
+    Eigen::VectorXd SDF_gau;           // åªæœ‰gaussiançš„SDFç½‘æ ¼å€¼
+    //Eigen::MatrixXd GV_out;            // ç½‘æ ¼ç‚¹åæ ‡
     VoxelGrid Grids;
 
     Eigen::Vector3d bb_min; 
     Eigen::Vector3d bb_max;
 
-	//¸ßË¹ºË²ÎÊı·¶Î§
+	//é«˜æ–¯æ ¸å‚æ•°èŒƒå›´
     double safe_distance = 0; //dart throwing 
     double amplitude_min = Amplitude_min;
     double amplitude_max = Amplitude_max;
@@ -236,7 +236,7 @@ private:
     std::vector<GaussianKernel> Kernels;
     std::vector<int> surface_kernels;
     std::vector<std::vector<int>> Paths;
-    vector<pair<int, int>> max_paths_kernel;  //Ã¿¸ökernelÍ¨Í¸ĞÔ×î´óµÄÂ·¾¶Á½¶Ë
+    vector<pair<int, int>> max_paths_kernel;  //æ¯ä¸ªkernelé€šé€æ€§æœ€å¤§çš„è·¯å¾„ä¸¤ç«¯
     vector<double> kernel_translucency;
 
     std::vector<Edge> Tube_edges;

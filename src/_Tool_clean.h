@@ -1,0 +1,191 @@
+ #pragma once
+#include <igl/readOBJ.h>
+#include <igl/signed_distance.h>
+
+#include <igl/marching_cubes.h>
+#include <igl/read_triangle_mesh.h>
+#include <igl/write_triangle_mesh.h>
+#include <igl/voxel_grid.h>
+#include <igl/opengl/glfw/Viewer.h>
+#include <igl/icosahedron.h>
+#include <igl/loop.h>
+
+#include <filesystem>
+#include <Eigen/Core>
+#include <iostream>
+#include <vector>
+#include <string>
+#include <iomanip>
+#include <queue>
+#include <random>
+#include <stdexcept>
+#include <regex>
+#include <GLFW/glfw3.h>
+
+#include "FastNoiseLite.h"
+#include "globalPara.h" 
+#include "selfSupVoxel.h"
+
+
+#define M_PI 3.1415926
+#define INF std::numeric_limits<double>::infinity()
+using namespace std;
+using namespace Eigen;
+
+
+static FastNoiseLite g_kernel_noise;
+static FastNoiseLite g_field_noise;
+
+extern vector<RowVector3d> colors;
+
+//static void init_noise()
+//{
+//    static bool initialized = false;
+//    if (initialized) return;
+//
+//    g_kernel_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+//    g_kernel_noise.SetFractalType(FastNoiseLite::FractalType_FBm);
+//    g_kernel_noise.SetFractalOctaves(3);        //  
+//    g_kernel_noise.SetFractalLacunarity(2.0f);
+//    g_kernel_noise.SetFractalGain(0.5f);
+//    g_kernel_noise.SetFrequency(0.8f);          //  
+//    initialized = true;
+//}
+
+static void init_field_noise()
+{
+    static bool initialized = false;
+    if (initialized) return;
+
+    g_field_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+    g_field_noise.SetFractalType(FastNoiseLite::FractalType_FBm);
+    g_field_noise.SetFractalOctaves(4);  // 
+    g_field_noise.SetFractalGain(0.55f);
+    g_field_noise.SetFrequency(1.0f); //  
+
+    initialized = true;
+}
+
+double Mesh2SDF(Eigen::MatrixXd& V, Eigen::MatrixXi& F, Eigen::MatrixXd& GV, Eigen::VectorXd& S, Eigen::Vector3d& bb_min, Eigen::Vector3d& bb_max);
+bool saveMesh(std::string filename, Eigen::MatrixXd V, Eigen::MatrixXi F);
+
+// SDF k 
+double smooth_UnionSDF(double sdf1, double sdf2, double k = SmoothT);
+
+// SDF 
+double smooth_IntersecSDF(double sdf1, double sdf2, double k);
+
+// SDF 
+double unionSDF(double sdf1, double sdf2);
+
+// SDF 
+double intersectionSDF(double sdf1, double sdf2);
+// SDF  (A - B)
+double differenceSDF(double sdf1, double sdf2);
+
+void MarchingCubes(Eigen::VectorXd& S, Eigen::MatrixXd& GV, int nx, int ny, int nz, double isovalue, Eigen::MatrixXd& V, Eigen::MatrixXi& F);
+
+void view_model(Eigen::MatrixXd V1, Eigen::MatrixXi F1, std::string win_name="View one model", bool show_line = false );
+void view_two_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V2, Eigen::MatrixXi F2, Eigen::RowVector3d shift = RowVector3d(0.0, 0.0, 0.0), std::string win_name = "Two models");
+void view_three_models(Eigen::MatrixXd V1, Eigen::MatrixXi F1, Eigen::MatrixXd V2, Eigen::MatrixXi F2, Eigen::MatrixXd V3, Eigen::MatrixXi F3, Eigen::RowVector3d shift = RowVector3d(0.0, 0.0, 0.0), std::string win_name= "Three models");
+void vis_Kernels_Tubes(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, std::string win_name = "vis_Kernels_Tubes");
+void vis_KerLine_model(Eigen::MatrixXd V1, Eigen::MatrixXi F1, std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, bool show_line = false, std::string win_name = "vis_Kernels_Tubes");
+void vis_compare_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, std::vector<int> mask, std::string win_name = "compare_lines");
+void vis_opt_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, std::vector<int> mask, std::string win_name = "compare_lines");
+
+int  single_component(Eigen::MatrixXd V, Eigen::MatrixXi F);
+
+// 
+double abs_angle(Vector3d v1, Vector3d v2);
+double distance(Vector3d v1, Vector3d v2);
+double squared_distance(Vector3d v1, Vector3d v2);
+Eigen::Matrix3d construct_R(double u, double v, double theta_max_rad, Eigen::Vector3d z_axis = Eigen::Vector3d(0.0, 0.0, 1.0));
+
+//Bernstein  
+double bernstein_basis(int i, int n, double t);
+
+//load files
+bool exportSDF(Eigen::VectorXd& sdf, std::string& filename);
+
+bool align_models_with_pca(const std::string& model1_path, const std::string& model2_path, const std::string& output_path);
+
+//show_result 
+void show_path(std::vector<int> path);
+
+
+//kinds of check
+void geometry_analyzer(Eigen::VectorXd SDF, int resolution, double thres_degree, int& overhang_count, int& floating_count, std::vector<uint8_t>& overhang_mask, std::vector<uint8_t>& floating_mask);
+Vector3d computeGradient(int x, int y, int z, int res, Eigen::VectorXd SDF);
+void getCoord(int idx, int res, int& x, int& y, int& z);
+
+// pca point cloud
+Eigen::Vector3d computePrincipalDirection(const std::vector<Eigen::Vector3d>& points);
+
+//TO
+double smoothHeaviside(double s, double eps = 0.1);  // Heaviside   = 1~2  
+double hardTrans(double s, double iso);
+
+VoxelGrid SDFtoVoxel(Eigen::VectorXd& sdf, Eigen::Vector3d minBox, Eigen::Vector3d maxBox, int nx, int ny, int nz); 
+
+void saveVoxelToRaw(std::string filename, VoxelGrid& grid);
+
+void saveVoxelToVTK(std::string filename, VoxelGrid& grid);
+
+void saveSDFtoVTI(const std::string filename, Eigen::VectorXd& sdf, int nx, int ny, int nz);
+void saveSDFtoNPY(std::string filename, Eigen::VectorXd& sdf, int res);
+
+void saveVoxelGridAsNPY(std::vector<double>& voxel_grid, int res, std::string filename);
+bool readNPYtoVoxel(const std::string& filename, std::vector<double>& voxel_grid, int& res);
+
+void writeAdjacencyListToFile(const std::vector<std::vector<int>>& adjList, const std::string& filename);
+
+std::vector<std::vector<int>> readAdjacencyListFromFile(const std::string& filename);
+
+//string
+std::string to_string_pre(double value, int precision = 1);
+
+//sort
+template <typename T1, typename T2>
+void sort_min2max(std::vector<std::pair<T1, T2>>& vec)
+{
+    std::stable_sort(vec.begin(), vec.end(),
+        [](const std::pair<T1, T2>& a, const std::pair<T1, T2>& b)
+        {
+            return a.second < b.second;
+        });
+}
+
+//double add_iso_surface_noise(
+//    const Eigen::Vector3d& p,
+//    double sdf_value,
+//    double band_width,
+//    double noise_amplitude,
+//    double spatial_frequency);
+
+void add_noise_near_isosurface(
+    Eigen::VectorXd& S,              //  in-place  
+    const Eigen::MatrixXd& GV,        //  
+    double iso_value,                 // MC  
+    double noise_amplitude,            //   0.05 ~ 0.3 *  
+    double band_width,                 //  
+    double spatial_frequency           //  
+);
+
+//cal sigma
+double sigma_value(double v, double n, double w, double iso);
+
+static inline bool isFiniteVec(const Eigen::Vector3d& v) {
+    return std::isfinite(v.x()) && std::isfinite(v.y()) && std::isfinite(v.z());
+}
+
+static inline bool isFiniteMat(const Eigen::Matrix3d& m) {
+    for (int r = 0; r < 3; r++) for (int c = 0; c < 3; c++) if (!std::isfinite(m(r, c))) return false;
+    return true;
+}
+
+
+vector<vector<int>> compare_edges(const vector<pair<int, int>>& ini, const vector<pair<int, int>> & final);
+vector<int> compare_edges2(const vector<pair<int, int>>& ini, const vector<pair<int, int>> & final, vector<pair<int, int>> &edge_con_total, vector<int> rep_vec);
+
+
+vector<int> cal_max_degree(std::vector<std::vector<int>> Adj_list);

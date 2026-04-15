@@ -1,17 +1,17 @@
-#include "resultComp.h"
+ï»¿#include "resultComp.h"
 #include <cmath>
 #include <stack>
 #include <algorithm>
 #include <iostream>
 
-// Èç¹û±àÒëÆ÷Ö§³Ö OpenMP£¬Ôò°üº¬Í·ÎÄ¼ş
+// å¦‚æœç¼–è¯‘å™¨æ”¯æŒ OpenMPï¼Œåˆ™åŒ…å«å¤´æ–‡ä»¶
 #ifdef _OPENMP
 #include <omp.h>
 #endif
 
 GaussianFieldMSC::GaussianFieldMSC(int nx, int ny, int nz, Vec3 min_b, Vec3 max_b)
     : nx_(nx), ny_(ny), nz_(nz), min_b_(min_b), max_b_(max_b) {
-    // ¼ÆËãÎïÀí²½³¤
+    // è®¡ç®—ç‰©ç†æ­¥é•¿
     dx_ = (nx_ > 1) ? (max_b_.x - min_b_.x) / (nx_ - 1) : 0;
     dy_ = (ny_ > 1) ? (max_b_.y - min_b_.y) / (ny_ - 1) : 0;
     dz_ = (nz_ > 1) ? (max_b_.z - min_b_.z) / (nz_ - 1) : 0;
@@ -30,7 +30,7 @@ std::vector<std::vector<int>> GaussianFieldMSC::ComputeConnectivity(
     const double eps = 1e-12;
 
     // -------------------------------
-    // 1. ÕÒ maxima
+    // 1. æ‰¾ maxima
     // -------------------------------
     std::vector<char> is_maxima(total_size, 0);
 
@@ -48,7 +48,7 @@ std::vector<std::vector<int>> GaussianFieldMSC::ComputeConnectivity(
     }
 
     // -------------------------------
-    // 2. ÕÒ 2-saddles
+    // 2. æ‰¾ 2-saddles
     // -------------------------------
     std::vector<int> saddles;
 
@@ -76,10 +76,10 @@ std::vector<std::vector<int>> GaussianFieldMSC::ComputeConnectivity(
     }
 
     // -------------------------------
-    // 3. ¹¹½¨±ß£¨ÕÛÖĞ²ßÂÔ£©
+    // 3. æ„å»ºè¾¹ï¼ˆæŠ˜ä¸­ç­–ç•¥ï¼‰
     // -------------------------------
 
-    // ÓÃ map ´æ pair -> best saddle value
+    // ç”¨ map å­˜ pair -> best saddle value
     std::unordered_map<long long, double> edge_best;
 
     for (int saddle_idx : saddles)
@@ -91,28 +91,28 @@ std::vector<std::vector<int>> GaussianFieldMSC::ComputeConnectivity(
         if (reached.size() < 2)
             continue;
 
-        // ×ªÎª vector
+        // è½¬ä¸º vector
         std::vector<int> maxima_list(reached.begin(), reached.end());
 
-        // °´ field ÖµÅÅĞò
+        // æŒ‰ field å€¼æ’åº
         std::sort(maxima_list.begin(), maxima_list.end(),
             [&](int a, int b)
             {
                 return field_data[a] > field_data[b];
             });
 
-        // Ö»È¡Ç°Á½¸ö
+        // åªå–å‰ä¸¤ä¸ª
         int m1 = maxima_list[0];
         int m2 = maxima_list[1];
 
         double saddle_value = field_data[saddle_idx];
 
-        // ---- Persistence ¼ÆËã ----
+        // ---- Persistence è®¡ç®— ----
         double persistence =
             std::min(field_data[m1], field_data[m2])
             - saddle_value;
 
-        // ãĞÖµ tau
+        // é˜ˆå€¼ tau
         double f_min = field_data.minCoeff();
         double f_max = field_data.maxCoeff();
         double global_range = f_max - f_min;
@@ -120,7 +120,7 @@ std::vector<std::vector<int>> GaussianFieldMSC::ComputeConnectivity(
         double persistence_threshold = 0.9 * global_range;
         double tau = persistence_threshold;
 
-        // ¹ıÂËÈõÁ¬½Ó
+        // è¿‡æ»¤å¼±è¿æ¥
         if (persistence < tau)
             continue;
 
@@ -143,7 +143,7 @@ std::vector<std::vector<int>> GaussianFieldMSC::ComputeConnectivity(
     }
 
     // -------------------------------
-    // 4. ×ª adjacency
+    // 4. è½¬ adjacency
     // -------------------------------
     std::vector<std::vector<int>> adjacency(original_points.size());
 
@@ -165,59 +165,59 @@ std::vector<std::vector<int>> GaussianFieldMSC::ComputeConnectivity(
 //    const Eigen::VectorXd& field_data,
 //    const std::vector<Vec3>& original_points)
 //{
-//    // 0. Êı¾İĞ£Ñé
+//    // 0. æ•°æ®æ ¡éªŒ
 //    if (field_data.size() != nx_ * ny_ * nz_) {
 //        std::cerr << "[GaussianFieldMSC] Error: Field data size mismatch! "
 //            << "Expected " << nx_ * ny_ * nz_ << ", got " << field_data.size() << std::endl;
 //        return {};
 //    }
 //
-//    // 1. Ê¶±ğÁÙ½çµã (Maxima ºÍ 2-Saddles)
+//    // 1. è¯†åˆ«ä¸´ç•Œç‚¹ (Maxima å’Œ 2-Saddles)
 //    std::vector<int> saddles;
-//    // Ê¹ÓÃ std::vector<char> ´úÌæ bool ÒÔ±ÜÃâÄ³Ğ© vector<bool> µÄ²¢·¢Ğ´ÈëÎÊÌâ£¬»òÕß½ö×÷ÎªÖ»¶Á
-//    // ÕâÀïÎÒÃÇÏÈ´®ĞĞ³õÊ¼»¯
+//    // ä½¿ç”¨ std::vector<char> ä»£æ›¿ bool ä»¥é¿å…æŸäº› vector<bool> çš„å¹¶å‘å†™å…¥é—®é¢˜ï¼Œæˆ–è€…ä»…ä½œä¸ºåªè¯»
+//    // è¿™é‡Œæˆ‘ä»¬å…ˆä¸²è¡Œåˆå§‹åŒ–
 //    std::vector<bool> is_maxima(field_data.size(), false);
 //
-//    // ²¢ĞĞÑ°ÕÒÁÙ½çµã
-//    // ×¢Òâ£ºvector<bool> ²»ÊÇÏß³Ì°²È«µÄĞ´Èë£¬ËùÒÔÎÒÃÇÕâÀï·ÖÁ½²½£¬»òÕßÊ¹ÓÃ int Êı×é
-//    // ÎªÁË¼òµ¥Æğ¼û£¬ÕâÀïÏÈ¼ÆËã Maxima ±ê¼Ç£¬ÔÙ¼ÆËã Saddle
+//    // å¹¶è¡Œå¯»æ‰¾ä¸´ç•Œç‚¹
+//    // æ³¨æ„ï¼švector<bool> ä¸æ˜¯çº¿ç¨‹å®‰å…¨çš„å†™å…¥ï¼Œæ‰€ä»¥æˆ‘ä»¬è¿™é‡Œåˆ†ä¸¤æ­¥ï¼Œæˆ–è€…ä½¿ç”¨ int æ•°ç»„
+//    // ä¸ºäº†ç®€å•èµ·è§ï¼Œè¿™é‡Œå…ˆè®¡ç®— Maxima æ ‡è®°ï¼Œå†è®¡ç®— Saddle
 //
-//    // Step 1.1: ±ê¼Ç Maxima
+//    // Step 1.1: æ ‡è®° Maxima
 //#pragma omp parallel for
 //    for (int z = 1; z < nz_ - 1; ++z) {
 //        for (int y = 1; y < ny_ - 1; ++y) {
 //            for (int x = 1; x < nx_ - 1; ++x) {
 //                if (CheckIsMaxima(field_data, x, y, z)) {
 //                    int idx = getIdx(x, y, z);
-//                    // ¼´Ê¹ÊÇ vector<bool>£¬²»Í¬Ë÷ÒıµÄ²¢·¢Ğ´ÈëÍ¨³£ÊÇ²»°²È«µÄ(bit²Ù×÷)
-//                    // µ«ÔÚÕâÀïÎÒÃÇÎªÁËÑÏ½÷£¬Ó¦¸Ã±ÜÃâ²¢·¢Ğ´ vector<bool>¡£
-//                    // ¿¼ÂÇµ½ Maxima Ï¡Êè£¬ÎÒÃÇÕâÀïÔİ²»²¢ĞĞĞ´Èë£¬»òÕß¸ÄÓÃ vector<char>¡£
-//                    // ĞŞÕı·½°¸£º´Ë´¦²»Ö±½ÓĞ´È«¾Ö vector<bool>£¬»òÕßÈ¡Ïû²¢ĞĞ¡£
-//                    // ¼øÓÚĞÔÄÜÆ¿¾±Í¨³£ÔÚ Saddle ÅĞ¶Ï£¬Maxima ÅĞ¶ÏºÜ¿ì£¬ÕâÀïÈ¡Ïû²¢ĞĞĞ´Èë£¬
-//                    // »òÕßÊ¹ÓÃ critical (ËäÈ»Âı)¡£
-//                    // ×îºÃµÄ·½Ê½£º
+//                    // å³ä½¿æ˜¯ vector<bool>ï¼Œä¸åŒç´¢å¼•çš„å¹¶å‘å†™å…¥é€šå¸¸æ˜¯ä¸å®‰å…¨çš„(bitæ“ä½œ)
+//                    // ä½†åœ¨è¿™é‡Œæˆ‘ä»¬ä¸ºäº†ä¸¥è°¨ï¼Œåº”è¯¥é¿å…å¹¶å‘å†™ vector<bool>ã€‚
+//                    // è€ƒè™‘åˆ° Maxima ç¨€ç–ï¼Œæˆ‘ä»¬è¿™é‡Œæš‚ä¸å¹¶è¡Œå†™å…¥ï¼Œæˆ–è€…æ”¹ç”¨ vector<char>ã€‚
+//                    // ä¿®æ­£æ–¹æ¡ˆï¼šæ­¤å¤„ä¸ç›´æ¥å†™å…¨å±€ vector<bool>ï¼Œæˆ–è€…å–æ¶ˆå¹¶è¡Œã€‚
+//                    // é‰´äºæ€§èƒ½ç“¶é¢ˆé€šå¸¸åœ¨ Saddle åˆ¤æ–­ï¼ŒMaxima åˆ¤æ–­å¾ˆå¿«ï¼Œè¿™é‡Œå–æ¶ˆå¹¶è¡Œå†™å…¥ï¼Œ
+//                    // æˆ–è€…ä½¿ç”¨ critical (è™½ç„¶æ…¢)ã€‚
+//                    // æœ€å¥½çš„æ–¹å¼ï¼š
 //                }
 //            }
 //        }
 //    }
 //
-//    // ÖØĞÂÊµÏÖ²¢ĞĞ°²È«µÄ Maxima ¼ì²â
+//    // é‡æ–°å®ç°å¹¶è¡Œå®‰å…¨çš„ Maxima æ£€æµ‹
 //    std::vector<char> is_maxima_char(field_data.size(), 0);
 //#pragma omp parallel for
 //    for (int i = 0; i < nx_ * ny_ * nz_; ++i) {
 //        int x, y, z;
 //        getCoord(i, x, y, z);
-//        // ÅÅ³ı±ß½ç
+//        // æ’é™¤è¾¹ç•Œ
 //        if (x > 0 && x < nx_ - 1 && y > 0 && y < ny_ - 1 && z > 0 && z < nz_ - 1) {
 //            if (CheckIsMaxima(field_data, x, y, z)) {
 //                is_maxima_char[i] = 1;
 //            }
 //        }
 //    }
-//    // ×ª»Ø bool vector ¹©ºóĞøÊ¹ÓÃ (ÆäÊµÖ±½ÓÓÃ char Ò²¿ÉÒÔ£¬ÎªÁËÆ¥Åä½Ó¿Ú×ªÒ»ÏÂ)
+//    // è½¬å› bool vector ä¾›åç»­ä½¿ç”¨ (å…¶å®ç›´æ¥ç”¨ char ä¹Ÿå¯ä»¥ï¼Œä¸ºäº†åŒ¹é…æ¥å£è½¬ä¸€ä¸‹)
 //    for (size_t i = 0; i < is_maxima.size(); ++i) is_maxima[i] = (is_maxima_char[i] == 1);
 //
-//    // Step 1.2: Ñ°ÕÒ Saddles
+//    // Step 1.2: å¯»æ‰¾ Saddles
 //#pragma omp parallel for
 //    for (int z = 1; z < nz_ - 1; ++z) {
 //        for (int y = 1; y < ny_ - 1; ++y) {
@@ -235,32 +235,32 @@ std::vector<std::vector<int>> GaussianFieldMSC::ComputeConnectivity(
 //
 //    // std::cout << "[GaussianFieldMSC] Found " << saddles.size() << " 2-Saddles." << std::endl;
 //
-//    // 2. ×·×Ù¼¹Ïß (Separatrix) ²¢½¨Á¢Á¬½Ó
+//    // 2. è¿½è¸ªè„Šçº¿ (Separatrix) å¹¶å»ºç«‹è¿æ¥
 //    std::vector<std::vector<int>> adjacency(original_points.size());
 //
-//    // Õâ²¿·ÖÒ²¿ÉÒÔ²¢ĞĞ£¬µ«ĞèÒª×¢Òâ adjacency µÄĞ´Èë°²È«
-//    // ¿¼ÂÇµ½ saddles ÊıÁ¿Í¨³£²»¶à£¬´®ĞĞ¼´¿É£¬»òÕßÊ¹ÓÃ¾Ö²¿¹éÔ¼
+//    // è¿™éƒ¨åˆ†ä¹Ÿå¯ä»¥å¹¶è¡Œï¼Œä½†éœ€è¦æ³¨æ„ adjacency çš„å†™å…¥å®‰å…¨
+//    // è€ƒè™‘åˆ° saddles æ•°é‡é€šå¸¸ä¸å¤šï¼Œä¸²è¡Œå³å¯ï¼Œæˆ–è€…ä½¿ç”¨å±€éƒ¨å½’çº¦
 //    for (int saddle_idx : saddles) {
-//        // ´Ó°°µã³ö·¢£¬ÑØ×ÅÌİ¶ÈÉÏÉı£¬ÕÒµ½ËùÓĞÄÜµ½´ïµÄ¼«´óÖµµã
+//        // ä»éç‚¹å‡ºå‘ï¼Œæ²¿ç€æ¢¯åº¦ä¸Šå‡ï¼Œæ‰¾åˆ°æ‰€æœ‰èƒ½åˆ°è¾¾çš„æå¤§å€¼ç‚¹
 //        std::set<int> connected_grid_maxima = TraceAscent(field_data, is_maxima, saddle_idx);
 //
-//        // Èç¹ûÒ»¸ö°°µãÁ¬½ÓÁË >= 2 ¸ö¼«´óÖµ£¬ËµÃ÷ÕâÁ½¸ö¼«´óÖµÔÚÍØÆËÉÏÏàÁÚ
+//        // å¦‚æœä¸€ä¸ªéç‚¹è¿æ¥äº† >= 2 ä¸ªæå¤§å€¼ï¼Œè¯´æ˜è¿™ä¸¤ä¸ªæå¤§å€¼åœ¨æ‹“æ‰‘ä¸Šç›¸é‚»
 //        if (connected_grid_maxima.size() >= 2) {
-//            // ½«Íø¸ñÉÏµÄ¼«´óÖµµãË÷Òı£¬×ª»»ÎªÓÃ»§ÊäÈëµÄ original_points µÄË÷Òı
+//            // å°†ç½‘æ ¼ä¸Šçš„æå¤§å€¼ç‚¹ç´¢å¼•ï¼Œè½¬æ¢ä¸ºç”¨æˆ·è¾“å…¥çš„ original_points çš„ç´¢å¼•
 //            std::vector<int> mapped_indices;
 //            for (int grid_max_idx : connected_grid_maxima) {
 //                int p_idx = MapGridToPoint(grid_max_idx, original_points);
 //                if (p_idx != -1) mapped_indices.push_back(p_idx);
 //            }
 //
-//            // ÔÚÕâĞ©µãÖ®¼ä½¨Á¢Á½Á½Á¬½Ó
+//            // åœ¨è¿™äº›ç‚¹ä¹‹é—´å»ºç«‹ä¸¤ä¸¤è¿æ¥
 //            for (size_t i = 0; i < mapped_indices.size(); ++i) {
 //                for (size_t j = i + 1; j < mapped_indices.size(); ++j) {
 //                    int u = mapped_indices[i];
 //                    int v = mapped_indices[j];
 //                    if (u == v) continue;
 //
-//                    // Ìí¼ÓÎŞÏò±ß (·ÀÖ¹ÖØ¸´)
+//                    // æ·»åŠ æ— å‘è¾¹ (é˜²æ­¢é‡å¤)
 //                    bool exists = false;
 //                    for (int neighbor : adjacency[u]) if (neighbor == v) exists = true;
 //                    if (!exists) adjacency[u].push_back(v);
@@ -290,7 +290,7 @@ inline void GaussianFieldMSC::getCoord(int idx, int& x, int& y, int& z) const {
 
 bool GaussianFieldMSC::CheckIsMaxima(const Eigen::VectorXd& field, int x, int y, int z) {
     double val = field[getIdx(x, y, z)];
-    // ¼ì²é 26 ÁÚÓò
+    // æ£€æŸ¥ 26 é‚»åŸŸ
     for (int dz = -1; dz <= 1; ++dz) {
         for (int dy = -1; dy <= 1; ++dy) {
             for (int dx = -1; dx <= 1; ++dx) {
@@ -307,7 +307,7 @@ bool GaussianFieldMSC::CheckIs2Saddle(const Eigen::VectorXd& field, int x, int y
     double center_val = field[center_idx];
 
     std::vector<int> upper_neighbors;
-    // 1. ÊÕ¼¯ËùÓĞ±ÈÖĞĞÄµãÖµ´óµÄÁÚ¾Ó (Upper Star)
+    // 1. æ”¶é›†æ‰€æœ‰æ¯”ä¸­å¿ƒç‚¹å€¼å¤§çš„é‚»å±… (Upper Star)
     for (int dz = -1; dz <= 1; ++dz) {
         for (int dy = -1; dy <= 1; ++dy) {
             for (int dx = -1; dx <= 1; ++dx) {
@@ -320,19 +320,19 @@ bool GaussianFieldMSC::CheckIs2Saddle(const Eigen::VectorXd& field, int x, int y
         }
     }
 
-    if (upper_neighbors.empty()) return false; // ¼«´óÖµµã£¬²»ÊÇ°°µã
+    if (upper_neighbors.empty()) return false; // æå¤§å€¼ç‚¹ï¼Œä¸æ˜¯éç‚¹
 
-    // 2. ¼ÆËãÁ¬Í¨·ÖÁ¿ (Ê¹ÓÃ BFS)
+    // 2. è®¡ç®—è¿é€šåˆ†é‡ (ä½¿ç”¨ BFS)
     int components = 0;
-    std::set<int> visited; // ¼ÇÂ¼ÒÑ·ÃÎÊµÄ upper_neighbors
+    std::set<int> visited; // è®°å½•å·²è®¿é—®çš„ upper_neighbors
 
     for (int start_node : upper_neighbors) {
         if (visited.count(start_node)) continue;
 
         components++;
-        if (components > 1) return true; // Ö»Òª·ÖÁ¿ > 1£¬¼´Îª°°µã
+        if (components > 1) return true; // åªè¦åˆ†é‡ > 1ï¼Œå³ä¸ºéç‚¹
 
-        // BFS ±éÀúµ±Ç°·ÖÁ¿
+        // BFS éå†å½“å‰åˆ†é‡
         std::stack<int> s;
         s.push(start_node);
         visited.insert(start_node);
@@ -342,22 +342,22 @@ bool GaussianFieldMSC::CheckIs2Saddle(const Eigen::VectorXd& field, int x, int y
             int cx, cy, cz;
             getCoord(curr, cx, cy, cz);
 
-            // ¼ì²é curr µÄÁÚ¾ÓÊÇ·ñÒ²ÔÚ upper_neighbors ÖĞÇÒ¿Õ¼äÏàÁÚ
-            // ÕâÀïÊ¹ÓÃ 6-ÁÚÓòÁ¬Í¨ĞÔ (¸üÑÏ¸ñ£¬ÓĞÖúÓÚ·ÖÀë·ÖÁ¿)
-            // Èç¹ûÊ¹ÓÃ 26-ÁÚÓò£¬Ä³Ğ©¶Ô½ÇÏßÁ¬½Ó¿ÉÄÜ»áºÏ²¢±¾Ó¦·Ö¿ªµÄ·ÖÁ¿
+            // æ£€æŸ¥ curr çš„é‚»å±…æ˜¯å¦ä¹Ÿåœ¨ upper_neighbors ä¸­ä¸”ç©ºé—´ç›¸é‚»
+            // è¿™é‡Œä½¿ç”¨ 6-é‚»åŸŸè¿é€šæ€§ (æ›´ä¸¥æ ¼ï¼Œæœ‰åŠ©äºåˆ†ç¦»åˆ†é‡)
+            // å¦‚æœä½¿ç”¨ 26-é‚»åŸŸï¼ŒæŸäº›å¯¹è§’çº¿è¿æ¥å¯èƒ½ä¼šåˆå¹¶æœ¬åº”åˆ†å¼€çš„åˆ†é‡
             for (int dz = -1; dz <= 1; ++dz) {
                 for (int dy = -1; dy <= 1; ++dy) {
                     for (int dx = -1; dx <= 1; ++dx) {
-                        // ½öÔÊĞíÖ±½ÓÏàÁÚ (Manhattan distance = 1)
+                        // ä»…å…è®¸ç›´æ¥ç›¸é‚» (Manhattan distance = 1)
                         if (std::abs(dx) + std::abs(dy) + std::abs(dz) != 1) continue;
 
                         int nx = cx + dx, ny = cy + dy, nz = cz + dz;
-                        // ±ß½ç¼ì²é
+                        // è¾¹ç•Œæ£€æŸ¥
                         if (nx < 0 || nx >= nx_ || ny < 0 || ny >= ny_ || nz < 0 || nz >= nz_) continue;
 
                         int n_idx = getIdx(nx, ny, nz);
 
-                        // ±ØĞëÊÇ¡°¸ßÖµÁÚ¾Ó¡±¼¯ºÏÖĞµÄÒ»Ô±
+                        // å¿…é¡»æ˜¯â€œé«˜å€¼é‚»å±…â€é›†åˆä¸­çš„ä¸€å‘˜
                         bool is_in_upper = false;
                         for (int un : upper_neighbors) if (un == n_idx) { is_in_upper = true; break; }
 
@@ -380,7 +380,7 @@ std::set<int> GaussianFieldMSC::TraceAscent(const Eigen::VectorXd& field, const 
     getCoord(start_idx, x, y, z);
     double center_val = field[start_idx];
 
-    // °°µãÖÜÎ§¿ÉÄÜÓĞ¶à¸öÉÏÉı·½Ïò£¬·Ö±ğ×·×Ù
+    // éç‚¹å‘¨å›´å¯èƒ½æœ‰å¤šä¸ªä¸Šå‡æ–¹å‘ï¼Œåˆ†åˆ«è¿½è¸ª
     for (int dz = -1; dz <= 1; ++dz) {
         for (int dy = -1; dy <= 1; ++dy) {
             for (int dx = -1; dx <= 1; ++dx) {
@@ -388,10 +388,10 @@ std::set<int> GaussianFieldMSC::TraceAscent(const Eigen::VectorXd& field, const 
 
                 int n_idx = getIdx(x + dx, y + dy, z + dz);
 
-                // Èç¹ûÁÚ¾Ó±È°°µã¸ß£¬ÔòÑØ×ÅÕâ¸ö·½ÏòÅÀÉ½
+                // å¦‚æœé‚»å±…æ¯”éç‚¹é«˜ï¼Œåˆ™æ²¿ç€è¿™ä¸ªæ–¹å‘çˆ¬å±±
                 if (field[n_idx] > center_val) {
                     int curr = n_idx;
-                    // Ì°À·ÅÀÉ½
+                    // è´ªå©ªçˆ¬å±±
                     while (!is_maxima[curr]) {
                         int next_best = -1;
                         double max_v = field[curr];
@@ -399,12 +399,12 @@ std::set<int> GaussianFieldMSC::TraceAscent(const Eigen::VectorXd& field, const 
                         int cx, cy, cz;
                         getCoord(curr, cx, cy, cz);
 
-                        // ÔÚ 26-ÁÚÓòÖĞÕÒ×î´óÖµ
+                        // åœ¨ 26-é‚»åŸŸä¸­æ‰¾æœ€å¤§å€¼
                         for (int k = -1; k <= 1; ++k) {
                             for (int j = -1; j <= 1; ++j) {
                                 for (int i = -1; i <= 1; ++i) {
                                     if (i == 0 && j == 0 && k == 0) continue;
-                                    // ±ß½ç¼ì²é
+                                    // è¾¹ç•Œæ£€æŸ¥
                                     if (cx + i <= 0 || cx + i >= nx_ - 1 || cy + j <= 0 || cy + j >= ny_ - 1 || cz + k <= 0 || cz + k >= nz_ - 1) continue;
 
                                     int neighbor = getIdx(cx + i, cy + j, cz + k);
@@ -420,7 +420,7 @@ std::set<int> GaussianFieldMSC::TraceAscent(const Eigen::VectorXd& field, const 
                             curr = next_best;
                         }
                         else {
-                            // µ½´ïÆ½Ì¹Çø»ò¾Ö²¿¼«Öµ£¬Í£Ö¹
+                            // åˆ°è¾¾å¹³å¦åŒºæˆ–å±€éƒ¨æå€¼ï¼Œåœæ­¢
                             break;
                         }
                     }
@@ -436,7 +436,7 @@ int GaussianFieldMSC::MapGridToPoint(int grid_idx, const std::vector<Vec3>& poin
     int x, y, z;
     getCoord(grid_idx, x, y, z);
 
-    // ¼ÆËãÍø¸ñµãµÄÎïÀí×ø±ê
+    // è®¡ç®—ç½‘æ ¼ç‚¹çš„ç‰©ç†åæ ‡
     Vec3 pos;
     pos.x = min_b_.x + x * dx_;
     pos.y = min_b_.y + y * dy_;
