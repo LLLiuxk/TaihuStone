@@ -178,7 +178,7 @@ public:
     double generate_tube2(Eigen::Vector3d& p, GaussianKernel& k1, GaussianKernel& k2, double iso_level_C, double mid_radius_factor = 0.5);
     double generate_tube3(Eigen::Vector3d& p, int k1_index, int k2_index, vector<Eigen::Matrix3d>& S_matrixs,
         Eigen::Matrix2d W_perp, double iso_level_C, double mid_radius_factor = 0.5);
-    int generate_mst_tubes(std::vector<pair<int, int>> edge_con, int grid_num, int res, double iso, double gaus_iso, double smooth_t);
+    int generate_mbdst_tubes(std::vector<pair<int, int>> edge_con, int grid_num, int res, double iso, double gaus_iso, double smooth_t);
     void calculate_tube_matrixs(vector<Eigen::Matrix3d>& S_matrixs, std::vector<std::vector<Eigen::Matrix2d>>& W_perp_matrixs);
     void compare_msc(Eigen::VectorXd SDF_gaussian, int res, int grid_num, double smooth_t);
 

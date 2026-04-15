@@ -1538,16 +1538,20 @@ vector<int> compare_edges2(const vector<pair<int, int>>& ini, const vector<pair<
 
 
 
-
-int cal_max_degree(std::vector<std::vector<int>> Adj_list)
+vector<int> cal_max_degree(std::vector<std::vector<int>> Adj_list)
 {
     int max_degree = 0;
+    int max_degree_num = 0;
     for (const auto& neighbors : Adj_list) {
         int degree = neighbors.size();
         if (degree > max_degree) {
             max_degree = degree;
+            max_degree_num = 1;
         }
+        else if (degree == max_degree)
+            max_degree_num++;
     }
-	return max_degree;
+    return { max_degree , max_degree_num };
 }
+
 

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaihuStone - User Study</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+            <div class="header-content">
+                <h1>TaihuStone Generative Design Evaluation</h1>
+                <p id="progress-text">Trial 1 / 10</p>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main id="trial-container">
+            <!-- Question Prompt -->
+            <div class="prompt-card">
+                <h2 id="question-text">Loading...</h2>
+                <p>Click and drag to rotate. Scroll to zoom. Models also auto-rotate for consistent viewing.</p>
+            </div>
+
+            <!-- Control Panel -->
+            <div class="control-panel">
+                <button class="ctrl-btn" id="btn-reset" title="Reset both cameras to initial view">
+                    <span class="ctrl-icon">↻</span> Reset View
+                </button>
+                <button class="ctrl-btn" id="btn-pause" title="Pause / Resume auto-rotation">
+                    <span class="ctrl-icon">⏸</span> Pause Rotation
+                </button>
+                <button class="ctrl-btn" id="btn-sync" title="Sync or decouple rotation between two models">
+                    <span class="ctrl-icon">🔗</span> Sync Rotation
+                </button>
+            </div>
+
+            <!-- 3D Viewers -->
+            <div class="models-grid">
+                <!-- Model A -->
+                <div class="model-card" id="card-a">
+                    <div class="viewer-container" id="viewer-a"></div>
+                    <button class="select-btn" id="btn-a">Select Model A</button>
+                </div>
+
+                <!-- Model B -->
+                <div class="model-card" id="card-b">
+                    <div class="viewer-container" id="viewer-b"></div>
+                    <button class="select-btn" id="btn-b">Select Model B</button>
+                </div>
+            </div>
+        </main>
+
+        <!-- Completion Screen -->
+        <main id="completion-container" style="display: none;">
+            <div class="completion-card">
+                <h2>Thank You!</h2>
+                <p>You have completed the visual evaluation.</p>
+                <p>Your responses have been recorded below.</p>
+                <textarea id="results-json" rows="10" readonly></textarea>
+                <br>
+                <button class="select-btn download-btn" id="btn-download">Download Results</button>
+            </div>
+        </main>
+    </div>
+
+    <!-- Three.js from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r160/three.min.js"></script>
+    <!-- STLLoader & OrbitControls as ES module -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+    <script type="module" src="app.js"></script>
+</body>
+</html>

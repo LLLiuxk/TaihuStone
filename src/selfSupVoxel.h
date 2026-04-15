@@ -33,32 +33,32 @@ struct VoxelGrid
         return i + nx * (j + ny * k);
     }
 
-    // ÎªÁË°²È«Æğ¼û£¬Ìí¼ÓÒ»¸öconst°æ±¾µÄ·ÃÎÊÆ÷£¬²¢´ø±ß½ç¼ì²é
+    // ÎªË°È«Ò»constæ±¾Ä·ß½
     double getSafe(int i, int j, int k) const
     {
         if (i < 0 || i >= nx || j < 0 || j >= ny || k < 0 || k >= nz)
-            return 0.0; // Ô½½çÊÓÎª¿ÕÆø
+            return 0.0; // Ô½Îª
         return rho[index(i, j, k)];
     }
 
-	//Í¨¹ıË÷Òı»ñÈ¡¼°ĞŞ¸ÄÌåËØÃÜ¶È
+	//Í¨È¡Ş¸Ü¶
     double& at(int i, int j, int k)
     {
         return rho[index(i, j, k)];
     }
 
-    // »ñÈ¡µ¥¸öÌåËØµÄÌå»ı
+    // È¡Øµ
     double voxelVolume() const {
         return dx * dy * dz;
     }
 };
 
-// ¼ì²â½á¹û½á¹¹Ìå
+// á¹¹
 struct SupportCheckResult {
-    bool isSupportFree = true;             // ÊÇ·ñÃâÖ§³Å
+    bool isSupportFree = true;             // Ç·Ö§
     int solid_nums = 0;
-    int unsupportedVoxelCount = 0;// ĞèÒªÖ§³ÅµÄÌåËØÊıÁ¿
-    double unsupportedRatio = 0.0;        // Ğü´¹±ÈÀı
+    int unsupportedVoxelCount = 0;// ÒªÖ§Åµ
+    double unsupportedRatio = 0.0;        // 
     int component_num = 0;
     std::vector<int> parts_solid_nums;
 };
@@ -70,7 +70,7 @@ SupportCheckResult checkSupportVoxel(VoxelGrid& grid, double densityThreshold = 
 int findBaseLayer(const VoxelGrid& grid, double densityThreshold);
 
 SupportCheckResult checkFloatingVoxel(VoxelGrid& grid, double densityThreshold = 0.5);
-
+SupportCheckResult checkFloatingVoxel2(VoxelGrid& grid, double densityThreshold = 0.5);
 
 
 int removeFloatingSDF(Eigen::VectorXd& SDF, int nx, int ny, int nz, double smooth_radius, int& eliminate_num);

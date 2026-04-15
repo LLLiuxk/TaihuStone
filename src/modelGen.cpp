@@ -200,7 +200,7 @@ void ModelGenerator::generateGaussianSDF()
 
 	// 构建邻接表
     Adj_list = construct_adj_list(Tube_edges, kernel_num);
-    cout << "MaxDegree: " << cal_max_degree(Adj_list) << endl;
+    cout << "MaxDegree: " << cal_max_degree(Adj_list)[0] <<"   num: "<< cal_max_degree(Adj_list)[1]<< endl;
     Unused_adj_list = get_unused_edge_adj(Adj_list, Adj_dis_thres);
     vector<int> leafs_index = all_leafs_mst(Tube_edges);
     vector<int> inner_leafs = check_inner_leafs(leafs_index);
@@ -235,7 +235,7 @@ void ModelGenerator::generateGaussianSDF()
             double last_trans_score = new_trans_score;
             new_trans_score = cal_total_translucency(Kernels, Adj_list);
             std::cout << "======================================After optimization " << iter_count << ", total score increases from " << last_trans_score << " to " << new_trans_score << " with edges to " << Tube_edges.size() << "======================================" << endl;
-            cout << "MaxDegree: " << cal_max_degree(Adj_list) << endl;
+            cout << "MaxDegree: " << cal_max_degree(Adj_list)[0] << "   num: " << cal_max_degree(Adj_list)[1] << endl;
             delta_score_t = new_trans_score - last_trans_score;
             edge_max += edge_max * 0.1;
             if (new_trans_score < Trans_thres)
@@ -269,14 +269,15 @@ void ModelGenerator::generateGaussianSDF()
     finalTranslucency = new_trans_score; 
     edge_con_final.clear();
     double VP_score = cal_total_translucency(Kernels, Adj_list);
-    cout << "Final VP score: " << finalTranslucency << "  VS   " << VP_score << endl;
+    cout << "MaxDegree: " << cal_max_degree(Adj_list)[0] << "   num: " << cal_max_degree(Adj_list)[1] << endl;
+    cout << "Final VP score: " << finalTranslucency << "  VS  " << VP_score << endl;
     ParaSensitivityStats para_stats = cal_para_sensitivity(false);
     cout << "Para sensitivity on max VP paths: "
-        << "sum(T_angle)=" << para_stats.sum_T_angle
-        << ", sum(T_length)=" << para_stats.sum_T_length
-        << ", sum(T_location)=" << para_stats.sum_T_location
-        << ", sum(S_horiz)=" << para_stats.sum_S_horiz
-        << ", weighted_sum=" << para_stats.sum_weighted_vp
+        << "sum(T_angle)=" << para_stats.sum_T_angle / Kernels.size()
+        << ", sum(T_length)=" << para_stats.sum_T_length / Kernels.size()
+        << ", sum(T_location)=" << para_stats.sum_T_location / Kernels.size()
+        << ", sum(S_horiz)=" << para_stats.sum_S_horiz / Kernels.size()
+        << ", weighted_sum=" << para_stats.sum_weighted_vp / Kernels.size()
         << ", valid_paths=" << para_stats.valid_path_num << endl;
 
     for (auto e : Tube_edges) edge_con_final.push_back(make_pair(e.from, e.to));
@@ -304,10 +305,10 @@ void ModelGenerator::generateGaussianSDF()
   //  }
   //  std::cout << "======================================After reduction, total score increases from to " << new_trans_score2 / Kernels.size() << " with edges to " << Tube_edges.size() << "======================================" << endl;
 
-    std::cout << "--------------------5. Generate tubes between kernels based on optimized mst --------------------" << endl;
+    std::cout << "--------------------5. Generate tubes between kernels based on optimized mbdst+ --------------------" << endl;
     //-----------------generate tubes------------------------------------------
 
-    double solid_count = generate_mst_tubes(edge_con_final, grid_num, resolution, Isolevel, Gauss_level, SmoothT);
+    double solid_count = generate_mbdst_tubes(edge_con_final, grid_num, resolution, Isolevel, Gauss_level, SmoothT);
     int E_num = edge_con_final.size();
     initPorosity = 1.0 - solid_count / model_solid_num;
     std::cout << "Porosity: " << initPorosity * 100 << "%" << "    --------:" << solid_count << "   " << model_solid_num << std::endl;
@@ -1430,7 +1431,8 @@ ParaSensitivityStats ModelGenerator::cal_para_sensitivity(bool show_debug)
     const double w_location = KT_weights[2];
     const double w_direction = KT_weights[3];
 
-    for (size_t pi = 0; pi < Paths.size(); ++pi)
+    int path_size = Paths.size();
+    for (size_t pi = 0; pi < path_size; ++pi)
     {
         const std::vector<int>& path = Paths[pi];
         const int psize = static_cast<int>(path.size());
@@ -2358,7 +2360,7 @@ double ModelGenerator::generate_tube3(Eigen::Vector3d& p, int k1_index, int k2_i
 
 }
 
-int ModelGenerator::generate_mst_tubes(std::vector<pair<int, int>> edge_con, int grid_num, int res, double iso, double gaus_iso, double smooth_t)
+int ModelGenerator::generate_mbdst_tubes(std::vector<pair<int, int>> edge_con, int grid_num, int res, double iso, double gaus_iso, double smooth_t)
 {
     //单独保存高斯孔隙场SDF
     Eigen::VectorXd SDF_gaussian_tubes(grid_num);

@@ -63,7 +63,8 @@ SupportCheckResult checkSupportVoxel(VoxelGrid& grid, double densityThreshold)
             usnum++;
 
 	result.solid_nums = totalSolidVoxels;
-	std::cout << "unsupport num: " << totalSolidVoxels<<" - " <<usnum << " =  " << result.unsupportedVoxelCount << std::endl;
+    result.unsupportedRatio = 1.0 * result.unsupportedVoxelCount / totalSolidVoxels;
+	std::cout << "unsupport num: " << totalSolidVoxels<<" - " <<usnum << " =  " << result.unsupportedVoxelCount << "   ratio: " << result.unsupportedRatio * 100 << "%" << std::endl;
     // 5. 计算统计数据
     //double vVol = grid.voxelVolume();
     //result.totalVolume = totalSolidVoxels * vVol;
@@ -75,7 +76,7 @@ SupportCheckResult checkSupportVoxel(VoxelGrid& grid, double densityThreshold)
     //    result.unsupportedRatio = 0.0;
     //}
 	//std::cout << "result.unsupportedVoxelCount" << result.unsupportedVoxelCount << "   totalSolidVoxels: " << totalSolidVoxels << std::endl;
-    result.unsupportedRatio = 1.0 * result.unsupportedVoxelCount / totalSolidVoxels;
+
     // 6. 最终判定
     // 设定一个容忍度，比如悬垂体积占比小于 0.1% 可能只是噪点或极小的倒角
     if (result.unsupportedRatio > 0.001) {
@@ -83,8 +84,6 @@ SupportCheckResult checkSupportVoxel(VoxelGrid& grid, double densityThreshold)
     }
     if (result.isSupportFree) std::cout << "Result is SupportFree!" << std::endl;
     else std::cout << "Result NEED Support!" << std::endl;
-
-    std::cout  << "Unsupport voxel num: "<<result.unsupportedVoxelCount << "   ratio: " << result.unsupportedRatio * 100 << "%" << std::endl;
 
     return result;
 }
@@ -189,12 +188,104 @@ SupportCheckResult checkFloatingVoxel(VoxelGrid& grid, double densityThreshold)
     return result;
 }
 
+SupportCheckResult checkFloatingVoxel26(VoxelGrid& grid, double densityThreshold)
+{
+    SupportCheckResult result;
+    const int nx = grid.nx;
+    const int ny = grid.ny;
+    const int nz = grid.nz;
+    const int N = nx * ny * nz;
+
+    std::vector<int> comp_id(N, -1);
+    std::vector<int> comp_size;
+    int cid = 0;
+
+    std::vector<Eigen::Vector3i> stack, nbrs;
+
+    // ===== 1. Use 26-neighborhood to find connected components =====
+    for (int k = 0; k < nz; ++k) {
+        for (int j = 0; j < ny; ++j) {
+            for (int i = 0; i < nx; ++i) {
+                int id = grid.index(i, j, k);
+
+                // If voxel is solid and has not been assigned a component ID yet
+                if (grid.at(i, j, k) > densityThreshold && comp_id[id] == -1) {
+                    int count = 0;
+                    stack.clear();
+                    stack.emplace_back(i, j, k);
+                    comp_id[id] = cid;
+
+                    while (!stack.empty()) {
+                        auto p = stack.back();
+                        stack.pop_back();
+                        ++count;
+
+                        // 26-Neighborhood
+                        getNeighbors26(p.x(), p.y(), p.z(), nx, ny, nz, nbrs);
+                        for (auto& q : nbrs) {
+                            int qid = grid.index(q.x(), q.y(), q.z());
+                            if (grid.at(q.x(), q.y(), q.z()) > densityThreshold && comp_id[qid] == -1) {
+                                comp_id[qid] = cid;
+                                stack.push_back(q);
+                            }
+                        }
+                    }
+                    comp_size.push_back(count);
+                    cid++;
+                }
+            }
+        }
+    }
+
+    if (cid == 0) {
+        result.component_num = 0;
+        return result;
+    }
+
+    // ===== 2. Find the main structure component =====
+    int main_comp = 0;
+    for (int i = 1; i < cid; ++i) {
+        if (comp_size[i] > comp_size[main_comp]) {
+            main_comp = i;
+        }
+    }
+
+    // ===== 3. Remove all floating voxels (components other than main_comp) =====
+    int floating_voxels_removed = 0;
+    //for (int k = 0; k < nz; ++k) {
+    //    for (int j = 0; j < ny; ++j) {
+    //        for (int i = 0; i < nx; ++i) {
+    //            int id = grid.index(i, j, k);
+    //            if (grid.at(i, j, k) > densityThreshold) {
+    //                if (comp_id[id] != main_comp) {
+    //                    // Delete the floating voxel by setting its density to 0
+    //                    grid.at(i, j, k) = 0.0;
+    //                    floating_voxels_removed++;
+    //                }
+    //            }
+    //        }
+    //    }
+    //}
+
+    std::vector<int> sorted_sizes = comp_size;
+    std::sort(sorted_sizes.begin(), sorted_sizes.end(), std::greater<int>());
+    result.component_num = comp_size.size();
+    result.parts_solid_nums = sorted_sizes;
+
+    std::cout << "checkFloatingVoxel 26-Neighbors: Found "
+        << result.component_num << " components. "
+        << "Main volume: " << sorted_sizes[0] << " voxels. ";
+        //<< "DELETED floating voxels: " << floating_voxels_removed << std::endl;
+
+    return result;
+}
+
 
 SupportCheckResult check_result_voxel(VoxelGrid& grid, double densityThreshold)
 {
     SupportCheckResult result = checkSupportVoxel(grid, densityThreshold);
 
-    SupportCheckResult result2 = checkFloatingVoxel(grid, densityThreshold);
+    SupportCheckResult result2 = checkFloatingVoxel26(grid, densityThreshold);
 
 	result.component_num = result2.component_num;
 	result.parts_solid_nums = result2.parts_solid_nums;

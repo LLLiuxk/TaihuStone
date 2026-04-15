@@ -188,4 +188,4 @@ vector<vector<int>> compare_edges(const vector<pair<int, int>>& ini, const vecto
 vector<int> compare_edges2(const vector<pair<int, int>>& ini, const vector<pair<int, int>> & final, vector<pair<int, int>> &edge_con_total, vector<int> rep_vec);
 
 
-int cal_max_degree(std::vector<std::vector<int>> Adj_list);
+vector<int> cal_max_degree(std::vector<std::vector<int>> Adj_list);

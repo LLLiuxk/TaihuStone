@@ -48,7 +48,7 @@ bool Direct_dis = false;
 bool Handle_overlap = true;
 bool optimize_debug = true;
 bool Enable_noise = false;
-bool topo_optimize = false;
+bool topo_optimize = true;
 bool dynamic_change_para = true;
 
 float show_degree_x = -90.0;
