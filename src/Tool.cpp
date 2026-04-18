@@ -1,4 +1,4 @@
-#include "Tool.h"
+﻿#include "Tool.h"
 
 vector<RowVector3d> colors = { RowVector3d(0.90, 0.62, 0.0), //orange
     RowVector3d(0.9, 0.75, 0.40), //light orange
@@ -669,7 +669,7 @@ void vis_translucency_cons(std::vector<Eigen::Vector3d>& points, std::vector<pai
 
     const RowVector3d sphereColor = colors[12];
     const RowVector3d lineColor = colors[6];
-    const RowVector3d lineColorUsed = colors[11]; // yellow
+    const RowVector3d lineColorUsed = colors[12]; // yellow
 
     if (edge_usage.size() != connections.size()) {
         cout << "Warning: edge_usage size(" << edge_usage.size()

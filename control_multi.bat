@@ -14,40 +14,26 @@ echo ==========================================
 
 :: 运行 para1
 echo [Task 1] Running with para file...
-%EXE_PATH% D:\VSprojects\TaihuStone\para\comp\namaqualand_128_60_dir_low.txt
+%EXE_PATH% D:\VSprojects\TaihuStone\para\comp\namaqualand_128_60_default_thres_0.15.txt
 echo Task 1 Finished.
 echo.
 
 :: 运行 para2 (假设你已经创建了)
 echo [Task 2] Running with para2.txt...
-%EXE_PATH% D:\VSprojects\TaihuStone\para\comp\namaqualand_128_60_dir_high.txt
+%EXE_PATH% D:\VSprojects\TaihuStone\para\comp\namaqualand_128_60_default_thres_0.25.txt
 echo Task 2 Finished.
 echo.
 
 echo [Task 3] Running with para3.txt...
-%EXE_PATH% D:\VSprojects\TaihuStone\para\comp\namaqualand_128_60_len_low.txt
+%EXE_PATH% D:\VSprojects\TaihuStone\para\comp\namaqualand_128_60_default_thres_0.45.txt
 echo Task 3 Finished.
 echo.
 
 echo [Task 4] Running with para4.txt...
-%EXE_PATH% D:\VSprojects\TaihuStone\para\comp\namaqualand_128_60_len_high.txt
+%EXE_PATH% D:\VSprojects\TaihuStone\para\comp\namaqualand_128_60_default_thres_0.55.txt
 echo Task 4 Finished.
 echo.
 
-echo [Task 5] Running with para5.txt...
-%EXE_PATH% D:\VSprojects\TaihuStone\para\comp\namaqualand_128_60_loc_low.txt
-echo Task 5 Finished.
-echo.
-
-echo [Task 6] Running with para6.txt...
-%EXE_PATH% D:\VSprojects\TaihuStone\para\comp\namaqualand_128_60_loc_high.txt
-echo Task 5 Finished.
-echo.
-
-echo [Task 7] Running with para7.txt...
-%EXE_PATH% D:\VSprojects\TaihuStone\para\comp\namaqualand_128_60_ave.txt
-echo Task 5 Finished.
-echo.
 
 echo ==========================================
 echo All Tasks Completed!

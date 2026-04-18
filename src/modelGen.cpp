@@ -358,6 +358,9 @@ void ModelGenerator::generateGaussianSDF()
         to_string_pre(Trans_thres) + "_" + to_string_pre(Weights[0]) + "_" + to_string_pre(KT_weights[0]) + "_" + to_string_pre(sigma_min, 3) + "_" + 
         to_string_pre(sigma_max, 3) + "_" + to_string_pre(finalTranslucency, 3) + "_" + to_string_pre(initPorosity * 100.0) + "%.stl";
     saveMesh(filename, V_out, F_out);
+
+    std::string file_tube = outputPrefix + input_file+"_tube.stl";
+    saveMesh(file_tube, V_t, F_t);
 	Grids = grids;
 
     if (figure_show)
@@ -2444,30 +2447,21 @@ int ModelGenerator::generate_mbdst_tubes(std::vector<pair<int, int>> edge_con, i
    
     // Marching Cubes
     MarchingCubes(SDF_out, GV, res, res, res, iso, V_out, F_out);   //final result
-
-
+    MarchingCubes(SDF_gaussian_tubes, GV, res, res, res, iso, V_t, F_t);  //gaussian combined with tubes
     if (figure_show)//figure_show
     {
-        view_model(V_out, F_out, "our final result");
+        //view_model(V_out, F_out, "our final result");
         Eigen::MatrixXd V_g; //输出网格顶点
         Eigen::MatrixXi F_g; // 输出网格面片
         MarchingCubes(SDF_gaussian_tubes, GV, res, res, res, iso, V_t, F_t);  //gaussian combined
-        view_model(V_t, F_t, "gaussian field with tubes");
+        //view_model(V_t, F_t, "gaussian field with tubes");
 
-        //out tubes
-        //vector<double> sdfout;
-        //string npy_filename = "D:/VSprojects/TaihuStone/src/sdf_out_tube.npy";
-        //string vti_filename = "D:/VSprojects/TaihuStone/src/sdf_out_tube.vti";
-        //for (auto so : SDF_gaussian_tubes)
-        //    sdfout.push_back(so);
-        //saveVoxelGridAsNPY(sdfout, resolution, npy_filename);
-        //saveSDFtoVTI(vti_filename, SDF_gaussian_tubes, res, res, res);
         string stl_filename = "D:/VSprojects/TaihuStone/result/msc_result/sdf_out_tube.stl";
         cout << "saveMesh to " << stl_filename << endl;
         saveMesh(stl_filename, V_t, F_t);
 
         MarchingCubes(SDF_only_tubes, GV, res, res, res, iso, V_t, F_t);  //gaussian combined with tubes
-        view_model(V_t, F_t, "Only tubes field");
+        //view_model(V_t, F_t, "Only tubes field");
     }
        
     if (compare_show)

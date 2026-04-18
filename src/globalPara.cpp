@@ -17,9 +17,9 @@ double Amplitude_min = 1.0;
 double Amplitude_max = 1.0;
 double Sigma_min = 0.015;
 double Sigma_max = 0.033;
-double W4sig_max = 3.0;
-double W4sig_min = 25.0;
-double Axis_max_ratio = 1.7;
+double W4sig_max = 18.0;
+double W4sig_min = 18.0;
+double Axis_max_ratio = 1.0;
 
 double BaseLayer = 8; // 15  for Ceramic clay printing    10 for cand2
 //250: 0.02, 0.04
@@ -32,14 +32,14 @@ double BaseLayer = 8; // 15  for Ceramic clay printing    10 for cand2
 // w for max = 5.0     for min = 30
 
 double SmoothT = 15;    //Control the smoothing area size;  smoothT +, the effect -, approaching a regular union.
-double Tube_radius_factor = 0.8; // Control the ratio of the pipeline radius relative to the Gaussian kernel radius; the mid_radius_factor + , the channel +.
+double Tube_radius_factor = 0.7; // Control the ratio of the pipeline radius relative to the Gaussian kernel radius; the mid_radius_factor + , the channel +.
 double Safe_distance_ratio = 0.7;
 
 double Trans_thres = 0.89;  //kernel translucency threshold 
 double Adj_dis_thres = 0.35;
 bool debug_show = false;
 bool standard_show = false;
-bool figure_show = false;
+bool figure_show = true;
 bool compare_show = false;
 
 bool Iso_kernel = false;
@@ -48,12 +48,12 @@ bool Direct_dis = false;
 bool Handle_overlap = true;
 bool optimize_debug = true;
 bool Enable_noise = false;
-bool topo_optimize = true;
+bool topo_optimize = false;
 bool dynamic_change_para = true;
 
-float show_degree_x = -90.0;
+float show_degree_x = -97.0;
 float show_degree_y = 0.0;
-double show_degree_z = 25.0;
+double show_degree_z = -65.0;
 
 std::string trim(const std::string& str) {
     size_t first = str.find_first_not_of(" \t\r\n");
