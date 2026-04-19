@@ -1,7 +1,7 @@
 input_file = namaqualand
 Resolution = 128
 Weights = 0.8, 1, 1.2
-KT_weights = 0.5, 0.1, 0.1, 0.3
+KT_weights = 0.70, 0.15, 0.15, 0.0
 Isolevel = 0
 Gauss_level = 0.5
 PoresNum = 60

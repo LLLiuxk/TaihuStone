@@ -17,9 +17,9 @@ double Amplitude_min = 1.0;
 double Amplitude_max = 1.0;
 double Sigma_min = 0.015;
 double Sigma_max = 0.033;
-double W4sig_max = 18.0;
-double W4sig_min = 18.0;
-double Axis_max_ratio = 1.0;
+double W4sig_max = 3;
+double W4sig_min = 25;
+double Axis_max_ratio = 1.7;
 
 double BaseLayer = 8; // 15  for Ceramic clay printing    10 for cand2
 //250: 0.02, 0.04
@@ -32,7 +32,7 @@ double BaseLayer = 8; // 15  for Ceramic clay printing    10 for cand2
 // w for max = 5.0     for min = 30
 
 double SmoothT = 15;    //Control the smoothing area size;  smoothT +, the effect -, approaching a regular union.
-double Tube_radius_factor = 0.7; // Control the ratio of the pipeline radius relative to the Gaussian kernel radius; the mid_radius_factor + , the channel +.
+double Tube_radius_factor = 0.8; // Control the ratio of the pipeline radius relative to the Gaussian kernel radius; the mid_radius_factor + , the channel +.
 double Safe_distance_ratio = 0.7;
 
 double Trans_thres = 0.89;  //kernel translucency threshold 

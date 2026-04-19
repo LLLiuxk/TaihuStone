@@ -292,7 +292,13 @@ void ModelGenerator::generateGaussianSDF()
         final_edge_usage
     );
     if (figure_show || compare_show) {
-        vis_translucency_cons(pore_centers, edge_con_final, final_edge_usage, "Final translucency skeleton (yellow=used): ");
+        vis_translucency_cons(
+            pore_centers,
+            edge_con_final,
+            final_edge_usage,
+            "Final translucency skeleton (color by kernel max path): ",
+            Paths
+        );
     }
 
     

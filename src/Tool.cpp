@@ -1,4 +1,4 @@
-﻿#include "Tool.h"
+#include "Tool.h"
 
 vector<RowVector3d> colors = { RowVector3d(0.90, 0.62, 0.0), //orange
     RowVector3d(0.9, 0.75, 0.40), //light orange
@@ -661,7 +661,50 @@ void vis_compare_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int
     viewer.launch(false, win_name + to_string(connections.size()));
 }
 
-void vis_translucency_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, std::vector<int> edge_usage, std::string win_name)
+static RowVector3d hsv_to_rgb(double h, double s, double v)
+{
+    h = std::fmod(std::max(0.0, h), 1.0);
+    s = std::max(0.0, std::min(1.0, s));
+    v = std::max(0.0, std::min(1.0, v));
+
+    double r = v, g = v, b = v;
+    if (s > 1e-9) {
+        double h6 = h * 6.0;
+        int sector = static_cast<int>(std::floor(h6)) % 6;
+        double f = h6 - std::floor(h6);
+        double p = v * (1.0 - s);
+        double q = v * (1.0 - s * f);
+        double t = v * (1.0 - s * (1.0 - f));
+
+        switch (sector) {
+        case 0: r = v; g = t; b = p; break;
+        case 1: r = q; g = v; b = p; break;
+        case 2: r = p; g = v; b = t; break;
+        case 3: r = p; g = q; b = v; break;
+        case 4: r = t; g = p; b = v; break;
+        default: r = v; g = p; b = q; break;
+        }
+    }
+    return RowVector3d(r, g, b);
+}
+
+static RowVector3d kernel_path_color(int kernel_idx, int kernel_num)
+{
+    if (kernel_num <= 0) {
+        return RowVector3d(0.95, 0.89, 0.26);
+    }
+    // Golden-ratio hue stepping gives stable, well-spread colors for many kernels.
+    constexpr double golden_ratio = 0.6180339887498949;
+    double h = std::fmod((kernel_idx * golden_ratio), 1.0);
+    return hsv_to_rgb(h, 0.75, 0.95);
+}
+
+void vis_translucency_cons(
+    std::vector<Eigen::Vector3d>& points,
+    std::vector<pair<int, int>>& connections,
+    std::vector<int> edge_usage,
+    std::string win_name,
+    const std::vector<std::vector<int>>& kernel_paths)
 {
     double sphereRadius = 0.01;
     double lineWidth = 7;
@@ -710,15 +753,82 @@ void vis_translucency_cons(std::vector<Eigen::Vector3d>& points, std::vector<pai
     viewer.data().show_lines = false;
     viewer.data().shininess = 200.0;
 
-    Eigen::MatrixXd P1(connections.size(), 3);
-    Eigen::MatrixXd P2(connections.size(), 3);
-    Eigen::MatrixXd C(connections.size(), 3);
-    for (int i = 0; i < connections.size(); ++i) {
-        P1.row(i) = points[connections[i].first].transpose();
-        P2.row(i) = points[connections[i].second].transpose();
-        C.row(i) = (edge_usage[i] > 0) ? lineColorUsed : lineColor;
+    if (!kernel_paths.empty()) {
+        // Draw only edges unused by any max-translucency path in gray to avoid
+        // complete overlap with colored paths.
+        int unused_edge_num = 0;
+        for (int i = 0; i < static_cast<int>(connections.size()); ++i) {
+            if (i < static_cast<int>(edge_usage.size()) && edge_usage[i] <= 0) {
+                unused_edge_num++;
+            }
+        }
+
+        if (unused_edge_num > 0) {
+            Eigen::MatrixXd P1_base(unused_edge_num, 3);
+            Eigen::MatrixXd P2_base(unused_edge_num, 3);
+            int write_idx = 0;
+            for (int i = 0; i < static_cast<int>(connections.size()); ++i) {
+                if (i >= static_cast<int>(edge_usage.size()) || edge_usage[i] > 0) {
+                    continue;
+                }
+                P1_base.row(write_idx) = points[connections[i].first].transpose();
+                P2_base.row(write_idx) = points[connections[i].second].transpose();
+                write_idx++;
+            }
+            viewer.data().add_edges(P1_base, P2_base, lineColor);
+        }
+
+        int valid_kernel_path_num = 0;
+        for (size_t k = 0; k < kernel_paths.size(); ++k) {
+            const std::vector<int>& path = kernel_paths[k];
+            if (path.size() < 2) continue;
+
+            std::vector<Eigen::Vector3d> p1_vec;
+            std::vector<Eigen::Vector3d> p2_vec;
+            p1_vec.reserve(path.size() - 1);
+            p2_vec.reserve(path.size() - 1);
+
+            for (size_t i = 0; i + 1 < path.size(); ++i) {
+                int u = path[i];
+                int v = path[i + 1];
+                if (u < 0 || v < 0 || u >= points.size() || v >= points.size()) {
+                    continue;
+                }
+                p1_vec.push_back(points[u]);
+                p2_vec.push_back(points[v]);
+            }
+
+            if (p1_vec.empty()) continue;
+
+            ++valid_kernel_path_num;
+            Eigen::MatrixXd P1_path(p1_vec.size(), 3);
+            Eigen::MatrixXd P2_path(p2_vec.size(), 3);
+            for (int i = 0; i < static_cast<int>(p1_vec.size()); ++i) {
+                P1_path.row(i) = p1_vec[i].transpose();
+                P2_path.row(i) = p2_vec[i].transpose();
+            }
+
+            RowVector3d color_k = kernel_path_color(static_cast<int>(k), static_cast<int>(kernel_paths.size()));
+            int path_layer = viewer.append_mesh();
+            viewer.data(path_layer).add_edges(P1_path, P2_path, color_k);
+            viewer.data(path_layer).line_width = lineWidth + 1.5;
+        }
+
+        cout << "[vis_translucency_cons] draw " << valid_kernel_path_num
+            << " kernel max-translucency paths with unique colors." << endl;
     }
-    viewer.data().add_edges(P1, P2, C);
+    else {
+        // Fallback to original binary coloring mode.
+        Eigen::MatrixXd P1(connections.size(), 3);
+        Eigen::MatrixXd P2(connections.size(), 3);
+        Eigen::MatrixXd C(connections.size(), 3);
+        for (int i = 0; i < connections.size(); ++i) {
+            P1.row(i) = points[connections[i].first].transpose();
+            P2.row(i) = points[connections[i].second].transpose();
+            C.row(i) = (edge_usage[i] > 0) ? lineColorUsed : lineColor;
+        }
+        viewer.data().add_edges(P1, P2, C);
+    }
     viewer.data().line_width = lineWidth;
 
     float deg2rad = float(M_PI) / 180.0f;

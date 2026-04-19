@@ -92,7 +92,13 @@ void vis_Kernels_Tubes(std::vector<Eigen::Vector3d>& points, std::vector<pair<in
 void vis_KerLine_model(Eigen::MatrixXd V1, Eigen::MatrixXi F1, std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, bool show_line = false, std::string win_name = "vis_Kernels_Tubes");
 void vis_compare_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, std::vector<int> mask, std::string win_name = "compare_lines");
 void vis_opt_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, std::vector<int> mask, std::string win_name = "compare_lines");
-void vis_translucency_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int, int>>& connections, std::vector<int> edge_usage, std::string win_name = "final_translucency_lines");
+void vis_translucency_cons(
+    std::vector<Eigen::Vector3d>& points,
+    std::vector<pair<int, int>>& connections,
+    std::vector<int> edge_usage,
+    std::string win_name = "final_translucency_lines",
+    const std::vector<std::vector<int>>& kernel_paths = {}
+);
 
 int  single_component(Eigen::MatrixXd V, Eigen::MatrixXi F);
 
