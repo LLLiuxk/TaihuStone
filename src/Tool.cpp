@@ -1,4 +1,4 @@
-#include "Tool.h"
+﻿#include "Tool.h"
 
 vector<RowVector3d> colors = { RowVector3d(0.90, 0.62, 0.0), //orange
     RowVector3d(0.9, 0.75, 0.40), //light orange
@@ -661,42 +661,122 @@ void vis_compare_cons(std::vector<Eigen::Vector3d>& points, std::vector<pair<int
     viewer.launch(false, win_name + to_string(connections.size()));
 }
 
-static RowVector3d hsv_to_rgb(double h, double s, double v)
+static double clamp01(double v)
 {
-    h = std::fmod(std::max(0.0, h), 1.0);
-    s = std::max(0.0, std::min(1.0, s));
-    v = std::max(0.0, std::min(1.0, v));
+    return std::max(0.0, std::min(1.0, v));
+}
 
-    double r = v, g = v, b = v;
-    if (s > 1e-9) {
-        double h6 = h * 6.0;
-        int sector = static_cast<int>(std::floor(h6)) % 6;
-        double f = h6 - std::floor(h6);
-        double p = v * (1.0 - s);
-        double q = v * (1.0 - s * f);
-        double t = v * (1.0 - s * (1.0 - f));
+static double lab_f_inv(double t)
+{
+    constexpr double delta = 6.0 / 29.0;
+    if (t > delta) {
+        return t * t * t;
+    }
+    return 3.0 * delta * delta * (t - 4.0 / 29.0);
+}
 
-        switch (sector) {
-        case 0: r = v; g = t; b = p; break;
-        case 1: r = q; g = v; b = p; break;
-        case 2: r = p; g = v; b = t; break;
-        case 3: r = p; g = q; b = v; break;
-        case 4: r = t; g = p; b = v; break;
-        default: r = v; g = p; b = q; break;
+static double linear_to_srgb(double c)
+{
+    c = clamp01(c);
+    if (c <= 0.0031308) {
+        return 12.92 * c;
+    }
+    return 1.055 * std::pow(c, 1.0 / 2.4) - 0.055;
+}
+
+static bool lab_to_linear_srgb(double L, double a, double b, RowVector3d& rgb_linear)
+{
+    constexpr double Xn = 0.95047;
+    constexpr double Yn = 1.00000;
+    constexpr double Zn = 1.08883;
+
+    double fy = (L + 16.0) / 116.0;
+    double fx = fy + a / 500.0;
+    double fz = fy - b / 200.0;
+
+    double X = Xn * lab_f_inv(fx);
+    double Y = Yn * lab_f_inv(fy);
+    double Z = Zn * lab_f_inv(fz);
+
+    double r = 3.2406 * X - 1.5372 * Y - 0.4986 * Z;
+    double g = -0.9689 * X + 1.8758 * Y + 0.0415 * Z;
+    double bb = 0.0557 * X - 0.2040 * Y + 1.0570 * Z;
+
+    rgb_linear = RowVector3d(r, g, bb);
+
+    return
+        r >= 0.0 && r <= 1.0 &&
+        g >= 0.0 && g <= 1.0 &&
+        bb >= 0.0 && bb <= 1.0;
+}
+
+static RowVector3d lch_to_srgb_gamut_safe(double L, double C, double hue_deg)
+{
+    double hue_rad = hue_deg * M_PI / 180.0;
+    RowVector3d rgb_linear(0.0, 0.0, 0.0);
+
+    double low = 0.0;
+    double high = C;
+    double best_c = 0.0;
+
+    for (int iter = 0; iter < 16; ++iter) {
+        double test_c = 0.5 * (low + high);
+        double a = test_c * std::cos(hue_rad);
+        double b = test_c * std::sin(hue_rad);
+
+        RowVector3d candidate_linear;
+        if (lab_to_linear_srgb(L, a, b, candidate_linear)) {
+            best_c = test_c;
+            rgb_linear = candidate_linear;
+            low = test_c;
+        }
+        else {
+            high = test_c;
         }
     }
-    return RowVector3d(r, g, b);
+
+    if (best_c < 1e-8) {
+        RowVector3d neutral_linear;
+        lab_to_linear_srgb(L, 0.0, 0.0, neutral_linear);
+        rgb_linear = neutral_linear;
+    }
+
+    return RowVector3d(
+        linear_to_srgb(rgb_linear.x()),
+        linear_to_srgb(rgb_linear.y()),
+        linear_to_srgb(rgb_linear.z())
+    );
 }
 
 static RowVector3d kernel_path_color(int kernel_idx, int kernel_num)
 {
-    if (kernel_num <= 0) {
-        return RowVector3d(0.95, 0.89, 0.26);
+    constexpr double L = 68.0;
+    constexpr double C = 38.0;
+    constexpr double hue_start = 265.0;
+    constexpr double hue_end = 8.0;
+
+    if (kernel_num <= 1) {
+        return lch_to_srgb_gamut_safe(L, C, hue_start);
     }
-    // Golden-ratio hue stepping gives stable, well-spread colors for many kernels.
-    constexpr double golden_ratio = 0.6180339887498949;
-    double h = std::fmod((kernel_idx * golden_ratio), 1.0);
-    return hsv_to_rgb(h, 0.75, 0.95);
+
+    double t = static_cast<double>(kernel_idx) / static_cast<double>(kernel_num - 1);
+    // Slightly widen the hue span to improve separation while keeping the same
+    // overall blue-violet -> orange-red paper-style band.
+    // Intentionally traverse 265 -> 8 by decreasing hue so the band passes:
+    // blue-violet -> blue -> cyan -> cyan-green -> green -> yellow-green -> orange -> red-orange.
+    double hue = hue_start + t * (hue_end - hue_start);
+
+    // The hue band already provides >60 unique samples when kernel_num >= 60.
+    // To make adjacent paths easier to distinguish, add a small, paper-style
+    // variation in lightness/chroma while keeping the overall HCL character.
+    static const double lightness_offsets[6] = { 0.0, 4.0, -4.0, 2.5, -2.5, 1.5 };
+    static const double chroma_offsets[6] = { 0.0, 3.5, -3.0, 2.0, -2.0, 1.0 };
+    int tone_idx = kernel_idx % 6;
+
+    double L_i = L + lightness_offsets[tone_idx];
+    double C_i = std::max(18.0, C + chroma_offsets[tone_idx]);
+
+    return lch_to_srgb_gamut_safe(L_i, C_i, hue);
 }
 
 void vis_translucency_cons(
