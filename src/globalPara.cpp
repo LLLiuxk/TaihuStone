@@ -1,10 +1,10 @@
-#include "globalPara.h" 
+﻿#include "globalPara.h" 
 
 std::string input_file = "namaqualand";//" boulder_smooth"; //"RockSetBr_rotated"; //RockSetBr  test_cube
 int Resolution = 128;
 
 std::vector<double> Weights = { 0.8, 1.0, 1.2 };  //mst 分类系数权重：边界-内部，内部-内部，边界-边界
-std::vector<double> KT_weights = { 0.0, 0.0, 0., 1.0 };  //kernel translucency权重：角度、长度、内外分布、水平垂直
+std::vector<double> KT_weights = { 0.0, 0.0, 0.0, 1.0 };  //kernel translucency权重：角度、长度、内外分布、水平垂直
 double Isolevel = 0;
 double Gauss_level = 0.5;
 
@@ -35,7 +35,7 @@ double SmoothT = 15;    //Control the smoothing area size;  smoothT +, the effec
 double Tube_radius_factor = 0.8; // Control the ratio of the pipeline radius relative to the Gaussian kernel radius; the mid_radius_factor + , the channel +.
 double Safe_distance_ratio = 0.7;
 
-double Trans_thres = 0.89;  //kernel translucency threshold 
+double Trans_thres = 0.999;  //kernel translucency threshold 
 double Adj_dis_thres = 0.35;
 bool debug_show = false;
 bool standard_show = true;

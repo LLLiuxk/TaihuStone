@@ -1391,6 +1391,8 @@ double ModelGenerator::calculate_path_translucency(std::vector<int>& path, bool 
     double w_location = KT_weights[2];
     double w_direction = KT_weights[3];
     std::vector<Eigen::Vector3d> path_points;
+    std::vector<Eigen::Vector3d> direction_points;
+    std::vector<int> direction_path;
     
     if (psize < 2) {
         cout << "Warnning: illegal path!" << endl;
@@ -1399,6 +1401,19 @@ double ModelGenerator::calculate_path_translucency(std::vector<int>& path, bool 
     //for (auto p : path) cout << p << "   ";
     //cout << endl;
     for (auto p : path) path_points.push_back(all_nodes[p].center);
+    direction_points.reserve(path_points.size());
+    direction_path.reserve(path.size());
+    // Direction term uses a deduplicated copy so repeated segments do not
+    // overweight the PCA orientation, while the original path remains intact.
+    for (auto p : path)
+    {
+        if (std::find(direction_path.begin(), direction_path.end(), p) != direction_path.end())
+            continue;
+        direction_path.push_back(p);
+        direction_points.push_back(all_nodes[p].center);
+    }
+    if (direction_points.size() < 2)
+        direction_points = path_points;
 
 	//get basic information
     for (size_t i = 1; i < psize - 1; ++i)
@@ -1445,13 +1460,14 @@ double ModelGenerator::calculate_path_translucency(std::vector<int>& path, bool 
 	//cout << "T_location: "<<T_location << " = " <<"1/(1+e^-" <<beta << "  * (" << r_inner << " - " << r_surface << "  - " << mu <<"))" <<endl;
     // ---------- 4. Direction term ----------
     Eigen::Vector3d z(0, 0, 1);
-    Eigen::Vector3d dir = computePrincipalDirection(path_points);
+    //Eigen::Vector3d dir = computePrincipalDirection(path_points);
+    Eigen::Vector3d dir = computePrincipalDirection(direction_points);
     double S_horiz = 1.0 - std::abs(dir.dot(z));
-    if (S_horiz > 0.98)
-    {
-        for (auto p : path_points) cout << "(" << p.transpose() << ")  ";
-        cout << endl;
-    }
+    //if (S_horiz > 0.98)
+    //{
+    //    for (auto p : path_points) cout << "(" << p.transpose() << ")  ";
+    //    cout << endl;
+    //}
     
     //cout << "dir: " << dir <<"   S_horiz:  "<< S_horiz<< endl;
     double translucency_score = w_angle * T_angle + w_length * T_length + w_location * T_location + w_direction * S_horiz;
