@@ -1,10 +1,10 @@
-﻿#include "globalPara.h" 
+#include "globalPara.h" 
 
 std::string input_file = "namaqualand";//" boulder_smooth"; //"RockSetBr_rotated"; //RockSetBr  test_cube
 int Resolution = 128;
 
 std::vector<double> Weights = { 0.8, 1.0, 1.2 };  //mst 分类系数权重：边界-内部，内部-内部，边界-边界
-std::vector<double> KT_weights = { 0.5, 0.1, 0.1, 0.3 };  //kernel translucency权重：角度、长度、内外分布、水平垂直
+std::vector<double> KT_weights = { 0.0, 0.0, 0., 1.0 };  //kernel translucency权重：角度、长度、内外分布、水平垂直
 double Isolevel = 0;
 double Gauss_level = 0.5;
 
@@ -38,9 +38,10 @@ double Safe_distance_ratio = 0.7;
 double Trans_thres = 0.89;  //kernel translucency threshold 
 double Adj_dis_thres = 0.35;
 bool debug_show = false;
-bool standard_show = false;
-bool figure_show = true;
+bool standard_show = true;
+bool figure_show = false;
 bool compare_show = false;
+bool scr_figure = true;
 
 bool Iso_kernel = false;
 bool Direct_dis = false;
@@ -50,6 +51,20 @@ bool optimize_debug = true;
 bool Enable_noise = false;
 bool topo_optimize = false;
 bool dynamic_change_para = true;
+
+bool fixed_graph_dual_render = true;
+bool auto_capture_translucency_graph = true;
+
+double Param2_Amplitude_min = 1.0;
+double Param2_Amplitude_max = 1.0;
+double Param2_Sigma_min = 0.015;
+double Param2_Sigma_max = 0.033;
+double Param2_W4sig_max = 18;
+double Param2_W4sig_min = 18;
+double Param2_Axis_max_ratio = 1.0;
+double Param2_Gauss_level = 0.5;
+double Param2_SmoothT = 15.0;
+double Param2_Tube_radius_factor = 0.7;
 
 float show_degree_x = -97.0;
 float show_degree_y = 0.0;
@@ -133,6 +148,18 @@ bool loadParameters(const std::string& filename) {
                 else if (key == "Enable_noise") Enable_noise = (valStr == "true" || valStr == "1");
                 else if (key == "topo_optimize") topo_optimize = (valStr == "true" || valStr == "1");
                 else if (key == "dynamic_change_para") dynamic_change_para = (valStr == "true" || valStr == "1");
+                else if (key == "fixed_graph_dual_render") fixed_graph_dual_render = (valStr == "true" || valStr == "1");
+                else if (key == "auto_capture_translucency_graph") auto_capture_translucency_graph = (valStr == "true" || valStr == "1");
+                else if (key == "Param2_Amplitude_min") Param2_Amplitude_min = std::stod(valStr);
+                else if (key == "Param2_Amplitude_max") Param2_Amplitude_max = std::stod(valStr);
+                else if (key == "Param2_Sigma_min") Param2_Sigma_min = std::stod(valStr);
+                else if (key == "Param2_Sigma_max") Param2_Sigma_max = std::stod(valStr);
+                else if (key == "Param2_W4sig_max") Param2_W4sig_max = std::stod(valStr);
+                else if (key == "Param2_W4sig_min") Param2_W4sig_min = std::stod(valStr);
+                else if (key == "Param2_Axis_max_ratio") Param2_Axis_max_ratio = std::stod(valStr);
+                else if (key == "Param2_Gauss_level") Param2_Gauss_level = std::stod(valStr);
+                else if (key == "Param2_SmoothT") Param2_SmoothT = std::stod(valStr);
+                else if (key == "Param2_Tube_radius_factor") Param2_Tube_radius_factor = std::stod(valStr);
             }
             catch (...) {
                 std::cerr << "Warning: Failed to parse value for key: " << key << std::endl;
@@ -208,6 +235,19 @@ void saveParameters(const std::string& filename)
     ofs << "Enable_noise = " << Enable_noise << "\n";
     ofs << "topo_optimize = " << topo_optimize << "\n";
     ofs << "dynamic_change_para = " << dynamic_change_para << "\n";
+    ofs << "fixed_graph_dual_render = " << fixed_graph_dual_render << "\n";
+    ofs << "auto_capture_translucency_graph = " << auto_capture_translucency_graph << "\n";
+
+    ofs << "Param2_Amplitude_min = " << Param2_Amplitude_min << "\n";
+    ofs << "Param2_Amplitude_max = " << Param2_Amplitude_max << "\n";
+    ofs << "Param2_Sigma_min = " << Param2_Sigma_min << "\n";
+    ofs << "Param2_Sigma_max = " << Param2_Sigma_max << "\n";
+    ofs << "Param2_W4sig_max = " << Param2_W4sig_max << "\n";
+    ofs << "Param2_W4sig_min = " << Param2_W4sig_min << "\n";
+    ofs << "Param2_Axis_max_ratio = " << Param2_Axis_max_ratio << "\n";
+    ofs << "Param2_Gauss_level = " << Param2_Gauss_level << "\n";
+    ofs << "Param2_SmoothT = " << Param2_SmoothT << "\n";
+    ofs << "Param2_Tube_radius_factor = " << Param2_Tube_radius_factor << "\n";
 
     ofs.close();
 }

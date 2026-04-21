@@ -1,4 +1,4 @@
-﻿#pragma once// 参数结构体
+#pragma once// 参数结构体
 #define NO_DEBUG false
 #include <vector>
 #include <string>
@@ -43,6 +43,7 @@ extern bool debug_show;
 extern bool standard_show;
 extern bool figure_show;
 extern bool compare_show;
+extern bool scr_figure;
 extern bool Direct_dis;
 extern bool Iso_kernel;  //使用iso还是椭球
 extern bool Handle_overlap;
@@ -50,6 +51,19 @@ extern bool optimize_debug;
 extern bool Enable_noise;
 extern bool topo_optimize;
 extern bool dynamic_change_para;
+extern bool fixed_graph_dual_render;
+extern bool auto_capture_translucency_graph;
+
+extern double Param2_Amplitude_min;
+extern double Param2_Amplitude_max;
+extern double Param2_Sigma_min;
+extern double Param2_Sigma_max;
+extern double Param2_W4sig_max;
+extern double Param2_W4sig_min;
+extern double Param2_Axis_max_ratio;
+extern double Param2_Gauss_level;
+extern double Param2_SmoothT;
+extern double Param2_Tube_radius_factor;
 
 extern float show_degree_x;
 extern float show_degree_y;

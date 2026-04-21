@@ -38,6 +38,28 @@ struct ParaSensitivityStats {
     int valid_path_num = 0;
 };
 
+struct KernelRandomSpec {
+    double amp01 = 0.0;
+    double sigma01 = 0.0;
+    double orient_u01 = 0.0;
+    double orient_v01 = 0.0;
+    double axis01 = 0.0;
+};
+
+struct RenderParamSnapshot {
+    std::string tag = "param";
+    double amplitude_min = 1.0;
+    double amplitude_max = 1.0;
+    double sigma_min = 0.015;
+    double sigma_max = 0.033;
+    double w4sig_max = 3.0;
+    double w4sig_min = 25.0;
+    double axis_max_ratio = 1.7;
+    double gauss_level = 0.5;
+    double smooth_t = 15.0;
+    double tube_radius_factor = 0.8;
+};
+
 class GaussianKernel {
 
 public:
@@ -204,6 +226,27 @@ public:
 
     void removeUnusedNodes(std::vector<GaussianKernel>& k, std::vector<int>& surface_kernels, std::vector<std::pair<int, int>>& edges, std::vector<std::vector<int>>& adj);
 
+    RenderParamSnapshot captureCurrentRenderParams(const std::string& tag = "param1") const;
+    RenderParamSnapshot captureSecondRenderParams(const std::string& tag = "param2") const;
+    void applyRenderParams(const RenderParamSnapshot& params);
+    void build_kernels_from_specs(
+        const std::vector<Eigen::Vector3d>& pore_centers,
+        const std::vector<double>& pore_sdfs,
+        const std::vector<KernelRandomSpec>& random_specs);
+    void render_fixed_skeleton_variant(
+        const std::vector<Eigen::Vector3d>& pore_centers,
+        const std::vector<double>& pore_sdfs,
+        const std::vector<KernelRandomSpec>& random_specs,
+        const std::vector<std::pair<int, int>>& fixed_edges,
+        const RenderParamSnapshot& params,
+        const std::string& output_dir,
+        bool rebuild_kernels = true);
+    void render_fixed_skeleton_dual_params(
+        const std::vector<Eigen::Vector3d>& pore_centers,
+        const std::vector<double>& pore_sdfs,
+        const std::vector<KernelRandomSpec>& random_specs,
+        const std::vector<std::pair<int, int>>& fixed_edges);
+
 private:
 
 	int pore_num = PoresNum;			   // 空洞数量
@@ -236,6 +279,9 @@ private:
 
     std::vector<GaussianKernel> Kernels;
     std::vector<int> surface_kernels;
+    std::vector<Eigen::Vector3d> cached_pore_centers;
+    std::vector<double> cached_pore_sdfs;
+    std::vector<KernelRandomSpec> kernel_random_specs;
     std::vector<std::vector<int>> Paths;
     vector<pair<int, int>> max_paths_kernel;  //每个kernel通透性最大的路径两端
     vector<double> kernel_translucency;

@@ -102,6 +102,55 @@ ModelGenerator::ModelGenerator(std::string input_file, int pores)
     pore_num = pores;
 }
 
+RenderParamSnapshot ModelGenerator::captureCurrentRenderParams(const std::string& tag) const
+{
+    RenderParamSnapshot params;
+    params.tag = tag;
+    params.amplitude_min = amplitude_min;
+    params.amplitude_max = amplitude_max;
+    params.sigma_min = sigma_min;
+    params.sigma_max = sigma_max;
+    params.w4sig_max = W4sig_max;
+    params.w4sig_min = W4sig_min;
+    params.axis_max_ratio = Axis_max_ratio;
+    params.gauss_level = Gauss_level;
+    params.smooth_t = SmoothT;
+    params.tube_radius_factor = Tube_radius_factor;
+    return params;
+}
+
+RenderParamSnapshot ModelGenerator::captureSecondRenderParams(const std::string& tag) const
+{
+    RenderParamSnapshot params;
+    params.tag = tag;
+    params.amplitude_min = Param2_Amplitude_min;
+    params.amplitude_max = Param2_Amplitude_max;
+    params.sigma_min = Param2_Sigma_min;
+    params.sigma_max = Param2_Sigma_max;
+    params.w4sig_max = Param2_W4sig_max;
+    params.w4sig_min = Param2_W4sig_min;
+    params.axis_max_ratio = Param2_Axis_max_ratio;
+    params.gauss_level = Param2_Gauss_level;
+    params.smooth_t = Param2_SmoothT;
+    params.tube_radius_factor = Param2_Tube_radius_factor;
+    return params;
+}
+
+void ModelGenerator::applyRenderParams(const RenderParamSnapshot& params)
+{
+    amplitude_min = params.amplitude_min;
+    amplitude_max = params.amplitude_max;
+    sigma_min = params.sigma_min;
+    sigma_max = params.sigma_max;
+
+    W4sig_max = params.w4sig_max;
+    W4sig_min = params.w4sig_min;
+    Axis_max_ratio = params.axis_max_ratio;
+    Gauss_level = params.gauss_level;
+    SmoothT = params.smooth_t;
+    Tube_radius_factor = params.tube_radius_factor;
+}
+
 void ModelGenerator::model_porous_structure()
 {
     //std::cout << "Model A loaded successfully." << std::endl;
@@ -124,7 +173,7 @@ void ModelGenerator::model_porous_structure()
 
     generateGaussianSDF();
 
-    if(topo_optimize)
+    if(topo_optimize && !fixed_graph_dual_render)
         supportFreeOpt();
     
   
@@ -157,6 +206,8 @@ void ModelGenerator::generateGaussianSDF()
     std::vector<double> pore_sdfs;
     std::vector<int> inside_indices;
     sample_interior_points(pore_centers, pore_sdfs, inside_indices, pores, gen);
+    cached_pore_centers = pore_centers;
+    cached_pore_sdfs = pore_sdfs;
     //sample_interior_close(pore_centers, pore_sdfs, inside_indices, pores, gen);
     //sample_regular(pore_centers, pore_sdfs, inside_indices, 25);
     //for (int i = 0; i < pore_centers.size(); i++)   std::cout << "i: " << i << "  " << pore_centers[i] << std::endl;
@@ -192,7 +243,7 @@ void ModelGenerator::generateGaussianSDF()
     edge_con_mst.clear();
     for (auto e : Tube_edges_mst) edge_con_mst.push_back(make_pair(e.from, e.to));
 
-    if (figure_show)
+    if (figure_show || compare_show)
     {
         vis_Kernels_Tubes(pore_centers, edge_con_mbdst, "mbdst  Kernels Tubes");
         vis_Kernels_Tubes(pore_centers, edge_con_mst, "mst Kernels Tubes");
@@ -291,7 +342,7 @@ void ModelGenerator::generateGaussianSDF()
         edge_con_final,
         final_edge_usage
     );
-    if (figure_show || compare_show) {
+    if (scr_figure) {
         vis_translucency_cons(
             pore_centers,
             edge_con_final,
@@ -299,6 +350,12 @@ void ModelGenerator::generateGaussianSDF()
             "Final translucency skeleton (color by kernel max path): ",
             Paths
         );
+    }
+
+    if (fixed_graph_dual_render) {
+        std::cout << "--------------------5. Fixed skeleton dual-parameter rendering --------------------" << std::endl;
+        render_fixed_skeleton_dual_params(pore_centers, pore_sdfs, kernel_random_specs, edge_con_final);
+        return;
     }
 
     
@@ -332,7 +389,7 @@ void ModelGenerator::generateGaussianSDF()
     initPorosity = 1.0 - solid_count / model_solid_num;
     std::cout << "Porosity: " << initPorosity * 100 << "%" << "    --------:" << solid_count << "   " << model_solid_num << std::endl;
 
-    if (figure_show)
+    if (figure_show || compare_show)
     {
         std::vector<std::vector<int>> mask = compare_edges(edge_con_mbdst, edge_con_final);
         vis_compare_cons(pore_centers, edge_con_mbdst, mask[0], "compare_lines");
@@ -650,6 +707,9 @@ void ModelGenerator::generate_gaussians(std::vector<Eigen::Vector3d> pore_center
 {
     Kernels.clear();
     surface_kernels.clear();
+    kernel_random_specs.clear();
+    kernel_random_specs.reserve(pore_centers.size());
+
     if (dynamic_change_para)
     {
         double bbx_v = abs((bb_max.x() - bb_min.x()) * (bb_max.y() - bb_min.y()) * (bb_max.z() - bb_min.z()));
@@ -666,14 +726,70 @@ void ModelGenerator::generate_gaussians(std::vector<Eigen::Vector3d> pore_center
     std::uniform_real_distribution<double> dist_scale(1.0, Axis_max_ratio);
 
     cout << "sigma_min: " << sigma_min << "    sigma_max:" << sigma_max << endl;
-    // 为每个空洞中心生成随机参数
-    int pore_size = pore_centers.size();
-    for (size_t i = 0; i < pore_size; ++i) {
+    int pore_size = static_cast<int>(pore_centers.size());
+    for (int i = 0; i < pore_size; ++i) {
         double sigma_val = dist_sigma(gen);
         double amplitude_val = dist_amp(gen);
         double u = uni01(gen);
         double v = uni02pi(gen);
-		double scale_ = dist_scale(gen);
+        double scale_ = dist_scale(gen);
+
+        KernelRandomSpec spec;
+        spec.amp01 = (amplitude_max > amplitude_min) ? (amplitude_val - amplitude_min) / (amplitude_max - amplitude_min) : 0.0;
+        spec.sigma01 = (sigma_max > sigma_min) ? (sigma_val - sigma_min) / (sigma_max - sigma_min) : 0.0;
+        spec.orient_u01 = u;
+        spec.orient_v01 = v / (2.0 * M_PI);
+        spec.axis01 = (Axis_max_ratio > 1.0) ? (scale_ - 1.0) / (Axis_max_ratio - 1.0) : 0.0;
+        kernel_random_specs.push_back(spec);
+
+        GaussianKernel kernel(
+            pore_centers[i],
+            sigma_val,
+            sigma_val * scale_,
+            sigma_val,
+            construct_R(u, v, 15.0 * M_PI / 180.0),
+            amplitude_val,
+            pore_sdfs[i]);
+        Kernels.push_back(kernel);
+        if (kernel.on_surface) surface_kernels.push_back(i);
+    }
+
+    std::cout << "--------------------1. Sample and generate gaussian kernels--------------------" << endl <<
+        "Combine " << Kernels.size() << " Gaussian fileds with " << surface_kernels.size() << " kernels on the surface" << std::endl;
+    if (standard_show)
+    {
+        std::cout << "surface index:  ";
+        for (auto i : surface_kernels) std::cout << i << "  ";
+        std::cout << endl;
+    }
+}
+
+void ModelGenerator::build_kernels_from_specs(
+    const std::vector<Eigen::Vector3d>& pore_centers,
+    const std::vector<double>& pore_sdfs,
+    const std::vector<KernelRandomSpec>& random_specs)
+{
+    Kernels.clear();
+    surface_kernels.clear();
+    if (dynamic_change_para)
+    {
+        double bbx_v = abs((bb_max.x() - bb_min.x()) * (bb_max.y() - bb_min.y()) * (bb_max.z() - bb_min.z()));
+        double w4max = W4sig_max, w4min = W4sig_min;
+        sigma_min = sigma_value(bbx_v, pore_num, w4min, Gauss_level);
+        sigma_max = sigma_value(bbx_v, pore_num, w4max, Gauss_level);
+        cout << "sigma_min: " << sigma_min << "   sigma_max: " << sigma_max << endl;
+    }
+
+    cout << "sigma_min: " << sigma_min << "    sigma_max:" << sigma_max << endl;
+    // 为每个空洞中心生成随机参数
+    int pore_size = static_cast<int>(std::min(pore_centers.size(), random_specs.size()));
+    for (size_t i = 0; i < pore_size; ++i) {
+        const KernelRandomSpec& spec = random_specs[i];
+        double sigma_val = sigma_min + spec.sigma01 * (sigma_max - sigma_min);
+        double amplitude_val = amplitude_min + spec.amp01 * (amplitude_max - amplitude_min);
+        double u = spec.orient_u01;
+        double v = spec.orient_v01 * 2.0 * M_PI;
+		double scale_ = 1.0 + spec.axis01 * (Axis_max_ratio - 1.0);
         //std::cout << "i: " << i << "  " << sigma_val<<"  "<<amplitude_val << "  u:"<<u<<"  v:"<<v<<std::endl;
         GaussianKernel kernel(pore_centers[i], sigma_val, sigma_val * scale_, sigma_val, /*Eigen::Matrix3d::Identity()*/construct_R(u,v, 15.0 * M_PI / 180.0), amplitude_val, pore_sdfs[i]);
         Kernels.push_back(kernel);
@@ -690,6 +806,74 @@ void ModelGenerator::generate_gaussians(std::vector<Eigen::Vector3d> pore_center
         for (auto i : surface_kernels) std::cout << i << "  ";
         std::cout << endl;
     }
+}
+
+void ModelGenerator::render_fixed_skeleton_variant(
+    const std::vector<Eigen::Vector3d>& pore_centers,
+    const std::vector<double>& pore_sdfs,
+    const std::vector<KernelRandomSpec>& random_specs,
+    const std::vector<std::pair<int, int>>& fixed_edges,
+    const RenderParamSnapshot& params,
+    const std::string& output_dir,
+    bool rebuild_kernels)
+{
+    std::filesystem::create_directories(output_dir);
+    applyRenderParams(params);
+    if (rebuild_kernels)
+    {
+        build_kernels_from_specs(pore_centers, pore_sdfs, random_specs);
+
+        if (Handle_overlap)
+        {
+            int hits = resolveOverlaps3D(Kernels);
+            cout << "[" << params.tag << "] Total hits: " << hits << endl;
+        }
+    }
+
+    double solid_count = generate_mbdst_tubes(fixed_edges, static_cast<int>(SDF_ini.size()), resolution, Isolevel, Gauss_level, SmoothT);
+    double porosity = 1.0 - solid_count / model_solid_num;
+    cout << "[" << params.tag << "] Porosity: " << porosity * 100 << "%" << "    --------:" << solid_count << "   " << model_solid_num << std::endl;
+
+    VoxelGrid grids = SDFtoVoxel(SDF_out, bb_min, bb_max, resolution, resolution, resolution);
+    SupportCheckResult scr = check_result_voxel(grids, 0.5);
+
+    std::string prefix = output_dir + input_file + "_" + params.tag;
+    saveSDFtoNPY(prefix + "_sdf.npy", SDF_out, resolution);
+    saveMesh(prefix + "_final.stl", V_out, F_out);
+    saveMesh(prefix + "_tube.stl", V_t, F_t);
+    saveVoxelGridAsNPY(grids.rho, resolution, prefix + "_voxel.npy");
+
+    cout << "[" << params.tag << "] unsupported voxel count: " << scr.unsupportedVoxelCount << endl;
+}
+
+void ModelGenerator::render_fixed_skeleton_dual_params(
+    const std::vector<Eigen::Vector3d>& pore_centers,
+    const std::vector<double>& pore_sdfs,
+    const std::vector<KernelRandomSpec>& random_specs,
+    const std::vector<std::pair<int, int>>& fixed_edges)
+{
+    RenderParamSnapshot param1 = captureCurrentRenderParams("param1");
+    RenderParamSnapshot param2 = captureSecondRenderParams("param2");
+    RenderParamSnapshot restore = captureCurrentRenderParams("restore");
+
+    render_fixed_skeleton_variant(
+        pore_centers,
+        pore_sdfs,
+        random_specs,
+        fixed_edges,
+        param1,
+        outputPrefix + "fixed_skeleton_param1/",
+        false);
+
+    render_fixed_skeleton_variant(
+        pore_centers,
+        pore_sdfs,
+        random_specs,
+        fixed_edges,
+        param2,
+        outputPrefix + "fixed_skeleton_param2/");
+
+    applyRenderParams(restore);
 }
 //
 //void ModelGenerator::generate_gaussians_iso(std::vector<Eigen::Vector3d> pore_centers, std::vector<double> pore_sdfs, std::mt19937& gen)
@@ -1263,6 +1447,12 @@ double ModelGenerator::calculate_path_translucency(std::vector<int>& path, bool 
     Eigen::Vector3d z(0, 0, 1);
     Eigen::Vector3d dir = computePrincipalDirection(path_points);
     double S_horiz = 1.0 - std::abs(dir.dot(z));
+    if (S_horiz > 0.98)
+    {
+        for (auto p : path_points) cout << "(" << p.transpose() << ")  ";
+        cout << endl;
+    }
+    
     //cout << "dir: " << dir <<"   S_horiz:  "<< S_horiz<< endl;
     double translucency_score = w_angle * T_angle + w_length * T_length + w_location * T_location + w_direction * S_horiz;
     //cout << translucency_score << "  " << T_angle << "   " << T_length << "  " << T_location << "   " << S_horiz << endl;
@@ -2454,7 +2644,7 @@ int ModelGenerator::generate_mbdst_tubes(std::vector<pair<int, int>> edge_con, i
     // Marching Cubes
     MarchingCubes(SDF_out, GV, res, res, res, iso, V_out, F_out);   //final result
     MarchingCubes(SDF_gaussian_tubes, GV, res, res, res, iso, V_t, F_t);  //gaussian combined with tubes
-    if (figure_show)//figure_show
+    if (false)//figure_show
     {
         //view_model(V_out, F_out, "our final result");
         Eigen::MatrixXd V_g; //输出网格顶点
@@ -2466,7 +2656,7 @@ int ModelGenerator::generate_mbdst_tubes(std::vector<pair<int, int>> edge_con, i
         cout << "saveMesh to " << stl_filename << endl;
         saveMesh(stl_filename, V_t, F_t);
 
-        MarchingCubes(SDF_only_tubes, GV, res, res, res, iso, V_t, F_t);  //gaussian combined with tubes
+        MarchingCubes(SDF_only_tubes, GV, res, res, res, iso, V_g, F_g);  //gaussian combined with tubes
         //view_model(V_t, F_t, "Only tubes field");
     }
        

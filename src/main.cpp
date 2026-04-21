@@ -17,6 +17,21 @@ int main(int argc, char* argv[])
 {
     auto start_time = std::chrono::high_resolution_clock::now();
 
+    Eigen::Vector3d z(0, 0, 1);
+    std::vector<Eigen::Vector3d> path_points = {
+        Eigen::Vector3d(0.153543,  0.011811, -0.279528),
+        Eigen::Vector3d(0.0748031, -0.0984252, -0.248031),
+        Eigen::Vector3d(0.0275591, -0.0433071, -0.161417),
+        Eigen::Vector3d(-0.0748031,  0.0354331, -0.129921),
+        Eigen::Vector3d(-0.0748031, -0.0433071, -0.216535),
+        Eigen::Vector3d(-0.114173,  -0.208661, -0.279528)
+	};
+    Eigen::Vector3d dir = computePrincipalDirection(path_points);
+	cout << "Principal Direction: " << dir.transpose() << endl;
+    double S_horiz = 1.0 - std::abs(dir.dot(z));
+	cout << "S_horiz: " << S_horiz << endl;
+
+
     std::string configFileName = "default"; // 用于日志显示
     if (argc > 1) {
         configFileName = argv[1];
@@ -44,7 +59,7 @@ int main(int argc, char* argv[])
     ModelGenerator mg(input_path);
     //mg.test_item();
     mg.model_porous_structure();
-    if (figure_show)
+    if (scr_figure)
         mg.show_model();
 
     auto end_time = std::chrono::high_resolution_clock::now();
