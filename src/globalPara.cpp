@@ -1,4 +1,4 @@
-﻿#include "globalPara.h" 
+﻿#include "globalPara.h"
 
 std::string input_file = "namaqualand";//" boulder_smooth"; //"RockSetBr_rotated"; //RockSetBr  test_cube
 int Resolution = 128;

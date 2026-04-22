@@ -1,4 +1,4 @@
-﻿#include "modelGen.h"
+#include "modelGen.h"
 #include "resultComp.h"
 #include "MorseComplex.h"
 
@@ -1391,8 +1391,8 @@ double ModelGenerator::calculate_path_translucency(std::vector<int>& path, bool 
     double w_location = KT_weights[2];
     double w_direction = KT_weights[3];
     std::vector<Eigen::Vector3d> path_points;
-    std::vector<Eigen::Vector3d> direction_points;
-    std::vector<int> direction_path;
+    //std::vector<Eigen::Vector3d> direction_points;
+    //std::vector<int> direction_path;
     
     if (psize < 2) {
         cout << "Warnning: illegal path!" << endl;
@@ -1401,19 +1401,19 @@ double ModelGenerator::calculate_path_translucency(std::vector<int>& path, bool 
     //for (auto p : path) cout << p << "   ";
     //cout << endl;
     for (auto p : path) path_points.push_back(all_nodes[p].center);
-    direction_points.reserve(path_points.size());
-    direction_path.reserve(path.size());
+    //direction_points.reserve(path_points.size());
+    //direction_path.reserve(path.size());
     // Direction term uses a deduplicated copy so repeated segments do not
     // overweight the PCA orientation, while the original path remains intact.
-    for (auto p : path)
-    {
-        if (std::find(direction_path.begin(), direction_path.end(), p) != direction_path.end())
-            continue;
-        direction_path.push_back(p);
-        direction_points.push_back(all_nodes[p].center);
-    }
-    if (direction_points.size() < 2)
-        direction_points = path_points;
+    //for (auto p : path)
+    //{
+    //    if (std::find(direction_path.begin(), direction_path.end(), p) != direction_path.end())
+    //        continue;
+    //    direction_path.push_back(p);
+    //    direction_points.push_back(all_nodes[p].center);
+    //}
+    //if (direction_points.size() < 2)
+    //    direction_points = path_points;
 
 	//get basic information
     for (size_t i = 1; i < psize - 1; ++i)
@@ -1461,8 +1461,13 @@ double ModelGenerator::calculate_path_translucency(std::vector<int>& path, bool 
     // ---------- 4. Direction term ----------
     Eigen::Vector3d z(0, 0, 1);
     //Eigen::Vector3d dir = computePrincipalDirection(path_points);
-    Eigen::Vector3d dir = computePrincipalDirection(direction_points);
-    double S_horiz = 1.0 - std::abs(dir.dot(z));
+    //double S_horiz = 1.0 - std::abs(dir.dot(z));
+   
+    auto dir_conf = computeEdgeTensorDirection(path_points, 1e-8);
+    Eigen::Vector3d dir = dir_conf.first;
+    double conf = dir_conf.second;
+    //double S_horiz = (1.0 - std::abs(dir.dot(z)));
+    double S_horiz = (1.0 - std::abs(dir.dot(z))) * conf;
     //if (S_horiz > 0.98)
     //{
     //    for (auto p : path_points) cout << "(" << p.transpose() << ")  ";
@@ -1560,8 +1565,8 @@ double ModelGenerator::cal_kernel_translucency(int p_index, int & max_s1, int & 
     PathQuery p_bfs(kernel_num, adj, p_index);
     if (!p_bfs.isConnected)  //不连通，直接跳过
     {
-        if(debug_show)
-            cout << "有一条为空说明不再连通" << endl;
+        //if (debug_show)
+        //    cout << "有一条为空说明不再连通" << endl;
         return 0.0;
     }
 	//if (adj[p_index].size() < 2 && (!Kernels[p_index].on_surface))    //内部点且只有一条连接边，无法形成路径，直接返回0
@@ -1710,9 +1715,24 @@ ParaSensitivityStats ModelGenerator::cal_para_sensitivity(bool show_debug)
         double r_surface = (psize == 2) ? 0.0 : (double(count_surface_line) / double(psize - 1));
         double T_location = 1.0 / (1.0 + std::exp(-beta * (r_inner - r_surface - mu)));
 
+        std::vector<Eigen::Vector3d> direction_points;
+        std::vector<int> direction_path;
+        direction_points.reserve(path_points.size());
+        direction_path.reserve(path.size());
+        for (int node_idx : path) {
+            if (std::find(direction_path.begin(), direction_path.end(), node_idx) != direction_path.end())
+                continue;
+            direction_path.push_back(node_idx);
+            direction_points.push_back(Kernels[node_idx].center);
+        }
+        if (direction_points.size() < 2)
+            direction_points = path_points;
+
         Eigen::Vector3d z(0, 0, 1);
-        Eigen::Vector3d dir = computePrincipalDirection(path_points);
-        double S_horiz = 1.0 - std::abs(dir.dot(z));
+        auto dir_conf = computeEdgeTensorDirection(direction_points, 1e-8);
+        Eigen::Vector3d dir = dir_conf.first;
+        double conf = dir_conf.second;
+        double S_horiz = (1.0 - std::abs(dir.dot(z))) * conf;
 
         const double weighted_vp = w_angle * T_angle + w_length * T_length + w_location * T_location + w_direction * S_horiz;
 

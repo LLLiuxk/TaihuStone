@@ -127,6 +127,9 @@ void getCoord(int idx, int res, int& x, int& y, int& z);
 
 // pca point cloud
 Eigen::Vector3d computePrincipalDirection(const std::vector<Eigen::Vector3d>& points);
+std::pair<Eigen::Vector3d, double> computeEdgeTensorDirection(
+    const std::vector<Eigen::Vector3d>& points,
+    double eps = 1e-8);
 
 //TO
 double smoothHeaviside(double s, double eps = 0.1);  // Heaviside 平滑宽度（建议 = 1~2 个体素尺寸）

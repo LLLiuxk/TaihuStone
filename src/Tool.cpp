@@ -1320,6 +1320,42 @@ Eigen::Vector3d computePrincipalDirection(const std::vector<Eigen::Vector3d>& po
     return solver.eigenvectors().col(2).normalized(); // 最大特征值
 }
 
+std::pair<Eigen::Vector3d, double> computeEdgeTensorDirection(
+    const std::vector<Eigen::Vector3d>& points,
+    double eps)
+{
+    Eigen::Matrix3d M = Eigen::Matrix3d::Zero();
+    int valid_edges = 0;
+    for (size_t i = 0; i + 1 < points.size(); ++i) {
+        Eigen::Vector3d seg = points[i + 1] - points[i];
+        double len = seg.norm();
+        if (len < 1e-12) {
+            continue;
+        }
+        Eigen::Vector3d u = seg / len; // equal-weight edge direction
+        M += u * u.transpose();
+        valid_edges++;
+    }
+
+    if (valid_edges == 0) {
+        return { Eigen::Vector3d(0.0, 0.0, 1.0), 0.0 };
+    }
+
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> solver(M);
+    if (solver.info() != Eigen::Success) {
+        return { Eigen::Vector3d(0.0, 0.0, 1.0), 0.0 };
+    }
+
+    const Eigen::Vector3d eval = solver.eigenvalues(); // ascending
+    const double lambda1 = eval(2);
+    const double lambda2 = eval(1);
+    Eigen::Vector3d dir = solver.eigenvectors().col(2).normalized();
+    double conf = (lambda1 - lambda2) / (lambda1 + eps);
+    conf = std::max(0.0, std::min(1.0, conf));
+
+    return { dir, conf };
+}
+
 //TO
 double smoothHeaviside(double s, double eps)   
 {

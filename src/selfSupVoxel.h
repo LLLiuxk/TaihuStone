@@ -33,31 +33,29 @@ struct VoxelGrid
         return i + nx * (j + ny * k);
     }
 
-    // Ϊ˰ȫһconst汾ķ߽
     double getSafe(int i, int j, int k) const
     {
         if (i < 0 || i >= nx || j < 0 || j >= ny || k < 0 || k >= nz)
-            return 0.0; // ԽΪ
+            return 0.0; //
         return rho[index(i, j, k)];
     }
 
-	//ͨȡ޸ܶ
     double& at(int i, int j, int k)
     {
         return rho[index(i, j, k)];
     }
 
-    // ȡص
+
     double voxelVolume() const {
         return dx * dy * dz;
     }
 };
 
-// ṹ
+
 struct SupportCheckResult {
-    bool isSupportFree = true;             // Ƿ֧
+    bool isSupportFree = true;             //
     int solid_nums = 0;
-    int unsupportedVoxelCount = 0;// Ҫ֧ŵ
+    int unsupportedVoxelCount = 0;//
     double unsupportedRatio = 0.0;        // 
     int component_num = 0;
     std::vector<int> parts_solid_nums;
