@@ -1,6 +1,7 @@
-#include "modelGen.h"
+﻿#include "modelGen.h"
 #include "resultComp.h"
 #include "MorseComplex.h"
+#include <set>
 
 GaussianKernel::GaussianKernel(
     const Eigen::Vector3d& center_,
@@ -1391,8 +1392,14 @@ double ModelGenerator::calculate_path_translucency(std::vector<int>& path, bool 
     double w_location = KT_weights[2];
     double w_direction = KT_weights[3];
     std::vector<Eigen::Vector3d> path_points;
-    //std::vector<Eigen::Vector3d> direction_points;
-    //std::vector<int> direction_path;
+    std::vector<Eigen::Vector3d> direction_points;
+    std::vector<int> direction_path;
+    std::set<int> direction_seen;
+    std::set<int> unique_middle_nodes;
+    std::set<std::pair<int, int>> unique_edges;
+    int unique_inner_count = 0;
+    int unique_surface_edge_count = 0;
+    double L_unique = 0.0;
     
     if (psize < 2) {
         cout << "Warnning: illegal path!" << endl;
@@ -1401,19 +1408,40 @@ double ModelGenerator::calculate_path_translucency(std::vector<int>& path, bool 
     //for (auto p : path) cout << p << "   ";
     //cout << endl;
     for (auto p : path) path_points.push_back(all_nodes[p].center);
-    //direction_points.reserve(path_points.size());
-    //direction_path.reserve(path.size());
-    // Direction term uses a deduplicated copy so repeated segments do not
-    // overweight the PCA orientation, while the original path remains intact.
-    //for (auto p : path)
-    //{
-    //    if (std::find(direction_path.begin(), direction_path.end(), p) != direction_path.end())
-    //        continue;
-    //    direction_path.push_back(p);
-    //    direction_points.push_back(all_nodes[p].center);
-    //}
-    //if (direction_points.size() < 2)
-    //    direction_points = path_points;
+    direction_points.reserve(path_points.size());
+    direction_path.reserve(path.size());
+    // Direction term uses a deduplicated copy so repeated nodes/segments do not
+    // repeatedly overweight the second-moment edge direction estimate.
+    for (auto p : path)
+    {
+        if (direction_seen.insert(p).second) {
+            direction_path.push_back(p);
+            direction_points.push_back(all_nodes[p].center);
+        }
+    }
+    if (direction_points.size() < 2)
+        direction_points = path_points;
+
+    // Repeated path segments should not increase the length/location reward.
+    // Build unique middle-node and undirected-edge statistics from the original path.
+    for (size_t i = 0; i + 1 < path.size(); ++i)
+    {
+        int u = path[i];
+        int v = path[i + 1];
+        auto edge_key = std::minmax(u, v);
+        if (unique_edges.insert(edge_key).second)
+        {
+            L_unique += length_path(u, v);
+            double thres = min(all_nodes[u].center_value, all_nodes[v].center_value);
+            if (line_cross_surface(path_points[i], path_points[i + 1], thres) < 0.999)
+                unique_surface_edge_count++;
+        }
+    }
+    for (size_t i = 1; i + 1 < path.size(); ++i)
+    {
+        if (unique_middle_nodes.insert(path[i]).second && !all_nodes[path[i]].on_surface)
+            unique_inner_count++;
+    }
 
 	//get basic information
     for (size_t i = 1; i < psize - 1; ++i)
@@ -1449,12 +1477,18 @@ double ModelGenerator::calculate_path_translucency(std::vector<int>& path, bool 
     }
 
     // ---------- 2. Length term ----------
-    double T_length = 1.0 - std::exp(-double(psize-1) / L0);
+    // Old version rewarded repeated segments because it used total step count.
+    // double T_length = 1.0 - std::exp(-double(psize-1) / L0);
+    // The unique-geometry-length version is kept conceptually via L_unique for debugging, but the active score preserves the original "edge-count" meaning.
+    double T_length = 1.0 - std::exp(-double(unique_edges.size()) / L0);
 
 
     // ---------- 3. Location term ----------
-    double r_inner = (psize == 2)? 0: (double(count_inner) / double(psize - 2));
-    double r_surface = (psize == 2) ? 0 : (double(count_surface_line) / double(psize - 1));
+    // Old version counted repeated middle nodes and edges multiple times.
+    // double r_inner = (psize == 2)? 0: (double(count_inner) / double(psize - 2));
+    // double r_surface = (psize == 2) ? 0 : (double(count_surface_line) / double(psize - 1));
+    double r_inner = unique_middle_nodes.empty() ? 0.0 : (double(unique_inner_count) / double(unique_middle_nodes.size()));
+    double r_surface = unique_edges.empty() ? 0.0 : (double(unique_surface_edge_count) / double(unique_edges.size()));
 
     double T_location = 1.0 / (1.0 + std::exp(-beta * (r_inner - r_surface - mu)));
 	//cout << "T_location: "<<T_location << " = " <<"1/(1+e^-" <<beta << "  * (" << r_inner << " - " << r_surface << "  - " << mu <<"))" <<endl;
@@ -1462,8 +1496,10 @@ double ModelGenerator::calculate_path_translucency(std::vector<int>& path, bool 
     Eigen::Vector3d z(0, 0, 1);
     //Eigen::Vector3d dir = computePrincipalDirection(path_points);
     //double S_horiz = 1.0 - std::abs(dir.dot(z));
-   
-    auto dir_conf = computeEdgeTensorDirection(path_points, 1e-8);
+    // Old version used the full path and therefore repeated segments could
+    // repeatedly strengthen the same orientation axis.
+    // auto dir_conf = computeEdgeTensorDirection(path_points, 1e-8);
+    auto dir_conf = computeEdgeTensorDirection(direction_points, 1e-8);
     Eigen::Vector3d dir = dir_conf.first;
     double conf = dir_conf.second;
     //double S_horiz = (1.0 - std::abs(dir.dot(z)));
@@ -1676,14 +1712,51 @@ ParaSensitivityStats ModelGenerator::cal_para_sensitivity(bool show_debug)
         }
 
         std::vector<Eigen::Vector3d> path_points;
+        std::vector<Eigen::Vector3d> direction_points;
+        std::vector<int> direction_path;
+        std::set<int> direction_seen;
+        std::set<int> unique_middle_nodes;
+        std::set<std::pair<int, int>> unique_edges;
+        int unique_inner_count = 0;
+        int unique_surface_edge_count = 0;
+        double L_unique = 0.0;
         path_points.reserve(psize);
         for (int node_idx : path) {
             path_points.push_back(Kernels[node_idx].center);
         }
+        direction_points.reserve(psize);
+        direction_path.reserve(path.size());
+        for (int node_idx : path) {
+            if (direction_seen.insert(node_idx).second) {
+                direction_path.push_back(node_idx);
+                direction_points.push_back(Kernels[node_idx].center);
+            }
+        }
+        if (direction_points.size() < 2)
+            direction_points = path_points;
 
         double angle_product = 1.0;
         int count_inner = 0;
         int count_surface_line = 0;
+
+        for (size_t i = 0; i + 1 < path.size(); ++i)
+        {
+            int u = path[i];
+            int v = path[i + 1];
+            auto edge_key = std::minmax(u, v);
+            if (unique_edges.insert(edge_key).second)
+            {
+                L_unique += length_path(u, v);
+                double thres = min(Kernels[u].center_value, Kernels[v].center_value);
+                if (line_cross_surface(path_points[i], path_points[i + 1], thres) < 0.999)
+                    unique_surface_edge_count++;
+            }
+        }
+        for (size_t i = 1; i + 1 < path.size(); ++i)
+        {
+            if (unique_middle_nodes.insert(path[i]).second && !Kernels[path[i]].on_surface)
+                unique_inner_count++;
+        }
 
         for (int i = 1; i < psize - 1; ++i)
         {
@@ -1710,25 +1783,21 @@ ParaSensitivityStats ModelGenerator::cal_para_sensitivity(bool show_debug)
         }
 
         double T_angle = (psize == 2) ? 0.6 : std::pow(angle_product, alpha);
-        double T_length = 1.0 - std::exp(-double(psize - 1) / L0);
-        double r_inner = (psize == 2) ? 0.0 : (double(count_inner) / double(psize - 2));
-        double r_surface = (psize == 2) ? 0.0 : (double(count_surface_line) / double(psize - 1));
+        // Old version used total step count and repeated node/edge counts.
+        // double T_length = 1.0 - std::exp(-double(psize - 1) / L0);
+        // double r_inner = (psize == 2) ? 0.0 : (double(count_inner) / double(psize - 2));
+        // double r_surface = (psize == 2) ? 0.0 : (double(count_surface_line) / double(psize - 1));
+        // The unique-geometry-length version is kept conceptually via L_unique for
+        // debugging, but the active score preserves the original "edge-count" meaning.
+        double T_length = 1.0 - std::exp(-double(unique_edges.size()) / L0);
+        double r_inner = unique_middle_nodes.empty() ? 0.0 : (double(unique_inner_count) / double(unique_middle_nodes.size()));
+        double r_surface = unique_edges.empty() ? 0.0 : (double(unique_surface_edge_count) / double(unique_edges.size()));
         double T_location = 1.0 / (1.0 + std::exp(-beta * (r_inner - r_surface - mu)));
 
-        std::vector<Eigen::Vector3d> direction_points;
-        std::vector<int> direction_path;
-        direction_points.reserve(path_points.size());
-        direction_path.reserve(path.size());
-        for (int node_idx : path) {
-            if (std::find(direction_path.begin(), direction_path.end(), node_idx) != direction_path.end())
-                continue;
-            direction_path.push_back(node_idx);
-            direction_points.push_back(Kernels[node_idx].center);
-        }
-        if (direction_points.size() < 2)
-            direction_points = path_points;
-
         Eigen::Vector3d z(0, 0, 1);
+        // Old version used the full path and repeated segments could dominate
+        // the edge-tensor orientation estimate.
+        // auto dir_conf = computeEdgeTensorDirection(path_points, 1e-8);
         auto dir_conf = computeEdgeTensorDirection(direction_points, 1e-8);
         Eigen::Vector3d dir = dir_conf.first;
         double conf = dir_conf.second;
