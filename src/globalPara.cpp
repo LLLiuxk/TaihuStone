@@ -1,10 +1,10 @@
-#include "globalPara.h"
+﻿#include "globalPara.h"
 
 std::string input_file = "namaqualand";//" boulder_smooth"; //"RockSetBr_rotated"; //RockSetBr  test_cube
 int Resolution = 128;
 
 std::vector<double> Weights = { 0.8, 1.0, 1.2 };  //mst 分类系数权重：边界-内部，内部-内部，边界-边界
-std::vector<double> KT_weights = { 0, 0.2, 0.2, 0.6 };  //kernel translucency权重：角度、长度、内外分布、水平垂直
+std::vector<double> KT_weights = { 0.55, 0.11, 0., 0.34 };  //kernel translucency权重：角度、长度、内外分布、水平垂直
 double Isolevel = 0;
 double Gauss_level = 0.5;
 

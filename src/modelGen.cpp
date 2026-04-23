@@ -510,7 +510,7 @@ void ModelGenerator::generateGaussianSDF()
     //output save
     VoxelGrid grids = SDFtoVoxel(SDF_out, bb_min, bb_max, resolution, resolution, resolution);
     SupportCheckResult scr = check_result_voxel(grids, 0.5);
-    append_translucency_summary_metrics(outputPrefix, input_file, initPorosity, floating_voxel_removed, scr.unsupportedVoxelCount);
+    append_translucency_summary_metrics(outputPrefix, input_file, initPorosity, floating_voxel_removed, scr.unsupportedVoxelCount, "final");
 
     //std::string outputPrefix = "D:/VSprojects/TaihuStone/result/" + input_file + "_" + std::to_string(PoresNum) + "_" + to_string_pre(Trans_thres, 2) + "_opt/";
     std::string npy_filename = outputPrefix + input_file + "_voxelized_model_" + std::to_string(PoresNum)+"_" + std::to_string(resolution) + "^3" + ".npy";
@@ -943,7 +943,9 @@ void ModelGenerator::render_fixed_skeleton_variant(
     if (compute_voxel_metrics) {
         VoxelGrid grids = SDFtoVoxel(SDF_out, bb_min, bb_max, resolution, resolution, resolution);
         SupportCheckResult scr = check_result_voxel(grids, 0.5);
-        append_translucency_summary_metrics(output_dir, input_file + "_" + params.tag, porosity, floating_voxel_removed, scr.unsupportedVoxelCount);
+        // Append param-variant voxel metrics to the main translucency summary file
+        // instead of creating a separate summary under fixed_skeleton_paramX/.
+        append_translucency_summary_metrics(outputPrefix, input_file, porosity, floating_voxel_removed, scr.unsupportedVoxelCount, params.tag);
         saveVoxelGridAsNPY(grids.rho, resolution, prefix + "_voxel.npy");
         cout << "[" << params.tag << "] unsupported voxel count: " << scr.unsupportedVoxelCount << endl;
     }

@@ -1950,7 +1950,8 @@ void append_translucency_summary_metrics(
     const std::string& input_name,
     double porosity,
     int floating_voxel_count,
-    int unsupported_voxel_count
+    int unsupported_voxel_count,
+    const std::string& section_tag
 )
 {
     std::string trans_txt = output_prefix + input_name + "_translucency_summary.txt";
@@ -1960,6 +1961,9 @@ void append_translucency_summary_metrics(
         return;
     }
 
+    if (!section_tag.empty()) {
+        trans_ofs << "[" << section_tag << "]\n";
+    }
     trans_ofs << "Porosity: " << porosity << "\n";
     trans_ofs << "Floating voxel count (removed from SDF): " << floating_voxel_count << "\n";
     trans_ofs << "Unsupported voxel count: " << unsupported_voxel_count << "\n";

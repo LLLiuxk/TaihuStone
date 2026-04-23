@@ -234,5 +234,6 @@ void append_translucency_summary_metrics(
     const std::string& input_name,
     double porosity,
     int floating_voxel_count,
-    int unsupported_voxel_count
+    int unsupported_voxel_count,
+    const std::string& section_tag = ""
 );
