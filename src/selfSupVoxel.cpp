@@ -11,6 +11,13 @@ SupportCheckResult checkSupportVoxel(VoxelGrid& grid, double densityThreshold)
     // 注意：k 从 0 开始遍历。k=0 的层我们也视为实体，但它贴在底板上，默认是被支撑的。
     std::vector<bool> supported(grid.nx * grid.ny * grid.nz, false);
 	int base_layer = findBaseLayer(grid, densityThreshold);
+    if (base_layer < 0) {
+        result.solid_nums = 0;
+        result.unsupportedVoxelCount = 0;
+        result.unsupportedRatio = 0.0;
+        result.isSupportFree = true;
+        return result;
+    }
    // for (int j = 0; j < grid.ny; ++j) {
    //     for (int i = 0; i < grid.nx; ++i) {
 			//int idx = grid.index(i, j, base_layer);
@@ -37,13 +44,17 @@ SupportCheckResult checkSupportVoxel(VoxelGrid& grid, double densityThreshold)
                 }
 
                 // 3. 检查下方支撑 (k-1 层)， 检查 3x3 邻域 (模拟 45 度悬垂角)
-
-                // 遍历下方 3x3 区域
+                // 遍历下方 3x3 区域：只有“下方实体且已连接到底板”才算有效支撑
                 for (int dy = -1; dy <= 1; ++dy) {
                     for (int dx = -1; dx <= 1; ++dx) {
-                        // 获取下方体素的密度
-                        double belowVal = grid.getSafe(i + dx, j + dy, k - 1);
-                        if (belowVal >= densityThreshold /*&& supported[grid.index(i + dx, j + dy, k - 1)]*/) { // && supported[grid.index(i + dx, j + dy, k - 1)]
+                        int bi = i + dx;
+                        int bj = j + dy;
+                        int bk = k - 1;
+                        if (bi < 0 || bi >= grid.nx || bj < 0 || bj >= grid.ny || bk < 0 || bk >= grid.nz)
+                            continue;
+                        int bidx = grid.index(bi, bj, bk);
+                        double belowVal = grid.rho[bidx];
+                        if (belowVal >= densityThreshold && supported[bidx]) {
                             supported[idx] = true;
                             goto check_done; // 只要找到一个支撑点，就跳出内层循环
                         }
@@ -63,7 +74,7 @@ SupportCheckResult checkSupportVoxel(VoxelGrid& grid, double densityThreshold)
             usnum++;
 
 	result.solid_nums = totalSolidVoxels;
-    result.unsupportedRatio = 1.0 * result.unsupportedVoxelCount / totalSolidVoxels;
+    result.unsupportedRatio = (totalSolidVoxels > 0) ? (1.0 * result.unsupportedVoxelCount / totalSolidVoxels) : 0.0;
 	std::cout << "unsupport num: " << totalSolidVoxels<<" - " <<usnum << " =  " << result.unsupportedVoxelCount << "   ratio: " << result.unsupportedRatio * 100 << "%" << std::endl;
     // 5. 计算统计数据
     //double vVol = grid.voxelVolume();

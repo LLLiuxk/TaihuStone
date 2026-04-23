@@ -39,6 +39,66 @@ std::pair<Eigen::Vector3d, double> computeDirectionFromUniqueEdges(
     c = std::max(0.0, std::min(1.0, c));
     return { d, c };
 }
+
+PathSummaryStats computePathSummaryStats(
+    const std::vector<std::vector<int>>& paths,
+    const std::vector<GaussianKernel>& nodes)
+{
+    PathSummaryStats stats;
+    double sum_effective_len = 0.0;
+    double sum_straightness = 0.0;
+    double sum_inner_middle = 0.0;
+    double sum_outer_middle = 0.0;
+
+    for (const auto& path : paths) {
+        if (path.size() < 2) continue; // 仅统计有效最大路径
+
+        std::set<std::pair<int, int>> unique_edges;
+        std::set<int> unique_middle_nodes;
+        double effective_graph_dist = 0.0;
+
+        for (size_t i = 0; i + 1 < path.size(); ++i) {
+            int u = path[i];
+            int v = path[i + 1];
+            auto edge_key = std::minmax(u, v);
+            if (unique_edges.insert(edge_key).second) {
+                effective_graph_dist += (nodes[u].center - nodes[v].center).norm();
+            }
+        }
+
+        int inner_middle = 0;
+        for (size_t i = 1; i + 1 < path.size(); ++i) {
+            if (unique_middle_nodes.insert(path[i]).second) {
+                if (!nodes[path[i]].on_surface) inner_middle++;
+            }
+        }
+
+        const int outer_middle = static_cast<int>(unique_middle_nodes.size()) - inner_middle;
+        const double effective_len = static_cast<double>(unique_edges.size());
+
+        const int s = path.front();
+        const int t = path.back();
+        const double end_to_end = (nodes[s].center - nodes[t].center).norm();
+        const double straightness = (effective_graph_dist > 1e-12) ? (end_to_end / effective_graph_dist) : 0.0;
+
+        stats.valid_path_num++;
+        stats.total_inner_middle_nodes += inner_middle;
+        stats.total_outer_middle_nodes += outer_middle;
+        sum_effective_len += effective_len;
+        sum_inner_middle += inner_middle;
+        sum_outer_middle += outer_middle;
+        sum_straightness += straightness;
+    }
+
+    if (stats.valid_path_num > 0) {
+        const double n = static_cast<double>(stats.valid_path_num);
+        stats.avg_effective_path_len = sum_effective_len / n;
+        stats.avg_inner_middle_nodes = sum_inner_middle / n;
+        stats.avg_outer_middle_nodes = sum_outer_middle / n;
+        stats.avg_straightness = sum_straightness / n;
+    }
+    return stats;
+}
 }
 
 GaussianKernel::GaussianKernel(
@@ -361,6 +421,7 @@ void ModelGenerator::generateGaussianSDF()
     //double VP_score = cal_total_translucency(Kernels, Adj_list);
     vector<int> degree_info = cal_max_degree(Adj_list);
     ParaSensitivityStats para_stats = cal_para_sensitivity(false);
+    PathSummaryStats path_stats = computePathSummaryStats(Paths, Kernels);
 
     for (auto e : Tube_edges) edge_con_final.push_back(make_pair(e.from, e.to));
     vector<int> final_edge_usage = cal_edge_usage(Paths, NO_DEBUG);
@@ -377,6 +438,7 @@ void ModelGenerator::generateGaussianSDF()
         para_stats.sum_weighted_vp,
         static_cast<int>(Kernels.size()),
         para_stats.valid_path_num,
+        path_stats,
         KT_weights,
         edge_con_final,
         final_edge_usage
@@ -448,7 +510,7 @@ void ModelGenerator::generateGaussianSDF()
     //output save
     VoxelGrid grids = SDFtoVoxel(SDF_out, bb_min, bb_max, resolution, resolution, resolution);
     SupportCheckResult scr = check_result_voxel(grids, 0.5);
-    append_translucency_summary_metrics(outputPrefix, input_file, floating_voxel_removed, scr.unsupportedVoxelCount);
+    append_translucency_summary_metrics(outputPrefix, input_file, initPorosity, floating_voxel_removed, scr.unsupportedVoxelCount);
 
     //std::string outputPrefix = "D:/VSprojects/TaihuStone/result/" + input_file + "_" + std::to_string(PoresNum) + "_" + to_string_pre(Trans_thres, 2) + "_opt/";
     std::string npy_filename = outputPrefix + input_file + "_voxelized_model_" + std::to_string(PoresNum)+"_" + std::to_string(resolution) + "^3" + ".npy";
@@ -854,7 +916,8 @@ void ModelGenerator::render_fixed_skeleton_variant(
     const std::vector<std::pair<int, int>>& fixed_edges,
     const RenderParamSnapshot& params,
     const std::string& output_dir,
-    bool rebuild_kernels)
+    bool rebuild_kernels,
+    bool compute_voxel_metrics)
 {
     std::filesystem::create_directories(output_dir);
     applyRenderParams(params);
@@ -873,16 +936,20 @@ void ModelGenerator::render_fixed_skeleton_variant(
     double porosity = 1.0 - solid_count / model_solid_num;
     cout << "[" << params.tag << "] Porosity: " << porosity * 100 << "%" << "    --------:" << solid_count << "   " << model_solid_num << std::endl;
 
-    VoxelGrid grids = SDFtoVoxel(SDF_out, bb_min, bb_max, resolution, resolution, resolution);
-    SupportCheckResult scr = check_result_voxel(grids, 0.5);
-
     std::string prefix = output_dir + input_file + "_" + params.tag;
     saveSDFtoNPY(prefix + "_sdf.npy", SDF_out, resolution);
     saveMesh(prefix + "_final.stl", V_out, F_out);
     saveMesh(prefix + "_tube.stl", V_t, F_t);
-    saveVoxelGridAsNPY(grids.rho, resolution, prefix + "_voxel.npy");
-
-    cout << "[" << params.tag << "] unsupported voxel count: " << scr.unsupportedVoxelCount << endl;
+    if (compute_voxel_metrics) {
+        VoxelGrid grids = SDFtoVoxel(SDF_out, bb_min, bb_max, resolution, resolution, resolution);
+        SupportCheckResult scr = check_result_voxel(grids, 0.5);
+        append_translucency_summary_metrics(output_dir, input_file + "_" + params.tag, porosity, floating_voxel_removed, scr.unsupportedVoxelCount);
+        saveVoxelGridAsNPY(grids.rho, resolution, prefix + "_voxel.npy");
+        cout << "[" << params.tag << "] unsupported voxel count: " << scr.unsupportedVoxelCount << endl;
+    }
+    else {
+        cout << "[" << params.tag << "] skip voxelization/support metrics (display-only mode)." << endl;
+    }
 }
 
 void ModelGenerator::render_fixed_skeleton_dual_params(
@@ -902,7 +969,8 @@ void ModelGenerator::render_fixed_skeleton_dual_params(
         fixed_edges,
         param1,
         outputPrefix + "fixed_skeleton_param1/",
-        false);
+        false,
+        true);
 
     render_fixed_skeleton_variant(
         pore_centers,
@@ -910,7 +978,9 @@ void ModelGenerator::render_fixed_skeleton_dual_params(
         random_specs,
         fixed_edges,
         param2,
-        outputPrefix + "fixed_skeleton_param2/");
+        outputPrefix + "fixed_skeleton_param2/",
+        true,
+        false);
 
     applyRenderParams(restore);
 }

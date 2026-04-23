@@ -1863,6 +1863,7 @@ int save_translucency_summary(
     double sum_weighted,
     int kernel_num,
     int valid_paths,
+    const PathSummaryStats& path_stats,
     const std::vector<double>& kt_weights,
     const std::vector<std::pair<int, int>>& edges,
     const std::vector<int>& edge_usage
@@ -1889,6 +1890,14 @@ int save_translucency_summary(
         << ", sum(S_horiz)=" << avg_s_horiz
         << ", weighted_sum=" << avg_weighted
         << ", valid_paths=" << valid_paths << endl;
+    cout << "Path stats on effective max-VP paths: "
+        << "avg_effective_len=" << path_stats.avg_effective_path_len
+        << ", total_inner_middle=" << path_stats.total_inner_middle_nodes
+        << ", total_outer_middle=" << path_stats.total_outer_middle_nodes
+        << ", avg_inner_middle=" << path_stats.avg_inner_middle_nodes
+        << ", avg_outer_middle=" << path_stats.avg_outer_middle_nodes
+        << ", avg_straightness=" << path_stats.avg_straightness
+        << ", valid_path_num=" << path_stats.valid_path_num << endl;
     cout << "KT_weights: ";
     for (size_t i = 0; i < kt_weights.size(); ++i) {
         cout << kt_weights[i];
@@ -1916,6 +1925,14 @@ int save_translucency_summary(
         << ", sum(S_horiz)=" << avg_s_horiz
         << ", weighted_sum=" << avg_weighted
         << ", valid_paths=" << valid_paths << "\n";
+    trans_ofs << "Path stats on effective max-VP paths: "
+        << "avg_effective_len=" << path_stats.avg_effective_path_len
+        << ", total_inner_middle=" << path_stats.total_inner_middle_nodes
+        << ", total_outer_middle=" << path_stats.total_outer_middle_nodes
+        << ", avg_inner_middle=" << path_stats.avg_inner_middle_nodes
+        << ", avg_outer_middle=" << path_stats.avg_outer_middle_nodes
+        << ", avg_straightness=" << path_stats.avg_straightness
+        << ", valid_path_num=" << path_stats.valid_path_num << "\n";
     trans_ofs << "KT_weights: ";
     for (size_t i = 0; i < kt_weights.size(); ++i) {
         trans_ofs << kt_weights[i];
@@ -1924,17 +1941,6 @@ int save_translucency_summary(
     trans_ofs << "\n";
     trans_ofs << "[Final translucency edges] used " << used_edge_num
         << " / " << edge_usage.size() << " edges.\n";
-    trans_ofs << "Used edges detail (edge_index, from, to, usage_count):\n";
-
-    size_t row_num = std::min(edges.size(), edge_usage.size());
-    for (size_t ei = 0; ei < row_num; ++ei) {
-        if (edge_usage[ei] > 0) {
-            trans_ofs << ei << ", "
-                << edges[ei].first << ", "
-                << edges[ei].second << ", "
-                << edge_usage[ei] << "\n";
-        }
-    }
     trans_ofs.close();
     return used_edge_num;
 }
@@ -1942,6 +1948,7 @@ int save_translucency_summary(
 void append_translucency_summary_metrics(
     const std::string& output_prefix,
     const std::string& input_name,
+    double porosity,
     int floating_voxel_count,
     int unsupported_voxel_count
 )
@@ -1953,6 +1960,7 @@ void append_translucency_summary_metrics(
         return;
     }
 
+    trans_ofs << "Porosity: " << porosity << "\n";
     trans_ofs << "Floating voxel count (removed from SDF): " << floating_voxel_count << "\n";
     trans_ofs << "Unsupported voxel count: " << unsupported_voxel_count << "\n";
     trans_ofs.close();

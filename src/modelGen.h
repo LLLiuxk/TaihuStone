@@ -240,7 +240,8 @@ public:
         const std::vector<std::pair<int, int>>& fixed_edges,
         const RenderParamSnapshot& params,
         const std::string& output_dir,
-        bool rebuild_kernels = true);
+        bool rebuild_kernels = true,
+        bool compute_voxel_metrics = true);
     void render_fixed_skeleton_dual_params(
         const std::vector<Eigen::Vector3d>& pore_centers,
         const std::vector<double>& pore_sdfs,

@@ -200,6 +200,16 @@ vector<int> compare_edges2(const vector<pair<int, int>>& ini, const vector<pair<
 
 vector<int> cal_max_degree(std::vector<std::vector<int>> Adj_list);
 
+struct PathSummaryStats {
+    int valid_path_num = 0;                 // 仅统计最终用于整体通透性的有效最大路径（size>=2）
+    double avg_effective_path_len = 0.0;    // 平均有效路径长度（无向唯一边段数）
+    int total_inner_middle_nodes = 0;       // 全部路径中间点（去重后）内部点总数
+    int total_outer_middle_nodes = 0;       // 全部路径中间点（去重后）表面点总数
+    double avg_inner_middle_nodes = 0.0;    // 每条有效路径平均内部中间点数
+    double avg_outer_middle_nodes = 0.0;    // 每条有效路径平均表面中间点数
+    double avg_straightness = 0.0;          // 平均闭直程度：首尾欧氏距离 / 有效图中几何距离
+};
+
 int save_translucency_summary(
     const std::string& output_prefix,
     const std::string& input_name,
@@ -213,6 +223,7 @@ int save_translucency_summary(
     double sum_weighted,
     int kernel_num,
     int valid_paths,
+    const PathSummaryStats& path_stats,
     const std::vector<double>& kt_weights,
     const std::vector<std::pair<int, int>>& edges,
     const std::vector<int>& edge_usage
@@ -221,6 +232,7 @@ int save_translucency_summary(
 void append_translucency_summary_metrics(
     const std::string& output_prefix,
     const std::string& input_name,
+    double porosity,
     int floating_voxel_count,
     int unsupported_voxel_count
 );
