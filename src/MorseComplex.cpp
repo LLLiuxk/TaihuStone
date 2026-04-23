@@ -1,4 +1,4 @@
-﻿#include "MorseComplex.h"
+#include "MorseComplex.h"
 #include <Eigen/Dense>
 #include <vector>
 #include <queue>

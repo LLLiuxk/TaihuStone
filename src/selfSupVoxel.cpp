@@ -1,4 +1,4 @@
-﻿#include "selfSupVoxel.h"
+#include "selfSupVoxel.h"
 
 SupportCheckResult checkSupportVoxel(VoxelGrid& grid, double densityThreshold)
 {

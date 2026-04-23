@@ -1,4 +1,4 @@
-﻿#include "modelGen.h"
+#include "modelGen.h"
 
 PathQuery::PathQuery(int num_nodes, const std::vector<std::vector<int>>& adj, int root) 
     : n(num_nodes), adj_list(adj), root(root), parent(num_nodes, -1)

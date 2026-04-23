@@ -1,4 +1,4 @@
-﻿#include <igl/marching_cubes.h>
+#include <igl/marching_cubes.h>
 #include <igl/opengl/glfw/Viewer.h>
 #include <igl/copyleft/cgal/mesh_boolean.h>
 

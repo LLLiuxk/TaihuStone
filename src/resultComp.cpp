@@ -1,4 +1,4 @@
-﻿#include "resultComp.h"
+#include "resultComp.h"
 #include <cmath>
 #include <stack>
 #include <algorithm>

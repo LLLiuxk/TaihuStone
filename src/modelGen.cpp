@@ -3,6 +3,44 @@
 #include "MorseComplex.h"
 #include <set>
 
+namespace {
+std::pair<Eigen::Vector3d, double> computeDirectionFromUniqueEdges(
+    const std::set<std::pair<int, int>>& unique_edges,
+    const std::vector<GaussianKernel>& nodes,
+    double eps = 1e-8)
+{
+    Eigen::Matrix3d M = Eigen::Matrix3d::Zero();
+    int valid_edges = 0;
+    for (const auto& e : unique_edges) {
+        const int u = e.first;
+        const int v = e.second;
+        Eigen::Vector3d seg = nodes[v].center - nodes[u].center;
+        double len = seg.norm();
+        if (len < 1e-12) continue;
+        Eigen::Vector3d dir = seg / len; // equal-weight unit edge direction
+        M += dir * dir.transpose();
+        valid_edges++;
+    }
+
+    if (valid_edges == 0) {
+        return { Eigen::Vector3d(0.0, 0.0, 1.0), 0.0 };
+    }
+
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> solver(M);
+    if (solver.info() != Eigen::Success) {
+        return { Eigen::Vector3d(0.0, 0.0, 1.0), 0.0 };
+    }
+
+    const Eigen::Vector3d eval = solver.eigenvalues(); // ascending
+    const double lambda1 = eval(2);
+    const double lambda2 = eval(1);
+    Eigen::Vector3d d = solver.eigenvectors().col(2).normalized();
+    double c = (lambda1 - lambda2) / (lambda1 + eps);
+    c = std::max(0.0, std::min(1.0, c));
+    return { d, c };
+}
+}
+
 GaussianKernel::GaussianKernel(
     const Eigen::Vector3d& center_,
     double sigma_,
@@ -1380,9 +1418,9 @@ double ModelGenerator::calculate_path_translucency(std::vector<int>& path, bool 
     std::vector<GaussianKernel> all_nodes = Kernels;
     int psize = path.size();
     double angle_product = 1.0;         // ∈ (0,1]
-    int count_inner = 0;
-    int count_surface = 0;
-	int count_surface_line = 0;
+    // int count_inner = 0;        // legacy: old location term numerator (non-unique counting)
+    // int count_surface = 0;      // legacy: unused in current and old formula
+	// int count_surface_line = 0; // legacy: old location term surface-edge counting
 	double alpha = 0.5;
     double L0 = 5.0;  //通透的标准长度
     double beta = 8.0;
@@ -1392,14 +1430,13 @@ double ModelGenerator::calculate_path_translucency(std::vector<int>& path, bool 
     double w_location = KT_weights[2];
     double w_direction = KT_weights[3];
     std::vector<Eigen::Vector3d> path_points;
-    std::vector<Eigen::Vector3d> direction_points;
-    std::vector<int> direction_path;
-    std::set<int> direction_seen;
-    std::set<int> unique_middle_nodes;
-    std::set<std::pair<int, int>> unique_edges;
-    int unique_inner_count = 0;
-    int unique_surface_edge_count = 0;
-    double L_unique = 0.0;
+    // Direction term now uses unique undirected edges directly.
+    // This avoids creating pseudo edges (e.g., 4-6) after node deduplication.
+    std::set<int> unique_middle_nodes;  // 路径中间节点去重集合（不含首尾），用于 r_inner 分母
+    std::set<std::pair<int, int>> unique_edges;  // 无向边去重集合(minmax(u,v))，用于长度/表面比例统计
+    int unique_inner_count = 0;  // 去重中间节点里“内部点”(on_surface=false)数量，作为 r_inner 分子
+    int unique_surface_edge_count = 0;  // 去重边里“贴表面边”(line_cross_surface<0.999)数量，作为 r_surface 分子
+    // double L_unique = 0.0;  // legacy debug: unique geometric length (not used in active score)
     
     if (psize < 2) {
         cout << "Warnning: illegal path!" << endl;
@@ -1408,19 +1445,6 @@ double ModelGenerator::calculate_path_translucency(std::vector<int>& path, bool 
     //for (auto p : path) cout << p << "   ";
     //cout << endl;
     for (auto p : path) path_points.push_back(all_nodes[p].center);
-    direction_points.reserve(path_points.size());
-    direction_path.reserve(path.size());
-    // Direction term uses a deduplicated copy so repeated nodes/segments do not
-    // repeatedly overweight the second-moment edge direction estimate.
-    for (auto p : path)
-    {
-        if (direction_seen.insert(p).second) {
-            direction_path.push_back(p);
-            direction_points.push_back(all_nodes[p].center);
-        }
-    }
-    if (direction_points.size() < 2)
-        direction_points = path_points;
 
     // Repeated path segments should not increase the length/location reward.
     // Build unique middle-node and undirected-edge statistics from the original path.
@@ -1431,7 +1455,7 @@ double ModelGenerator::calculate_path_translucency(std::vector<int>& path, bool 
         auto edge_key = std::minmax(u, v);
         if (unique_edges.insert(edge_key).second)
         {
-            L_unique += length_path(u, v);
+            // L_unique += length_path(u, v);  // legacy debug accumulator
             double thres = min(all_nodes[u].center_value, all_nodes[v].center_value);
             if (line_cross_surface(path_points[i], path_points[i + 1], thres) < 0.999)
                 unique_surface_edge_count++;
@@ -1449,18 +1473,14 @@ double ModelGenerator::calculate_path_translucency(std::vector<int>& path, bool 
         Vector3d prev = path_points[i - 1];
         Vector3d curr = path_points[i];
         Vector3d next = path_points[i + 1];
-        if (!all_nodes[path[i]].on_surface) 
-            count_inner++;
-        double thres = min(all_nodes[path[i - 1]].center_value, all_nodes[path[i]].center_value);
-        //line_cross_surface返回1.0，贯通； <1.0，属于表面，计数
-        if (line_cross_surface(prev, curr, thres) < 0.999)
-            count_surface_line++;
-        if (i == psize - 2)
-        {
-            thres = min(all_nodes[path[i]].center_value, all_nodes[path[i + 1]].center_value);
-            if (line_cross_surface(curr, next, thres) < 0.999)
-                count_surface_line++;
-        }
+        // legacy counting for old location term (non-unique) is intentionally disabled:
+        // if (!all_nodes[path[i]].on_surface) count_inner++;
+        // double thres = min(all_nodes[path[i - 1]].center_value, all_nodes[path[i]].center_value);
+        // if (line_cross_surface(prev, curr, thres) < 0.999) count_surface_line++;
+        // if (i == psize - 2) {
+        //     thres = min(all_nodes[path[i]].center_value, all_nodes[path[i + 1]].center_value);
+        //     if (line_cross_surface(curr, next, thres) < 0.999) count_surface_line++;
+        // }
         double angle_deg = abs_angle(prev - curr, next - curr) / 180.0;
         angle_product *= angle_deg;
     }
@@ -1496,10 +1516,7 @@ double ModelGenerator::calculate_path_translucency(std::vector<int>& path, bool 
     Eigen::Vector3d z(0, 0, 1);
     //Eigen::Vector3d dir = computePrincipalDirection(path_points);
     //double S_horiz = 1.0 - std::abs(dir.dot(z));
-    // Old version used the full path and therefore repeated segments could
-    // repeatedly strengthen the same orientation axis.
-    // auto dir_conf = computeEdgeTensorDirection(path_points, 1e-8);
-    auto dir_conf = computeEdgeTensorDirection(direction_points, 1e-8);
+    auto dir_conf = computeDirectionFromUniqueEdges(unique_edges, all_nodes, 1e-8);
     Eigen::Vector3d dir = dir_conf.first;
     double conf = dir_conf.second;
     //double S_horiz = (1.0 - std::abs(dir.dot(z)));
@@ -1712,9 +1729,6 @@ ParaSensitivityStats ModelGenerator::cal_para_sensitivity(bool show_debug)
         }
 
         std::vector<Eigen::Vector3d> path_points;
-        std::vector<Eigen::Vector3d> direction_points;
-        std::vector<int> direction_path;
-        std::set<int> direction_seen;
         std::set<int> unique_middle_nodes;
         std::set<std::pair<int, int>> unique_edges;
         int unique_inner_count = 0;
@@ -1724,17 +1738,6 @@ ParaSensitivityStats ModelGenerator::cal_para_sensitivity(bool show_debug)
         for (int node_idx : path) {
             path_points.push_back(Kernels[node_idx].center);
         }
-        direction_points.reserve(psize);
-        direction_path.reserve(path.size());
-        for (int node_idx : path) {
-            if (direction_seen.insert(node_idx).second) {
-                direction_path.push_back(node_idx);
-                direction_points.push_back(Kernels[node_idx].center);
-            }
-        }
-        if (direction_points.size() < 2)
-            direction_points = path_points;
-
         double angle_product = 1.0;
         int count_inner = 0;
         int count_surface_line = 0;
@@ -1795,10 +1798,7 @@ ParaSensitivityStats ModelGenerator::cal_para_sensitivity(bool show_debug)
         double T_location = 1.0 / (1.0 + std::exp(-beta * (r_inner - r_surface - mu)));
 
         Eigen::Vector3d z(0, 0, 1);
-        // Old version used the full path and repeated segments could dominate
-        // the edge-tensor orientation estimate.
-        // auto dir_conf = computeEdgeTensorDirection(path_points, 1e-8);
-        auto dir_conf = computeEdgeTensorDirection(direction_points, 1e-8);
+        auto dir_conf = computeDirectionFromUniqueEdges(unique_edges, Kernels, 1e-8);
         Eigen::Vector3d dir = dir_conf.first;
         double conf = dir_conf.second;
         double S_horiz = (1.0 - std::abs(dir.dot(z))) * conf;

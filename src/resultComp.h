@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #ifndef RESULT_COMP_H
 #define RESULT_COMP_H
 
