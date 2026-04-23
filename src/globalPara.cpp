@@ -4,7 +4,7 @@ std::string input_file = "namaqualand";//" boulder_smooth"; //"RockSetBr_rotated
 int Resolution = 128;
 
 std::vector<double> Weights = { 0.8, 1.0, 1.2 };  //mst 分类系数权重：边界-内部，内部-内部，边界-边界
-std::vector<double> KT_weights = { 0.55, 0.11, 0., 0.34 };  //kernel translucency权重：角度、长度、内外分布、水平垂直
+std::vector<double> KT_weights = { 0.5, 0.1, 0.1, 0.3 };  //kernel translucency权重：角度、长度、内外分布、水平垂直
 double Isolevel = 0;
 double Gauss_level = 0.5;
 
@@ -41,7 +41,7 @@ bool debug_show = false;
 bool standard_show = true;
 bool figure_show = false;
 bool compare_show = false;
-bool scr_figure = true;
+bool scr_figure = false;
 
 bool Iso_kernel = false;
 bool Direct_dis = false;

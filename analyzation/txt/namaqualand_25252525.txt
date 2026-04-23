@@ -1,0 +1,10 @@
+MaxDegree: 8   num: 3
+Final translucency score: 0.764755
+Para sensitivity on max VP paths: sum(T_angle)=0.898914, sum(T_length)=0.343856, sum(T_location)=0.990310, sum(S_horiz)=0.825940, weighted_sum=0.764755, valid_paths=60
+Path stats on effective max-VP paths: avg_effective_len=2.116667, total_inner_middle=63, total_outer_middle=4, avg_inner_middle=1.050000, avg_outer_middle=0.066667, avg_straightness=0.941955, valid_path_num=60
+KT_weights: 0.250000, 0.250000, 0.250000, 0.250000
+[Final translucency edges] used 62 / 126 edges.
+[param1]
+Porosity: 0.625297
+Floating voxel count (removed from SDF): 47
+Unsupported voxel count: 11370
