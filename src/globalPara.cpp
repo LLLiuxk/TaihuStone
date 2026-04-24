@@ -39,9 +39,9 @@ double Trans_thres = 0.999;  //kernel translucency threshold
 double Adj_dis_thres = 0.35;
 bool debug_show = false;
 bool standard_show = true;
-bool figure_show = false;
+bool figure_show = true;
 bool compare_show = false;
-bool scr_figure = false;
+bool scr_figure = true;
 
 bool Iso_kernel = false;
 bool Direct_dis = false;
