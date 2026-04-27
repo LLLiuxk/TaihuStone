@@ -1,6 +1,7 @@
 import argparse
 import os
 import sys
+import textwrap
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -106,7 +107,7 @@ def main() -> int:
 
     x = np.arange(len(valid_metric_cols))
     # Fixed 16:9 canvas as requested.
-    plt.figure(figsize=(16, 9), dpi=140)
+    plt.figure(figsize=(21, 9), dpi=240)
     n_lines = norm_df.shape[0]
     line_colors = _unified_tone_colors(n_lines)
     for i in range(norm_df.shape[0]):
@@ -124,15 +125,17 @@ def main() -> int:
         )
 
     # Use current table headers directly for x-axis labels.
-    x_labels = [str(c).strip() for c in valid_metric_cols]
-    plt.xticks(x, x_labels, rotation=25, ha="right")
-    plt.ylabel("Normalized Value (column-wise max->1)")
-    plt.xlabel("Metrics")
-    plt.title(args.title)
+    # wrap text if too long
+    x_labels = [textwrap.fill(str(c).strip(), width=15) for c in valid_metric_cols]
+    plt.xticks(x, x_labels, rotation=0, ha="center", fontsize=18)
+    plt.yticks(fontsize=18)
+    plt.ylabel("Normalized Value (column-wise max->1)", fontsize=20)
+    plt.xlabel("Metrics", fontsize=20)
+    plt.title(args.title, fontsize=23)
     plt.grid(True, linestyle="--", alpha=0.35)
 
     # Legend on right: line labels.
-    plt.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), fontsize=8, frameon=False, title=str(kt_col))
+    plt.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), fontsize=15, frameon=False, title=str(kt_col), title_fontsize=18)
 
     # Scale notes on right side.
     note_lines = []
@@ -140,7 +143,7 @@ def main() -> int:
         f = factors[c]
         note_lines.append(f"{_short_name(c)} x{f:.3g}")
     note_text = "Scale factors (value * factor):\n" + "\n".join(note_lines)
-    plt.gcf().text(0.82, 0.98, note_text, va="top", ha="left", fontsize=8)
+    plt.gcf().text(0.82, 0.98, note_text, va="top", ha="left", fontsize=15)
 
     plt.tight_layout(rect=[0, 0, 0.80, 1])
 
