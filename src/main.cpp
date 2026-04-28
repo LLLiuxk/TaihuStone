@@ -1,4 +1,4 @@
-#include <igl/marching_cubes.h>
+﻿#include <igl/marching_cubes.h>
 #include <igl/opengl/glfw/Viewer.h>
 #include <igl/copyleft/cgal/mesh_boolean.h>
 
@@ -69,6 +69,7 @@ int main(int argc, char* argv[])
     std::cout << "--- Current Parameters ---" << std::endl;
     std::cout << "Input File: " << input_file << std::endl;
     std::cout << "PoresNum: " << PoresNum << std::endl;
+    std::cout << "Max_edge_limit: " << Max_edge_limit << std::endl;
     std::cout << "compare_show: " << compare_show << std::endl;
     std::cout << "topo_optimize: " << topo_optimize << std::endl;
     std::cout << "figure_show: " << figure_show << std::endl;
@@ -79,7 +80,7 @@ int main(int argc, char* argv[])
     std::string input_path = "D:/VSprojects/TaihuStone/model/" + input_file + ".stl";
 
     ModelGenerator mg(input_path);
-    //mg.test_item();
+    //mg.test_item(); //smooth
     mg.model_porous_structure();
     if (scr_figure)
         mg.show_model();

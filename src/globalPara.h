@@ -1,4 +1,4 @@
-#pragma once// 参数结构体
+﻿#pragma once// 参数结构体
 #define NO_DEBUG false
 #include <vector>
 #include <string>
@@ -16,6 +16,7 @@ extern std::vector<double> KT_weights;
 extern double Isolevel;
 
 extern int PoresNum;
+extern int Max_edge_limit;
 extern double surface_ratio;
 
 extern int Max_degree;

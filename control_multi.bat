@@ -15,7 +15,7 @@ echo ==========================================
 :: 运行 para1
 echo [Task 1] Running with para file...
 ::%EXE_PATH% D:\VSprojects\TaihuStone\para\comp\namaqualand_128_60_loc0.txt
-%EXE_PATH% D:\VSprojects\TaihuStone\para\comp\namaqualand_128_60_default_thres_0.15.txt
+::%EXE_PATH% D:\VSprojects\TaihuStone\para\asteroid_smooth_128_50_70_0.7.txt
 echo Task 1 Finished.
 echo.
 
@@ -28,13 +28,13 @@ echo.
 
 echo [Task 3] Running with para3.txt...
 ::%EXE_PATH% D:\VSprojects\TaihuStone\para\comp\namaqualand_128_60_dir0.txt
-%EXE_PATH% D:\VSprojects\TaihuStone\para\comp\namaqualand_128_60_default_thres_0.45.txt
+%EXE_PATH% D:\VSprojects\TaihuStone\para\asteroid_smooth_128_50_70_0.8.txt
 echo Task 3 Finished.
 echo.
 
 echo [Task 4] Running with para4.txt...
 ::%EXE_PATH% D:\VSprojects\TaihuStone\para\comp\namaqualand_128_60_ang0.txt
-%EXE_PATH% D:\VSprojects\TaihuStone\para\comp\namaqualand_128_60_default_thres_0.55.txt
+%EXE_PATH% D:\VSprojects\TaihuStone\para\asteroid_smooth_128_50_70_0.9.txt
 echo Task 4 Finished.
 echo.
 

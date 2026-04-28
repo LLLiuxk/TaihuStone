@@ -3,6 +3,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 
+plt.rcParams.update({
+    'font.size': 16,
+    'axes.titlesize': 18,
+    'axes.labelsize': 16,
+    'xtick.labelsize': 15,
+    'ytick.labelsize': 15,
+    'legend.fontsize': 14
+})
+
 def _hex_to_rgb01(hex_str: str):
     s = hex_str.strip().lstrip("#")
     if len(s) != 6:
@@ -109,14 +118,14 @@ def plot_grouped_bar_on_ax(ax, plot_df, title, is_bottom=False, custom_colors_he
     else:
         ax.set_xlabel("")
         
-    ax.set_title(title)
+    ax.set_title(title, pad=45)
     ax.set_xticks(x)
     
     # Both top and bottom plot will show the x labels
     ax.set_xticklabels(plot_df.index, rotation=30, ha="right")
         
     ax.set_ylim(0, 1.08)
-    ax.legend(ncol=n_metrics, loc="upper center", bbox_to_anchor=(0.5, 1.18), frameon=False)
+    ax.legend(ncol=n_metrics, loc="lower center", bbox_to_anchor=(0.5, 1.02), frameon=False)
     ax.grid(axis="y", linewidth=0.5, alpha=0.35)
 
     for spine in ["top", "right"]:
@@ -125,13 +134,13 @@ def plot_grouped_bar_on_ax(ax, plot_df, title, is_bottom=False, custom_colors_he
 df1 = scale_and_order_df(core_metrics_map)
 df2 = scale_and_order_df(path_metrics_map)
 
-fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(11.5, 9.6))
+fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(11.5, 11.0))
 
 plot_grouped_bar_on_ax(axes[0], df1, "Sensitivity Analysis of VP Weights (Core Metrics)", is_bottom=False, custom_colors_hex=["00B4CC", "FE9C94", "B6DA04"])
 plot_grouped_bar_on_ax(axes[1], df2, "Sensitivity Analysis of VP Weights (Path Metrics)", is_bottom=True)
 
 fig.tight_layout()
-fig.subplots_adjust(hspace=0.45)
+fig.subplots_adjust(hspace=0.70)
 
 fig.savefig("vp_weight_sensitivity_combined.png", dpi=300, bbox_inches="tight")
 fig.savefig("vp_weight_sensitivity_combined.pdf", bbox_inches="tight")

@@ -1,6 +1,6 @@
 ﻿#include "globalPara.h"
 
-std::string input_file = "namaqualand";//" boulder_smooth"; //"RockSetBr_rotated"; //RockSetBr  test_cube
+std::string input_file = "asteroid_smooth";//" boulder_smooth"; //"RockSetBr_rotated"; //RockSetBr  test_cube
 int Resolution = 128;
 
 std::vector<double> Weights = { 0.8, 1.0, 1.2 };  //mst 分类系数权重：边界-内部，内部-内部，边界-边界
@@ -8,7 +8,8 @@ std::vector<double> KT_weights = { 0.5, 0.1, 0.1, 0.3 };  //kernel translucency�
 double Isolevel = 0;
 double Gauss_level = 0.5;
 
-int PoresNum = 60;
+int PoresNum = 50;
+int Max_edge_limit = 70;// PoresNum * 2.0;
 double surface_ratio = 0.6; //表面核占比
 
 int Max_degree = 5;
@@ -35,13 +36,13 @@ double SmoothT = 15;    //Control the smoothing area size;  smoothT +, the effec
 double Tube_radius_factor = 0.8; // Control the ratio of the pipeline radius relative to the Gaussian kernel radius; the mid_radius_factor + , the channel +.
 double Safe_distance_ratio = 0.7;
 
-double Trans_thres = 0.999;  //kernel translucency threshold 
+double Trans_thres = 0.7;  //kernel translucency threshold 
 double Adj_dis_thres = 0.35;
 bool debug_show = false;
-bool standard_show = true;
-bool figure_show = true;
+bool standard_show = false;
+bool figure_show = false;
 bool compare_show = false;
-bool scr_figure = true;
+bool scr_figure = false;
 
 bool Iso_kernel = false;
 bool Direct_dis = false;
@@ -122,6 +123,7 @@ bool loadParameters(const std::string& filename) {
                 else if (key == "Isolevel") Isolevel = std::stod(valStr);
                 else if (key == "Gauss_level") Gauss_level = std::stod(valStr);
                 else if (key == "PoresNum") PoresNum = std::stoi(valStr);
+                else if (key == "Max_edge_limit") Max_edge_limit = std::stoi(valStr);
                 else if (key == "surface_ratio") surface_ratio = std::stod(valStr);
                 else if (key == "Max_degree") Max_degree = std::stoi(valStr);
                 else if (key == "Amplitude_min") Amplitude_min = std::stod(valStr);
@@ -201,6 +203,7 @@ void saveParameters(const std::string& filename)
     ofs << "Gauss_level = " << Gauss_level << "\n";
 
     ofs << "PoresNum = " << PoresNum << "\n";
+	ofs << "Max_edge_limit = " << Max_edge_limit << "\n";
     ofs << "surface_ratio = " << surface_ratio << "\n";
 
     ofs << "Max_degree = " << Max_degree << "\n";
