@@ -145,6 +145,7 @@
     <ClCompile Include="src\resultComp.cpp" />
     <ClCompile Include="src\selfSupVoxel.cpp" />
     <ClCompile Include="src\Tool.cpp" />
+    <ClCompile Include="src\TpmsPipeline.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\FastNoiseLite.h" />
@@ -154,6 +155,7 @@
     <ClInclude Include="src\resultComp.h" />
     <ClInclude Include="src\selfSupVoxel.h" />
     <ClInclude Include="src\Tool.h" />
+    <ClInclude Include="src\TpmsPipeline.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

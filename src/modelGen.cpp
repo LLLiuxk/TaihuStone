@@ -1,4 +1,4 @@
-﻿﻿﻿﻿#include "modelGen.h"
+﻿#include "modelGen.h"
 #include "resultComp.h"
 #include "MorseComplex.h"
 #include <set>
