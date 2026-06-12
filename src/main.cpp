@@ -1,4 +1,4 @@
-﻿#include <igl/marching_cubes.h>
+﻿﻿#include <igl/marching_cubes.h>
 #include <igl/opengl/glfw/Viewer.h>
 #include <igl/copyleft/cgal/mesh_boolean.h>
 
@@ -91,7 +91,7 @@ static void graphToTubeMesh(
 int main(int argc, char* argv[])
 {
     auto start_time = std::chrono::high_resolution_clock::now();
-    int chosen_fun = 1;
+    int chosen_fun = 0;
     // ========================================================================
     // TPMS + Skeleton preview
     //   1) TPMS field → marching cubes → STL (surface)

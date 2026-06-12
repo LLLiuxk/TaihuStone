@@ -16,7 +16,7 @@
 using namespace std;
 
 // ============================================================================
-// ¾²Ì¬³£Á¿: ÁÚÓòÆ«ÒÆ
+// ï¿½ï¿½Ì¬ï¿½ï¿½ï¿½ï¿½: ï¿½ï¿½ï¿½ï¿½Æ«ï¿½ï¿½
 // ============================================================================
 const int TpmsPipeline::k6[6][3] = {
     {+1,0,0},{-1,0,0},{0,+1,0},{0,-1,0},{0,0,+1},{0,0,-1}
@@ -35,7 +35,7 @@ const int TpmsPipeline::k26[26][3] = {
 };
 
 // ============================================================================
-// ¸¨Öúº¯Êý
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 // ============================================================================
 Vector3d TpmsPipeline::grid_pos(int x, int y, int z) const {
     double sp = params_.spacing();
@@ -62,7 +62,7 @@ Eigen::Vector3d TpmsPipeline::computePrincipalDirection(const vector<Eigen::Vect
 }
 
 // ============================================================================
-// Á¬Í¨·ÖÁ¿ (6-ÁÚÓò)
+// ï¿½ï¿½Í¨ï¿½ï¿½ï¿½ï¿½ (6-ï¿½ï¿½ï¿½ï¿½)
 // ============================================================================
 vector<vector<int>> TpmsPipeline::extract_components_6(const VoxelField3D& field) {
     int N = field.total();
@@ -89,7 +89,7 @@ vector<vector<int>> TpmsPipeline::extract_components_6(const VoxelField3D& field
 }
 
 // ============================================================================
-// Á¬Í¨·ÖÁ¿ (26-ÁÚÓò)
+// ï¿½ï¿½Í¨ï¿½ï¿½ï¿½ï¿½ (26-ï¿½ï¿½ï¿½ï¿½)
 // ============================================================================
 vector<vector<int>> TpmsPipeline::extract_components_26(
     const vector<uint8_t>& data, int nx, int ny, int nz) const {
@@ -116,7 +116,7 @@ vector<vector<int>> TpmsPipeline::extract_components_26(
 }
 
 // ============================================================================
-// ÁÚ¾Ó¼ÆÊý
+// ï¿½Ú¾Ó¼ï¿½ï¿½ï¿½
 // ============================================================================
 int TpmsPipeline::count_neighbors_26(int flat_idx, const VoxelField3D& field) const {
     int cx, cy, cz; field.coord(flat_idx, cx, cy, cz);
@@ -191,7 +191,7 @@ bool TpmsPipeline::is_simple_point(int flat_idx, const VoxelField3D& field) cons
     }
     if (vcnt != (int)fg_locs.size()) return false;
 
-    // ¼ì²é2: Óë p 6-ÏàÁÚµÄ±³¾°µã ÔÚ 3x3x3 ÖÐ 6-Á¬Í¨·ÖÁ¿ = 1
+    // ï¿½ï¿½ï¿½2: ï¿½ï¿½ p 6-ï¿½ï¿½ï¿½ÚµÄ±ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ 3x3x3 ï¿½ï¿½ 6-ï¿½ï¿½Í¨ï¿½ï¿½ï¿½ï¿½ = 1
     vector<int> bg_6adj;
     for (int d = 0; d < 6; ++d) {
         int nl = (1 + k6[d][0]) + 3 * ((1 + k6[d][1]) + 3 * (1 + k6[d][2]));
@@ -258,7 +258,7 @@ void TpmsPipeline::distance_transform(const VoxelField3D& src, vector<double>& d
 }
 
 // ============================================================================
-// Step 1: Éú³É TPMS ³¡ (Gyroid)
+// Step 1: ï¿½ï¿½ï¿½ï¿½ TPMS ï¿½ï¿½ (Gyroid)
 // ============================================================================
 void TpmsPipeline::step1_generateTpmsField() {
     const int R = params_.resolution;
@@ -294,7 +294,7 @@ void TpmsPipeline::step1_generateTpmsField() {
 }
 
 // ============================================================================
-// Step 2: ÌåËØ»¯
+// Step 2: ï¿½ï¿½ï¿½Ø»ï¿½
 // ============================================================================
 void TpmsPipeline::step2_voxelize() {
     const int R = params_.resolution;
@@ -311,7 +311,7 @@ void TpmsPipeline::step2_voxelize() {
 }
 
 // ============================================================================
-// Step 3: ÌáÈ¡×î´óÁ¬Í¨ void region
+// Step 3: ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½Í¨ void region
 // ============================================================================
 void TpmsPipeline::step3_extractLargestVoidRegion() {
     cout << "[Step 3] Extracting largest connected void region..." << endl;
@@ -333,7 +333,7 @@ void TpmsPipeline::step3_extractLargestVoidRegion() {
 }
 
 // ============================================================================
-// Step 4: 3D ¹Ç¼ÜÌáÈ¡ (Topology-Preserving Thinning)
+// Step 4: 3D ï¿½Ç¼ï¿½ï¿½ï¿½È¡ (Topology-Preserving Thinning)
 // ============================================================================
 void TpmsPipeline::step4_skeletonize() {
     const int R = params_.resolution, total = params_.grid_total();
@@ -395,7 +395,7 @@ void TpmsPipeline::step4_skeletonize() {
 }
 
 // ============================================================================
-// Step 5: ÇåÀí¶ÌÖ¦
+// Step 5: ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¦
 // ============================================================================
 void TpmsPipeline::step5_pruneSkeleton(double min_branch_len) {
     const int R = params_.resolution, total = params_.grid_total();
@@ -476,14 +476,14 @@ void TpmsPipeline::step5_pruneSkeleton(double min_branch_len) {
 }
 
 // ============================================================================
-// Step 6: Skeleton ¡ú Graph
+// Step 6: Skeleton ï¿½ï¿½ Graph
 // ============================================================================
 void TpmsPipeline::step6_buildGraph(double junc_radius, double max_edge_no_node) {
     const int R = params_.resolution, total = params_.grid_total();
     const double sp = params_.spacing(), ox = -params_.half_bbox;
     cout << "[Step 6] Building graph from skeleton..." << endl;
 
-    // 6.1 ·ÖÀàÃ¿¸ö¹Ç¼ÜÌåËØ
+    // 6.1 ï¿½ï¿½ï¿½ï¿½Ã¿ï¿½ï¿½ï¿½Ç¼ï¿½ï¿½ï¿½ï¿½ï¿½
     vector<int> vtype(total, -1);
     vector<int> eps_flat, juncs_flat;
     for (auto& sv : skeleton_voxels_) {
@@ -494,7 +494,7 @@ void TpmsPipeline::step6_buildGraph(double junc_radius, double max_edge_no_node)
     }
     cout << "  Endpoints: " << eps_flat.size() << ", Junction voxels: " << juncs_flat.size() << endl;
 
-    // 6.2 Junction clustering (26-Á¬Í¨)
+    // 6.2 Junction clustering (26-ï¿½ï¿½Í¨)
     vector<vector<int>> jclusters;
     {
         vector<char> jv(total, 0);
@@ -517,7 +517,7 @@ void TpmsPipeline::step6_buildGraph(double junc_radius, double max_edge_no_node)
     }
     cout << "  Junction clusters: " << jclusters.size() << endl;
 
-    // 6.3 ´´½¨ graph nodes
+    // 6.3 ï¿½ï¿½ï¿½ï¿½ graph nodes
     vector<int> node_of_flat(total, -1);
     graph_nodes_.clear();
     graph_nodes_.reserve(jclusters.size() + eps_flat.size() + 50);
@@ -540,7 +540,7 @@ void TpmsPipeline::step6_buildGraph(double junc_radius, double max_edge_no_node)
     }
     cout << "  Total graph nodes: " << graph_nodes_.size() << endl;
 
-    // 6.4 ×·×Ù¹Ç¼Ü±ß
+    // 6.4 ×·ï¿½Ù¹Ç¼Ü±ï¿½
     graph_edges_.clear();
     set<pair<int, int>> edge_dedup;
 
@@ -576,7 +576,7 @@ void TpmsPipeline::step6_buildGraph(double junc_radius, double max_edge_no_node)
                 }
                 continue;
             }
-            // ×·×ÙÂ·¾¶ path
+            // ×·ï¿½ï¿½Â·ï¿½ï¿½ path
             vector<int> path; path.push_back(nid);
             int cur = nid; set<int> pvis; pvis.insert(cur); pvis.insert(seed);
             bool reached = false; int target_node = -1;
@@ -615,7 +615,7 @@ void TpmsPipeline::step6_buildGraph(double junc_radius, double max_edge_no_node)
         }
     }
 
-    // 6.5 ³¤±ß²åÈë virtual nodes
+    // 6.5 ï¿½ï¿½ï¿½ß²ï¿½ï¿½ï¿½ virtual nodes
     int vn_added = 0;
     vector<GraphEdge> new_edges;
     for (auto& e : graph_edges_) {
@@ -659,7 +659,7 @@ void TpmsPipeline::step6_buildGraph(double junc_radius, double max_edge_no_node)
     }
     graph_edges_ = move(new_edges);
 
-    // ¸üÐÂ node neighbors
+    // ï¿½ï¿½ï¿½ï¿½ node neighbors
     for (auto& n : graph_nodes_) n.neighbors.clear();
     for (int ei = 0; ei < (int)graph_edges_.size(); ++ei) {
         auto& e = graph_edges_[ei]; e.id = ei;
@@ -671,7 +671,7 @@ void TpmsPipeline::step6_buildGraph(double junc_radius, double max_edge_no_node)
 }
 
 // ============================================================================
-// Step 7: VP ¼ÆËã
+// Step 7: VP ï¿½ï¿½ï¿½ï¿½
 // ============================================================================
 void TpmsPipeline::step7_computeVP() {
     const int N = (int)graph_nodes_.size();
@@ -708,7 +708,7 @@ void TpmsPipeline::step7_computeVP() {
     stats_.interior_node_count = N - surfcnt;
     cout << "  Surface nodes: " << surfcnt << ", Interior nodes: " << (N - surfcnt) << endl;
 
-    // 7.1 ¹¹½¨ÁÚ½Ó±í
+    // 7.1 ï¿½ï¿½ï¿½ï¿½ï¿½Ú½Ó±ï¿½
     vector<vector<int>> adj(N);
     for (auto& e : graph_edges_) {
         adj[e.node_a].push_back(e.node_b);
@@ -718,12 +718,12 @@ void TpmsPipeline::step7_computeVP() {
     vector<bool> is_surface(N, false);
     for (auto& n : graph_nodes_) if (n.location == NodeLocation::SURFACE) is_surface[n.id] = true;
 
-    // 7.2 ¶ÔÃ¿¸ö½Úµã¼ÆËã VP
+    // 7.2 ï¿½ï¿½Ã¿ï¿½ï¿½ï¿½Úµï¿½ï¿½ï¿½ï¿½ VP
     vp_result_.node_vp.assign(N, 0.0);
     vp_result_.node_best_path.resize(N);
     double total_vp = 0.0;
 
-    // ²ßÂÔ: ¶ÔÃ¿¸ö½Úµã, BFS ÕÒµ½¿É´ïµÄ surface nodes, Ñ¡Ôñ pair Ê¹Â·¾¶ VP ×î´ó
+    // ï¿½ï¿½ï¿½ï¿½: ï¿½ï¿½Ã¿ï¿½ï¿½ï¿½Úµï¿½, BFS ï¿½Òµï¿½ï¿½É´ï¿½ï¿½ surface nodes, Ñ¡ï¿½ï¿½ pair Ê¹Â·ï¿½ï¿½ VP ï¿½ï¿½ï¿½
     for (int ni = 0; ni < N; ++ni) {
         // BFS from ni to collect surface nodes and distances
         vector<int> dist(N, -1), parent(N, -1);
@@ -738,7 +738,7 @@ void TpmsPipeline::step7_computeVP() {
             }
         }
 
-        // ÊÕ¼¯¿É´ïµÄ surface nodes
+        // ï¿½Õ¼ï¿½ï¿½É´ï¿½ï¿½ surface nodes
         vector<int> surf_nodes;
         for (int j = 0; j < N; ++j) {
             if (is_surface[j] && dist[j] > 0) surf_nodes.push_back(j);
@@ -748,18 +748,18 @@ void TpmsPipeline::step7_computeVP() {
             continue;
         }
 
-        // Æô·¢Ê½: Ñ¡¾àÀë×îÔ¶µÄÁ½¸ö surface node
+        // ï¿½ï¿½ï¿½ï¿½Ê½: Ñ¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ surface node
         int s1 = surf_nodes[0], s2 = surf_nodes[0];
         for (int s : surf_nodes) {
             if (dist[s] > dist[s1]) s1 = s;
         }
-        // BFS from s1 ÕÒ×îÔ¶µÄ surface node
+        // BFS from s1 ï¿½ï¿½ï¿½ï¿½Ô¶ï¿½ï¿½ surface node
         vector<int> dist2(N, -1), parent2(N, -1);
         queue<int> q2; dist2[s1] = 0; q2.push(s1);
         while (!q2.empty()) { int u = q2.front(); q2.pop(); for (int v : adj[u]) if (dist2[v] < 0) { dist2[v] = dist2[u] + 1; parent2[v] = u; q2.push(v); } }
         for (int s : surf_nodes) { if (dist2[s] > dist2[s2]) s2 = s; }
 
-        // ÖØ½¨ s1¡úni¡ús2 Â·¾¶
+        // ï¿½Ø½ï¿½ s1ï¿½ï¿½niï¿½ï¿½s2 Â·ï¿½ï¿½
         vector<int> path;
         for (int cur = ni; cur != s1; cur = parent[cur]) path.push_back(cur);
         path.push_back(s1);
@@ -767,11 +767,11 @@ void TpmsPipeline::step7_computeVP() {
         for (int cur = parent2[ni]; cur != s2; cur = parent2[cur]) path.push_back(cur);
         path.push_back(s2);
 
-        // È¥ÖØ
+        // È¥ï¿½ï¿½
         vector<int> dedup;
         for (int v : path) { if (dedup.empty() || dedup.back() != v) dedup.push_back(v); }
 
-        // ¼ÆËã VP
+        // ï¿½ï¿½ï¿½ï¿½ VP
         vector<Vector3d> path_pts;
         for (int v : dedup) path_pts.push_back(graph_nodes_[v].position);
         double score = compute_path_vp(path_pts, is_surface);
@@ -823,9 +823,9 @@ double TpmsPipeline::compute_path_vp(
     // T_location
     int inner_cnt = 0;
     for (int i = 1; i < psize - 1; ++i) {
-        // ÕâÀï¼ò»¯: Æ½¾ù½ÚµãÎ»ÖÃµÄ SDF
+        // ï¿½ï¿½ï¿½ï¿½ï¿½: Æ½ï¿½ï¿½ï¿½Úµï¿½Î»ï¿½Ãµï¿½ SDF
     }
-    // Ê¹ÓÃÂ·¾¶µãÓë tpms_field_ µÄ½üËÆ
+    // Ê¹ï¿½ï¿½Â·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ tpms_field_ ï¿½Ä½ï¿½ï¿½ï¿½
     int surf_line_cnt = 0;
     const double loc_thres = 2.0 * params_.spacing();
     for (size_t i = 0; i < path_pts.size() - 1; ++i) {
