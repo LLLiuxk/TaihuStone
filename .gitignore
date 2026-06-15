@@ -14,9 +14,8 @@
 # result/
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
-
-limitstl/
-result/
+# Exclude local Python virtual environment in limitstl directory
+limitstl/taihu_env/
 
 # Mono auto generated files
 mono_crash.*
